@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Default dark mode colors */
+  --bg-950: #020617;
+  --bg-900: #0f172a;
+  --bg-800: #1a2238;
+  --bg-755: #1e293b;
+  --bg-750: #1e293b;
+  --bg-705: rgba(255, 255, 255, 0.45); /* Bright white border fallback */
+  --bg-700: #334155;
+  --bg-600: #475569;
+  --bg-500: #64748b;
+  
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --text-secondary-light: #cbd5e1;
+  --text-secondary-lighter: #e2e8f0;
+
+  --primary-color: #fbbf24;
+  --primary-light: #fde047;
+  --primary-dark: #d97706;
+  --primary-dark-extra: #b45309;
+
+  --secondary-color: #6366f1;
+  --secondary-light: #818cf8;
+  --secondary-dark: #4f46e5;
+}
+
+:root.light {
+  /* Light mode colors */
+  --bg-950: #f8fafc;
+  --bg-900: #f1f5f9;
+  --bg-800: #ffffff; /* pure white cards */
+  --bg-755: #f1f5f9;
+  --bg-750: #e2e8f0;
+  --bg-705: #cbd5e1; /* visible grey borders in light mode */
+  --bg-700: #cbd5e1; /* visible light grey borders */
+  --bg-600: #94a3b8;
+  --bg-500: #64748b;
+  
+  --text-primary: #0f172a;    /* text-white will become dark! */
+  --text-secondary: #475569;  /* text-slate-400 will become dark grey */
+  --text-secondary-light: #334155;
+  --text-secondary-lighter: #1e293b;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  
+  --color-highway-yellow: var(--primary-color);
+  --color-highway-slate: var(--bg-900);
+
+  --color-yellow-300: var(--primary-light);
+  --color-yellow-400: var(--primary-color);
+  --color-yellow-500: var(--primary-color);
+  --color-yellow-600: var(--primary-dark);
+  --color-amber-500: var(--primary-dark);
+  --color-amber-600: var(--primary-dark-extra);
+  
+  --color-indigo-400: var(--secondary-light);
+  --color-indigo-500: var(--secondary-color);
+  --color-indigo-600: var(--secondary-dark);
+  
+  --color-slate-950: var(--bg-950);
+  --color-slate-900: var(--bg-900);
+  --color-slate-800: var(--bg-800);
+  --color-slate-755: var(--bg-755);
+  --color-slate-750: var(--bg-750);
+  --color-slate-705: var(--bg-705);
+  --color-slate-700: var(--bg-700);
+  --color-slate-600: var(--bg-600);
+  --color-slate-500: var(--bg-500);
+  --color-slate-400: var(--text-secondary);
+  --color-slate-300: var(--text-secondary-light);
+  --color-slate-200: var(--text-secondary-lighter);
+
+  --color-white: var(--text-primary);
+
+  --radius-sm: 0.125rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6, .font-black {
+    font-family: var(--font-display);
+    font-weight: 950;
+  }
+  body {
+    @apply bg-slate-900 text-white min-h-screen overflow-x-hidden transition-colors duration-300;
+  }
+  html {
+    @apply font-sans transition-colors duration-300;
+  }
+}
+
+@layer utilities {
+  .hazard-stripe {
+    background: repeating-linear-gradient(
+      45deg,
+      var(--primary-color),
+      var(--primary-color) 20px,
+      #1a1a1a 20px,
+      #1a1a1a 40px
+    );
+  }
+  .drop-shadow-glow {
+    filter: drop-shadow(0 0 8px var(--primary-color));
+  }
+}
+
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";

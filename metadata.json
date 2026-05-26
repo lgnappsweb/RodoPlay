@@ -1,0 +1,6 @@
+{
+  "name": "RodoPlay",
+  "description": "App de quiz e patrulhas para equipes de rodovia. Acompanhe seu desempenho e aprenda sobre segurança viária com ranking ao vivo de condutores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "RodoPlay",
+  "short_name": "RodoPlay",
+  "description": "App de quiz competitivo para equipes de rodovia. Desafie outras bases e turnos enquanto aprende sobre segurança viária.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/%C3%ADcone-512%20png%20%282%29.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/%C3%ADcone-192%20png%20%282%29.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

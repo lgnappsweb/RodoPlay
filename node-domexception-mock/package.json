@@ -1,0 +1,7 @@
+{
+  "name": "node-domexception",
+  "version": "1.0.0",
+  "description": "Mock of node-domexception that uses platform native DOMException",
+  "main": "index.js",
+  "private": true
+}

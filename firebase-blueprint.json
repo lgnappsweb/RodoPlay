@@ -1,0 +1,151 @@
+{
+  "entities": {
+    "Player": {
+      "title": "Player Profile",
+      "description": "Information about a player, their team, performance, and online state.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Auth UID" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "avatar": { "type": "string" },
+        "base": { "type": "string", "enum": ["Base A", "Base B", "Base C", "Base D"] },
+        "shift": { "type": "string", "enum": ["Day", "Night"] },
+        "xp": { "type": "integer" },
+        "level": { "type": "integer" },
+        "totalScore": { "type": "integer" },
+        "gamesPlayed": { "type": "integer" },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["online", "offline"] },
+        "victories": { "type": "integer" },
+        "defeats": { "type": "integer" },
+        "favoriteGames": { "type": "array" },
+        "history": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "base", "shift"]
+    },
+    "MultiplayerRoom": {
+      "title": "Multiplayer Game Room",
+      "description": "A real-time game lobby or ongoing match between two players.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique 6-uppercase alphanumeric code of the room" },
+        "gameType": { "type": "string" },
+        "mode": { "type": "string", "enum": ["1v1", "coop", "comp", "base_vs_base", "shift_vs_shift"] },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "creatorAvatar": { "type": "string" },
+        "creatorBase": { "type": "string" },
+        "creatorShift": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "partnerName": { "type": "string" },
+        "partnerAvatar": { "type": "string" },
+        "partnerBase": { "type": "string" },
+        "partnerShift": { "type": "string" },
+        "status": { "type": "string", "enum": ["waiting", "ready", "playing", "completed"] },
+        "p1Score": { "type": "integer" },
+        "p2Score": { "type": "integer" },
+        "turn": { "type": "string", "enum": ["creator", "partner"] },
+        "board": { "type": "array" },
+        "winningLine": { "type": "array" },
+        "winnerId": { "type": "string" },
+        "winnerName": { "type": "string" },
+        "timeRemaining": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "creatorId", "gameType", "status"]
+    },
+    "GameInvitation": {
+      "title": "Game Invitation",
+      "description": "An active invite sent to a specific online player to join a room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderBase": { "type": "string" },
+        "senderShift": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "gameType": { "type": "string" },
+        "roomCode": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "receiverId", "roomCode", "status"]
+    },
+    "GameNotification": {
+      "title": "Player Notification",
+      "description": "System or social notification sent to a player regarding points, duels, patrols, etc.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recipientId": { "type": "string", "description": "The UID of the player receiving this notification" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["points", "patrol", "invite", "invite_declined", "invite_accepted", "system"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderAvatar": { "type": "string" },
+        "extraData": { "type": "object" }
+      },
+      "required": ["id", "recipientId", "title", "message", "type", "timestamp", "read"]
+    },
+    "GlobalStats": {
+      "title": "Rankings and Statistics",
+      "description": "Aggregated stats for bases and shifts.",
+      "type": "object",
+      "properties": {
+        "totalScore": { "type": "integer" },
+        "playerCount": { "type": "integer" }
+      }
+    }
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": "Player",
+      "description": "Store player profiles and individual scores."
+    },
+    "/users/{userId}": {
+      "schema": "Player",
+      "description": "Information about a user, including their level, total points, and ranking info."
+    },
+    "/rankings/global/players/{playerId}": {
+      "schema": "Player",
+      "description": "Global leaderboard player ranking record."
+    },
+    "/rankings/bases/{baseId}/players/{playerId}": {
+      "schema": "Player",
+      "description": "Base leaderboard player ranking record."
+    },
+    "/rankings/turnos/{turnoId}/players/{playerId}": {
+      "schema": "Player",
+      "description": "Shift/Turno leaderboard player ranking record."
+    },
+    "/multiplayer_rooms/{roomId}": {
+      "schema": "MultiplayerRoom",
+      "description": "Store real-time multiplayer room state synced between clients."
+    },
+    "/invitations/{invitationId}": {
+      "schema": "GameInvitation",
+      "description": "Store lobby invitations directed to specific players."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "GameNotification",
+      "description": "Store individual player notifications for real-time alerts."
+    },
+    "/stats/bases/{baseId}": {
+      "schema": "GlobalStats",
+      "description": "Aggregate scores for each base."
+    },
+    "/stats/shifts/{shiftId}": {
+      "schema": "GlobalStats",
+      "description": "Aggregate scores for day vs night shifts."
+    }
+  }
+}
