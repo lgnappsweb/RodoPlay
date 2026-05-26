@@ -5,7 +5,6 @@
 
 import { useState, lazy, Suspense, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
-import { Login } from './components/Login';
 import { Home } from './components/Home';
 import { BottomNav } from './components/BottomNav';
 import { GameType } from './types';
@@ -15,6 +14,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { getThemeSettings, applyTheme } from './lib/theme';
 import { createNotification } from './lib/notifications';
 import { Bell, Gamepad2, Shield } from 'lucide-react';
+import { AuthScreen } from './components/AuthScreen';
 
 // Lazy load heavy or secondary components
 const Leaderboard = lazy(() => import('./components/Leaderboard').then(m => ({ default: m.Leaderboard })));
@@ -52,6 +52,35 @@ export default function App() {
     deleteProfile
   } = useAuth();
   const [view, setView] = useState<'home' | 'leaderboard' | 'settings' | 'multiplayer' | 'notifications' | GameType>('home');
+
+  // Sync user profile state changes including edits and newly obtained avatars into saved profiles list for rapid 1-click access
+  useEffect(() => {
+    if (player && player.uid && player.email) {
+      const savedPass = localStorage.getItem('last_auth_password');
+      if (savedPass) {
+        try {
+          const profilesStr = localStorage.getItem('roplay_saved_profiles') || '[]';
+          const profiles = JSON.parse(profilesStr);
+          const filtered = profiles.filter((p: any) => p.email.toLowerCase() !== player.email.toLowerCase());
+          
+          filtered.unshift({
+            uid: player.uid,
+            email: player.email,
+            password: savedPass,
+            displayName: player.displayName,
+            avatar: player.avatar || '👷',
+            base: player.base || 'Base 01',
+            shift: player.shift || 'Turno A',
+            praca: (player as any).praca || (player as any).praça || 'Não Aplicável'
+          });
+          
+          localStorage.setItem('roplay_saved_profiles', JSON.stringify(filtered));
+        } catch (e) {
+          console.warn("Failed to update saved profile in local storage:", e);
+        }
+      }
+    }
+  }, [player]);
   const [sessionScore, setSessionScore] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [globalStats, setGlobalStats] = useState({
@@ -348,26 +377,14 @@ export default function App() {
     );
   }
 
-  // If not logged in at all (no active session or loaded profile)
   if (!user || !player) {
     return (
-      <Login 
-        onSelectProfile={(profile) => {
-          sessionStorage.removeItem('explicit_logout');
-          loginWithProfile(profile);
-          setView('home');
-        }}
-        onCreateLocalProfile={async (displayName, email, base, shift, password) => {
-          sessionStorage.removeItem('explicit_logout');
-          await createLocalProfile(displayName, email, base, shift, password);
-          setView('home');
-        }}
-        onLoginWithEmail={async (email, password) => {
-          sessionStorage.removeItem('explicit_logout');
-          await loginWithEmailString(email, password);
-          setView('home');
-        }}
-      />
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
+        <AuthScreen 
+          onLoginWithEmail={loginWithEmailString} 
+          onCreateProfile={createLocalProfile} 
+        />
+      </div>
     );
   }
 

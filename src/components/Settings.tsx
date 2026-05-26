@@ -542,22 +542,24 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile }: Settin
           </CardContent>
         </Card>
 
+
+
         {/* Card de Gestão de Conta e Segurança */}
-        <Card id="account-actions-card" className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden">
+        <Card id="account-actions-card" className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden mt-4">
           <CardContent className="p-0">
             <div className="flex items-center gap-3 px-6 pt-5 pb-3">
-              <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-slate-400">
+              <div className="w-10 h-10 bg-slate-700/60 rounded-xl flex items-center justify-center text-red-150">
                 <Shield size={20} className="text-red-400" />
               </div>
               <div>
-                <p className="text-xs font-black uppercase text-white">Gestão da Conta</p>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Troca de conta, logout e privacidade</p>
+                <p className="text-xs font-black uppercase text-white font-sans">Gestão da Conta</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Sair ou Excluir Perfil</p>
               </div>
             </div>
 
             <div className="h-[1px] bg-slate-700/30 mx-6" />
 
-            {/* Sair / Trocar de Perfil */}
+            {/* Sair da Conta */}
             <button 
               type="button"
               id="settings-logout-btn"
@@ -568,52 +570,31 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile }: Settin
                   await onLogout();
                 } catch (err) {
                   console.error(err);
+                } finally {
                   setIsLoggingOut(false);
                 }
               }}
-              className={`w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-700/40 active:bg-slate-700/60 transition-all group cursor-pointer text-left border-none bg-transparent pointer-events-auto select-none ${isLoggingOut ? 'opacity-80' : ''}`}
+              className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-700/40 active:bg-slate-700/60 transition-all group cursor-pointer text-left border-none bg-transparent pointer-events-auto select-none"
             >
-              <div className="w-10 h-10 bg-slate-700/50 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-red-400 group-hover:bg-red-500/10 transition-colors">
+              <div className="w-10 h-10 bg-slate-700/30 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-red-400 group-hover:bg-red-500/10 transition-colors">
                 {isLoggingOut ? (
-                  <Loader2 className="animate-spin text-red-400" size={18} />
+                  <Loader2 className="animate-spin text-red-500" size={18} />
                 ) : (
                   <LogOut size={18} />
                 )}
               </div>
               <div className="flex-1">
                 <p className="text-xs font-black uppercase text-white group-hover:text-red-400 transition-colors">
-                  {isLoggingOut ? 'Desconectando...' : 'Sair / Trocar de Conta'}
+                  {isLoggingOut ? 'Saindo...' : 'Sair / Trocar de Conta'}
                 </p>
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter font-sans">
-                  {isLoggingOut ? 'Aguarde um momento enquanto encerramos a sessão' : 'Encerra a sessão ativa e retorna à tela de seleção de contas/perfis'}
+                  Encerra a sessão ativa com segurança e retorna ao Login
                 </p>
               </div>
             </button>
 
-            <div className="h-[1px] bg-slate-700/30 mx-6" />
 
-            {/* Excluir Conta Permanentemente */}
-            <button 
-              type="button"
-              onClick={() => {
-                setDeleteStep(1);
-                setConsent1(false);
-                setConsent2(false);
-                setConfirmNameInput('');
-                setConfirmPasswordInput('');
-                setDeleteError('');
-                setIsConfirmingDelete(true);
-              }}
-              className="w-full flex items-center gap-4 px-6 py-4 hover:bg-red-500/5 transition-all group cursor-pointer text-left border-none bg-transparent"
-            >
-              <div className="w-10 h-10 bg-red-950/20 text-red-500 rounded-xl flex items-center justify-center group-hover:bg-red-500/25 transition-colors">
-                <Trash2 size={18} />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-black uppercase text-red-500">Excluir Conta Permanentemente</p>
-                <p className="text-[9px] font-bold text-red-400/60 uppercase tracking-tighter">Apagar de modo irreversível todo o seu progresso e cadastro no RodoPlay</p>
-              </div>
-            </button>
+
           </CardContent>
         </Card>
 
@@ -770,181 +751,6 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile }: Settin
         </motion.div>
       )}
 
-      {/* Modal de Exclusão Permanente de Conta (Dual-Consent e Re-Autenticação) */}
-      {isConfirmingDelete && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-slate-950/98 overflow-y-auto flex items-center justify-center p-4 backdrop-blur-md"
-        >
-          <div className="bg-slate-900 border-2 border-red-500/30 rounded-[2.5rem] w-full max-w-md p-6 relative overflow-hidden shadow-2xl">
-            {/* Red alert top decoration */}
-            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-red-600 via-yellow-500 to-red-600" />
-            
-            {/* Close button */}
-            <button 
-              type="button"
-              onClick={() => setIsConfirmingDelete(false)}
-              className="absolute top-4 right-4 w-9 h-9 bg-slate-800 border border-slate-700 text-slate-400 hover:text-white rounded-xl flex items-center justify-center transition-all cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="text-center mt-4 mb-6 space-y-2">
-              <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2 border border-red-500/20">
-                <Trash2 size={22} className="animate-pulse" />
-              </div>
-              <h3 className="text-lg font-black text-white uppercase italic tracking-tight">EXCLUSÃO PERMANENTE</h3>
-              <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Aviso de Segurança Crítico</p>
-            </div>
-
-            {deleteStep === 1 ? (
-              <div className="space-y-5 text-left">
-                <div className="p-4 bg-red-950/20 border border-red-500/15 rounded-2xl text-[10px] font-semibold text-slate-300 uppercase leading-relaxed">
-                  Operador, esta ação é <span className="text-red-400 font-black">totalmente definitiva</span>. Se prosseguir, todos os seus dados do RodoPlay serão eliminados de nossos servidores, incluindo:
-                  <ul className="list-disc pl-4 mt-2 space-y-1 text-slate-400 text-[9px]">
-                    <li>Nível, XP, estatísticas e progresso de patrulha</li>
-                    <li>Sua pontuação no ranking geral e por base operacional</li>
-                    <li>Notificações, histórico, convites e salas de multiplayer</li>
-                    <li>E-mail cadastrado e login no Firebase Authentication</li>
-                  </ul>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-[9px] font-black text-slate-505 uppercase tracking-widest leading-none">
-                    Por favor, confirme seu consentimento expresso:
-                  </p>
-                  
-                  {/* Consentimiento 1 */}
-                  <label className="flex items-start gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-850 hover:border-slate-700 transition-colors cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      className="mt-0.5 accent-yellow-400 w-4 h-4 rounded text-yellow-500 shrink-0" 
-                      checked={consent1}
-                      onChange={(e) => setConsent1(e.target.checked)}
-                    />
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300 leading-tight">
-                      Estou ciente de que todo o meu progresso, XP e conquistas serão excluídos de forma definitiva.
-                    </span>
-                  </label>
-
-                  {/* Consentimiento 2 */}
-                  <label className="flex items-start gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-850 hover:border-slate-700 transition-colors cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      className="mt-0.5 accent-yellow-400 w-4 h-4 rounded text-yellow-500 shrink-0" 
-                      checked={consent2}
-                      onChange={(e) => setConsent2(e.target.checked)}
-                    />
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300 leading-tight">
-                      Entendo que meu cadastro será excluído dos servidores do Firebase, impossibilitando acessos futuros.
-                    </span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <Button
-                    type="button"
-                    onClick={() => setIsConfirmingDelete(false)}
-                    className="h-12 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all"
-                  >
-                    Voltar / Cancelar
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={!consent1 || !consent2}
-                    onClick={() => setDeleteStep(2)}
-                    className={`h-12 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all ${
-                      consent1 && consent2 
-                        ? 'bg-yellow-400 hover:bg-yellow-300' 
-                        : 'bg-slate-800 text-slate-600 opacity-50 cursor-not-allowed'
-                    }`}
-                  >
-                    Próxima Etapa ➔
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 text-left">
-                {deleteError && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-black rounded-xl text-center">
-                    ⚠ {deleteError}
-                  </div>
-                )}
-
-                <div className="p-3 bg-red-500/5 rounded-2xl text-[9px] font-bold text-red-400 uppercase tracking-wide text-center">
-                  ETAPA CRÍTICA: DIGITE AS CREDENCIAIS DE SEGURANÇA
-                </div>
-
-                {/* Confirmação por nome */}
-                <div className="space-y-1.5 font-sans">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
-                    Confirme escrevendo seu apelido (<span className="text-yellow-400">{player?.displayName}</span>):
-                  </label>
-                  <input
-                    type="text"
-                    value={confirmNameInput}
-                    onChange={(e) => setConfirmNameInput(e.target.value)}
-                    placeholder="Digite seu apelido aqui..."
-                    className="w-full h-12 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl px-4 text-white text-xs font-bold outline-none uppercase transition-all"
-                  />
-                </div>
-
-                {/* Confirmação por Senha (se necessário) */}
-                {isPasswordRequired && (
-                  <div className="space-y-1.5 font-sans">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
-                      Para sua segurança, informe sua senha de acesso:
-                    </label>
-                    <input
-                      type="password"
-                      value={confirmPasswordInput}
-                      onChange={(e) => setConfirmPasswordInput(e.target.value)}
-                      placeholder="Sua senha de e-mail RodoPlay..."
-                      className="w-full h-12 bg-slate-950 border-2 border-slate-800 focus:border-red-500 rounded-xl px-4 text-white text-xs font-bold outline-none transition-all"
-                    />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <Button
-                    type="button"
-                    disabled={isDeletingProfile}
-                    onClick={() => setDeleteStep(1)}
-                    className="h-12 bg-slate-800 hover:bg-slate-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all"
-                  >
-                    ❮ Voltar
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={!isDeleteNameMatch || (isPasswordRequired ? !confirmPasswordInput : false) || isDeletingProfile}
-                    onClick={async () => {
-                      setDeleteError('');
-                      setIsDeletingProfile(true);
-                      try {
-                        await onDeleteProfile(confirmPasswordInput);
-                        setIsConfirmingDelete(false);
-                      } catch (err: any) {
-                        setDeleteError(err.message || 'Ocorreu um erro ao confirmar as credenciais.');
-                      } finally {
-                        setIsDeletingProfile(false);
-                      }
-                    }}
-                    className={`h-12 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all ${
-                      isDeleteNameMatch && (isPasswordRequired ? confirmPasswordInput.length > 0 : true) && !isDeletingProfile
-                        ? 'bg-red-500 hover:bg-red-650 text-white shadow-lg shadow-red-500/20 shadow-red-500/20' 
-                        : 'bg-slate-800 text-slate-600 opacity-50 cursor-not-allowed'
-                    }`}
-                  >
-                    {isDeletingProfile ? 'EXCLUINDO...' : 'APAGAR AGORA ☠'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }

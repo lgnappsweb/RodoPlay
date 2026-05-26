@@ -116,6 +116,7 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
     const avatar = data.avatar || existingProfile?.avatar || '👷';
     const base = data.base || existingProfile?.base || 'Base 01';
     const shift = data.shift || existingProfile?.shift || 'Turno A - Diurno';
+    const praca = (data as any).praca || existingProfile?.praca || (data as any).praça || existingProfile?.praça || 'Praça 01';
     
     // Performance and progression scores
     const xp = data.xp !== undefined ? data.xp : (existingProfile?.xp || 0);
@@ -155,28 +156,31 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
     const updatedAt = new Date().toISOString();
 
     // 2. Compute dynamic actual rank counting players who have better score
-    let rankingGlobal = 1;
-    let rankingBase = 1;
-    let rankingTurno = 1;
+    let rankingGlobal = existingProfile?.rankingGlobal || 1;
+    let rankingBase = existingProfile?.rankingBase || 1;
+    let rankingTurno = existingProfile?.rankingTurno || 1;
 
-    try {
-      const usersCol = collection(db, 'users');
-      // Count query (fast & cheap server side)
-      const qGlobal = query(usersCol, where('pontos', '>', totalScore));
-      const qBase = query(usersCol, where('base', '==', base), where('pontos', '>', totalScore));
-      const qTurno = query(usersCol, where('turno', '==', shift), where('pontos', '>', totalScore));
+    // Only compute ranks if user actually has points to optimize signup and zero-point profiles
+    if (totalScore > 0) {
+      try {
+        const usersCol = collection(db, 'users');
+        // Count query (fast & cheap server side)
+        const qGlobal = query(usersCol, where('pontos', '>', totalScore));
+        const qBase = query(usersCol, where('base', '==', base), where('pontos', '>', totalScore));
+        const qTurno = query(usersCol, where('turno', '==', shift), where('pontos', '>', totalScore));
 
-      const [globalSnap, baseSnap, shiftSnap] = await Promise.all([
-        getCountFromServer(qGlobal).catch(() => null),
-        getCountFromServer(qBase).catch(() => null),
-        getCountFromServer(qTurno).catch(() => null)
-      ]);
+        const [globalSnap, baseSnap, shiftSnap] = await Promise.all([
+          getCountFromServer(qGlobal).catch(() => null),
+          getCountFromServer(qBase).catch(() => null),
+          getCountFromServer(qTurno).catch(() => null)
+        ]);
 
-      if (globalSnap) rankingGlobal = globalSnap.data().count + 1;
-      if (baseSnap) rankingBase = baseSnap.data().count + 1;
-      if (shiftSnap) rankingTurno = shiftSnap.data().count + 1;
-    } catch (errRank) {
-      console.warn("Failed to compute real-time rank count:", errRank);
+        if (globalSnap) rankingGlobal = globalSnap.data().count + 1;
+        if (baseSnap) rankingBase = baseSnap.data().count + 1;
+        if (shiftSnap) rankingTurno = shiftSnap.data().count + 1;
+      } catch (errRank) {
+        console.warn("Failed to compute real-time rank count:", errRank);
+      }
     }
 
     // Build perfect composite structures
@@ -191,6 +195,8 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
       base,
       shift,
       turno: shift, // exact alias
+      praca,
+      praça: praca,
       xp,
       level,
       nivel: level, // exact alias
@@ -229,6 +235,8 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
       avatar,
       base,
       turno: shift,
+      praca,
+      praça: praca,
       pontos: totalScore,
       patrulhas: gamesPlayed,
       partidas: completedGames,

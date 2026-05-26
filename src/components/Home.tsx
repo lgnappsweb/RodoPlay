@@ -42,7 +42,12 @@ const TIPS = [
   { title: "HIDRATAÇÃO E FOCO", desc: "Beba água regularmente durante os turnos de patrulhamento. Fadiga severa e desidratação podem reduzir o seu tempo de reação neurológica em mais de 30%.", category: "Saúde Ocupacional" },
   { title: "DUELOS MULTIPLAYER", desc: "Antes de iniciar uma disputa cooperativa ou duelo síncrono, confira a base operacional e o nível de XP do seu oponente no mural para antecipar seu ritmo.", category: "Estratégia Organizada" },
   { title: "SINALIZAÇÃO DE OBRAS", desc: "Placas com detalhes em tons de laranja representam modificações temporárias por obras na pista. Reduza o ritmo imediatamente e redobre a atenção visual.", category: "Educação Rodoviária" },
-  { title: "CONSISTÊNCIA DIÁRIA", desc: "Pratique ao menos cinco minutos de desafios lógicos diariamente. O aprendizado fragmentado contínuo fixa conexões neuronais de forma superior a maratonas exaustivas.", category: "Treinamento Humano" }
+  { title: "CONSISTÊNCIA DIÁRIA", desc: "Pratique ao menos cinco minutos de desafios lógicos diariamente. O aprendizado fragmentado contínuo fixa conexões neuronais de forma superior a maratonas exaustivas.", category: "Treinamento Humano" },
+  { title: "FADIGA AO VOLANTE", desc: "Sintomas de fadiga extrema prejudicam os reflexos na mesma proporção de embriaguez leve. Se os olhos pesarem ou houver bocejos constantes, pare imediatamente no ponto de apoio mais próximo.", category: "Segurança de Tráfego" },
+  { title: "AQUAPLANAGEM", desc: "Nunca pise no freio bruscamente se o veículo flutuar na água. Mantenha o pé firme no acelerador, segure o volante em linha reta e reduza a velocidade de forma suave.", category: "Direção Defensiva" },
+  { title: "ULTRAPASSAGEM SEGURA", desc: "Sinalize com antecedência e use o espelho retrovisor convexo antes de mudar de faixa. Lembre-se: em vias de pista simples, ultrapasse apenas onde a faixa amarela central for tracejada ou seccionada.", category: "Tráfego & Normas" },
+  { title: "USO DO PISCA-ALERTA", desc: "O pisca-alerta só deve ser acionado com o veículo em movimento sob condições extremas de neblina espessa ou pane iminente de segurança. Nunca o use de forma fútil.", category: "Legislação & Trânsito" },
+  { title: "CONDUÇÃO RETROVISORA", desc: "Ajuste os espelhos para eliminar pontos cegos estruturais: você deve enxergar apenas uma fração mínima da lateral do seu próprio veículo. Isso amplia o campo visual traseiro em até 45%!", category: "Foco & Atenção" }
 ];
 
 export function Home({ player, onPlay, onViewChange }: HomeProps) {
