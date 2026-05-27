@@ -10,13 +10,27 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   User
 } from 'firebase/auth';
-import { doc, onSnapshot, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { Player } from '../types';
 import { writePlayerProfile } from '../lib/rankingSync';
 import { createNotification } from '../lib/notifications';
+import { saveThemeSettings, applyTheme } from '../lib/theme';
+
+const normalizeShift = (val: string | undefined): string => {
+  if (!val) return 'Turno A - Diurno';
+  const mapped: Record<string, string> = {
+    'Turno A Diurno': 'Turno A - Diurno',
+    'Turno A Noturno': 'Turno A - Noturno',
+    'Turno B Diurno': 'Turno B - Diurno',
+    'Turno B Noturno': 'Turno B - Noturno',
+  };
+  return mapped[val] || val;
+};
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -43,6 +57,9 @@ export function useAuth() {
           try {
             const cached = JSON.parse(lastProfileStr);
             if (cached && (cached.uid === authUser.uid || cached.email === authUser.email)) {
+              if (cached.shift) {
+                cached.shift = normalizeShift(cached.shift);
+              }
               setPlayer(cached);
               setLoading(false);
             }
@@ -59,7 +76,7 @@ export function useAuth() {
                 email: found.email,
                 avatar: found.avatar || '👷',
                 base: found.base || 'Base 01',
-                shift: found.shift || 'Turno A',
+                shift: normalizeShift(found.shift || 'Turno A - Diurno'),
                 xp: 0,
                 level: 1,
                 totalScore: 0,
@@ -79,79 +96,131 @@ export function useAuth() {
         }
 
         // Define profile document path for snapshot mapping
-        const playerRef = doc(db, 'players', authUser.uid);
+        const playerRef = doc(db, 'users', authUser.uid);
 
         // Bind dynamic onSnapshot for realtime, multi-device synchronization instantly
         unsubscribeProfileRef.current = onSnapshot(playerRef, (snapshot) => {
           if (snapshot.exists()) {
             const playerData = snapshot.data() as Player;
+            if (playerData && playerData.shift) {
+              playerData.shift = normalizeShift(playerData.shift);
+            }
             setPlayer({
               ...playerData,
               uid: snapshot.id
             });
             localStorage.setItem('last_player_profile', JSON.stringify(playerData));
 
+            // Sync theme settings across multiple devices
+            if (playerData.themeMode || playerData.themePrimary || playerData.themeSecondary) {
+              try {
+                const synchronizedTheme = {
+                  mode: playerData.themeMode || 'dark',
+                  primary: playerData.themePrimary || '#fbbf24',
+                  secondary: playerData.themeSecondary || '#6366f1'
+                };
+                saveThemeSettings(synchronizedTheme);
+                applyTheme(synchronizedTheme);
+              } catch (errTheme) {
+                console.warn("Theme synchronization error:", errTheme);
+              }
+            }
+
             // Automatically sync status metadata to local saved device profiles
             try {
-              const savedPass = localStorage.getItem('last_auth_password');
-              if (savedPass && playerData.email) {
+              if (playerData.email) {
                 const savedProfilesStr = localStorage.getItem('roplay_saved_profiles') || '[]';
                 const savedList = JSON.parse(savedProfilesStr);
-                const filteredList = savedList.filter((p: any) => p.email.toLowerCase() !== playerData.email.toLowerCase());
+                const existingSaved = savedList.find((p: any) => p.email.toLowerCase() === playerData.email.toLowerCase());
+                const savedPass = localStorage.getItem('last_auth_password') || existingSaved?.password || '';
                 
-                filteredList.unshift({
-                  uid: snapshot.id,
-                  email: playerData.email,
-                  password: savedPass,
-                  displayName: playerData.displayName || 'Membro do Time',
-                  avatar: playerData.avatar || '👷',
-                  base: playerData.base || 'Base 01',
-                  shift: playerData.shift || 'Turno A',
-                  praca: (playerData as any).praca || (playerData as any).praça || 'Não Aplicável'
-                });
-                
-                localStorage.setItem('roplay_saved_profiles', JSON.stringify(filteredList));
+                if (savedPass) {
+                  const filteredList = savedList.filter((p: any) => p.email.toLowerCase() !== playerData.email.toLowerCase());
+                  
+                  filteredList.unshift({
+                    uid: snapshot.id,
+                    email: playerData.email,
+                    password: savedPass,
+                    displayName: playerData.displayName || 'Membro do Time',
+                    avatar: playerData.avatar || '👷',
+                    base: playerData.base || 'Base 01',
+                    shift: normalizeShift(playerData.shift || 'Turno A - Diurno'),
+                    praca: (playerData as any).praca || (playerData as any).praça || 'Não Aplicável'
+                  });
+                  
+                  localStorage.setItem('roplay_saved_profiles', JSON.stringify(filteredList));
+                }
               }
             } catch (errLocal) {
               console.warn("Snapshot saved profiles updates mapping error:", errLocal);
             }
 
+            localStorage.removeItem('pending_registration_data');
             setLoading(false);
           } else {
-            // The profile doesn't exist yet on search. Only recreate baseline if there matches no active registration cache.
-            const cachedReg = localStorage.getItem('pending_registration_data');
-            if (!cachedReg) {
-              console.log("No profile and no pending registration. Auto-building default profile in background...");
-              const defaultProfile: Player = {
-                uid: authUser.uid,
-                displayName: authUser.displayName || authUser.email?.split('@')[0] || 'Motorista RodoPlay',
-                email: authUser.email || '',
-                base: 'Base 01',
-                shift: 'Turno A - Diurno',
-                xp: 0,
-                level: 1,
-                totalScore: 0,
-                gamesPlayed: 0,
-                completedGames: 0,
-                timedOutGames: 0,
-                avatar: '👷',
-                status: 'online',
-                createdAt: new Date().toISOString(),
-                lastLogin: new Date().toISOString(),
-                lastActive: new Date().toISOString(),
-              };
-              (defaultProfile as any).praca = 'Não Aplicável';
-              (defaultProfile as any).praça = 'Não Aplicável';
-
-              // Assign state immediately to keep loading instantaneous
-              setPlayer(prev => prev || defaultProfile);
+            // Document does not exist in Firestore yet. Look at local caches to restore the correct user settings.
+            const pendingRegStr = localStorage.getItem('pending_registration_data');
+            const lastProfileStr = localStorage.getItem('last_player_profile');
+            
+            let hasValidCache = false;
+            let cachedPlayer: Player | null = null;
+            
+            if (pendingRegStr) {
+              try {
+                const pending = JSON.parse(pendingRegStr);
+                if (pending && pending.email?.toLowerCase() === authUser.email?.toLowerCase()) {
+                  hasValidCache = true;
+                  const temporaryPlayer: Player = {
+                    uid: authUser.uid,
+                    displayName: pending.displayName || 'Parceiro RodoPlay',
+                    email: pending.email || authUser.email || '',
+                    base: pending.base || 'Base 01',
+                    shift: normalizeShift(pending.shift || 'Turno A - Diurno'),
+                    xp: 0,
+                    level: 1,
+                    totalScore: 0,
+                    gamesPlayed: 0,
+                    completedGames: 0,
+                    timedOutGames: 0,
+                    avatar: pending.avatar || '👷',
+                    status: 'online',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    lastActive: new Date().toISOString(),
+                  };
+                  (temporaryPlayer as any).praca = pending.praca || 'Não Aplicável';
+                  (temporaryPlayer as any).praça = pending.praca || 'Não Aplicável';
+                  cachedPlayer = temporaryPlayer;
+                }
+              } catch (e) {}
+            }
+            
+            if (!hasValidCache && lastProfileStr) {
+              try {
+                const cached = JSON.parse(lastProfileStr);
+                if (cached && (cached.uid === authUser.uid || cached.email?.toLowerCase() === authUser.email?.toLowerCase())) {
+                  hasValidCache = true;
+                  cachedPlayer = cached;
+                }
+              } catch (e) {}
+            }
+            
+            if (hasValidCache && cachedPlayer) {
+              console.log("Averting race condition: Using temporary profile cache for pending user:", cachedPlayer.displayName);
+              if (cachedPlayer.shift) {
+                cachedPlayer.shift = normalizeShift(cachedPlayer.shift);
+              }
+              setPlayer(cachedPlayer);
               setLoading(false);
-
-              writePlayerProfile(authUser.uid, defaultProfile).catch((err) => {
-                console.warn("Failsafe profile creation background write error:", err);
-              });
             } else {
-              // There is a pending signup sequence, let the createLocalProfile route manage it. Keep it fast!
+              console.log("Profile document deleted on backend. Logging out user to prevent zombie sessions.");
+              setUser(null);
+              setPlayer(null);
+              localStorage.removeItem('active_player_uid');
+              localStorage.removeItem('last_player_profile');
+              localStorage.removeItem('last_auth_password');
+              localStorage.removeItem('pending_registration_data');
+              signOut(auth).catch(errSync => console.warn(errSync));
               setLoading(false);
             }
           }
@@ -188,6 +257,9 @@ export function useAuth() {
       const cleanedEmail = email.trim().toLowerCase();
       const res = await signInWithEmailAndPassword(auth, cleanedEmail, password);
       
+      // Save password for quick login syncing
+      localStorage.setItem('last_auth_password', password);
+      
       // Update last login timestamp in Firestore in background without block-await
       writePlayerProfile(res.user.uid, {
         lastLogin: new Date().toISOString(),
@@ -198,7 +270,17 @@ export function useAuth() {
 
       return res.user;
     } catch (err: any) {
-      console.error("Login failure inside hook:", err);
+      const isExpectedAuthError = err && (
+        err.code?.startsWith('auth/') || 
+        err.message?.includes('auth/') ||
+        err.message?.includes('invalid-credential') ||
+        err.message?.includes('wrong-password')
+      );
+      if (isExpectedAuthError) {
+        console.warn("[Login Validation] expected bad credentials or auth block:", err.code || err.message);
+      } else {
+        console.error("Login failure inside hook:", err);
+      }
       let errorMsg = "E-mail ou senha incorretos.";
       if (err.code === 'auth/user-not-found') {
         errorMsg = "Este e-mail não está cadastrado.";
@@ -246,7 +328,11 @@ export function useAuth() {
       const res = await createUserWithEmailAndPassword(auth, cleanedEmail, password);
       const uid = res.user.uid;
 
-      // 2. Build detailed profile
+       // 2. Build detailed profile
+      const localThemeMode = (localStorage.getItem('app_theme_mode') as 'dark' | 'light') || 'dark';
+      const localThemePrimary = localStorage.getItem('app_theme_primary') || '#fbbf24';
+      const localThemeSecondary = localStorage.getItem('app_theme_secondary') || '#6366f1';
+
       const newPlayer: Player = {
         uid: uid,
         displayName: displayName.trim(),
@@ -263,7 +349,10 @@ export function useAuth() {
         status: 'online',
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
-        lastActive: new Date().toISOString()
+        lastActive: new Date().toISOString(),
+        themeMode: localThemeMode,
+        themePrimary: localThemePrimary,
+        themeSecondary: localThemeSecondary
       };
       
       // Store PT-BR attributes under exact keys
@@ -273,6 +362,7 @@ export function useAuth() {
       // Set user and player state instantly to prevent any loading screen or lag
       setUser(res.user);
       setPlayer(newPlayer);
+      localStorage.setItem('last_player_profile', JSON.stringify(newPlayer));
       setLoading(false);
 
       // Save user to the cached quick login accounts list immediately so they can log back in instantly
@@ -304,7 +394,7 @@ export function useAuth() {
       // 4. Send a professional welcome notification
       try {
         const welcomeTitle = `Bem-vindo(a) ao RodoPlay, ${displayName.trim()}! 👷🎖️`;
-        const welcomeMsg = `Olá, Operador(a) ${displayName.trim()}!\n\nSeja muito bem-vindo(a) à nossa plataforma de capacitação operacional e patrulhamento de vias.\n\nSeu cadastro do turno ${shift} na ${base} foi homologado com absoluto sucesso em nosso sistema de monitoramento profissional. A partir de agora, você está habilitado(a) a registrar patrulhas, acumular pontos operenciais, subir no ranking e desafiar outros colegas de equipe em duelos de conhecimento.\n\nSua integridade física e atenção nas vias permanecem como prioridade número um. Desejamos uma excelente jornada d'água e muito sucesso nas suas inspeções operacionais!`;
+        const welcomeMsg = `Olá, Operador(a) ${displayName.trim()}!\n\nSeja muito bem-vindo(a) à nossa plataforma de capacitação operacional e patrulhamento de vias.\n\nSeu cadastro do turno ${shift} na ${base} foi homologado com absoluto sucesso em nosso sistema de monitoramento profissional. A partir de agora, você está habilitado(a) a registrar patrulhas, acumular pontos operacionais, melhorar suas habilidades e subir no ranking geral de conhecimento.\n\nSua integridade física e atenção nas vias permanecem como prioridade número um. Desejamos uma excelente jornada d'água e muito sucesso nas suas inspeções operacionais!`;
         
         createNotification(
           uid,
@@ -325,11 +415,26 @@ export function useAuth() {
       localStorage.removeItem('pending_registration_data');
       return newPlayer;
     } catch (err: any) {
-      console.error("Signup failure inside hook:", err);
+      const isExpectedAuthError = err && (
+        err.code?.startsWith('auth/') || 
+        err.message?.includes('auth/') || 
+        err.message?.includes('already-in-use') ||
+        err.message?.includes('already in use')
+      );
+      if (isExpectedAuthError) {
+        console.warn("[Register Validation] expected signup conflict or restriction:", err.code || err.message);
+      } else {
+        console.error("Signup failure inside hook:", err);
+      }
       localStorage.removeItem('pending_registration_data');
       let errorMsg = "Não foi possível criar a conta.";
-      if (err.code === 'auth/email-already-in-use') {
-        errorMsg = "Este e-mail já está sendo utilizado por outra conta.";
+      if (
+        err.code === 'auth/email-already-in-use' || 
+        err.message?.includes('already-in-use') || 
+        err.message?.includes('already in use') || 
+        err.message?.includes('já possui uma conta')
+      ) {
+        errorMsg = "Este email já possui uma conta. Faça login para acessar.";
       } else if (err.code === 'auth/weak-password') {
         errorMsg = "A senha é muito fraca. Escolha uma senha de pelo menos 6 caracteres.";
       } else if (err.code === 'auth/invalid-email') {
@@ -394,32 +499,59 @@ export function useAuth() {
     }
     setLoading(true);
     try {
-      // Clean up saved profile locally
+      // 1. Double-delete core profiles with try-catch in case server cleared them first
       try {
-        const emailToDelete = user.email;
-        if (emailToDelete) {
-          const profilesStr = localStorage.getItem('roplay_saved_profiles') || '[]';
-          const profiles = JSON.parse(profilesStr);
-          const updated = profiles.filter((p: any) => p.email.toLowerCase() !== emailToDelete.toLowerCase());
-          localStorage.setItem('roplay_saved_profiles', JSON.stringify(updated));
-        }
-      } catch (errClean) {
-        console.warn("Failed to clean deleted profile from local list:", errClean);
+        await deleteDoc(doc(db, 'players', uid));
+        await deleteDoc(doc(db, 'users', uid));
+      } catch (docErr) {
+        console.warn("[useAuth] Client profile deletion completed by backend or skipped: ", docErr);
       }
 
-      // 1. Delete associated data documents to leave databases clean
-      await deleteDoc(doc(db, 'players', uid));
-      await deleteDoc(doc(db, 'users', uid));
-      
-      // 2. Delete Auth Account
-      await deleteUser(user);
-    } catch (err: any) {
-      console.error("Failed deleting user profile:", err);
-      // If re-authentication is required, sign out gracefully
-      if (err.code === 'auth/requires-recent-login') {
-        await signOut(auth);
-        throw new Error("Para excluir sua conta, você precisa ter feito login recentemente. Faça login novamente e tente de novo.");
+      // 2. Delete associated auth credential
+      try {
+        console.log("[useAuth] Excluindo conta do Firebase Auth...");
+        await deleteUser(user);
+      } catch (authErr: any) {
+        if (authErr.code === 'auth/requires-recent-login') {
+          console.warn("[useAuth] Recent login required. Tentando reautenticação automática...");
+          const savedPass = passwordConfirm || localStorage.getItem('last_auth_password');
+          if (savedPass && user.email) {
+            try {
+              const credential = EmailAuthProvider.credential(user.email, savedPass);
+              await reauthenticateWithCredential(user, credential);
+              await deleteUser(user);
+              console.log("[useAuth] Exclusão de Auth concluída após reautenticação!");
+            } catch (reauthErr: any) {
+              if (reauthErr.code === 'auth/user-not-found' || reauthErr.code === 'auth/invalid-credential' || reauthErr.code === 'auth/user-disabled' || reauthErr.message?.includes('not-found') || reauthErr.message?.includes('disabled')) {
+                console.log("[useAuth] Account was already deleted in the backend API during re-auth fallback.");
+              } else {
+                console.error("[useAuth] Reautenticação automática falhou:", reauthErr);
+                await signOut(auth);
+                throw new Error("Para excluir sua conta por motivos de segurança, por favor faça login novamente para revalidar a sessão.");
+              }
+            }
+          } else {
+            await signOut(auth);
+            throw new Error("Para excluir sua conta por motivos de segurança, por favor faça login novamente para revalidar a sessão.");
+          }
+        } else if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/user-disabled' || authErr.message?.includes('not-found') || authErr.message?.includes('disabled')) {
+          console.log("[useAuth] Credencial de autenticação já excluída no backend (sucesso administrativo ou skip)");
+        } else {
+          throw authErr;
+        }
       }
+
+      // 3. Clear auth state immediately
+      setUser(null);
+      setPlayer(null);
+
+    } catch (err: any) {
+      console.error("[useAuth] Erro em deleteProfile:", err);
+      try {
+        await signOut(auth);
+      } catch (eSig) {}
+      setUser(null);
+      setPlayer(null);
       throw err;
     } finally {
       setLoading(false);

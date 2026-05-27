@@ -40,7 +40,7 @@ const TIPS = [
   { title: "BUSCA DE NÚMEROS", desc: "Use a estratégia de busca binária para encontrar o número secreto. Comece sempre dividindo a faixa restante pela metade para eliminar opções o mais rápido possível.", category: "Busca Lógica" },
   { title: "DIREÇÃO DEFENSIVA", desc: "Mantenha sempre a regra clássica dos 'dois segundos' de distância do automóvel à sua frente na rodovia. Sob condições chuvosas intensas, duplique essa folga crucial.", category: "Segurança de Tráfego" },
   { title: "HIDRATAÇÃO E FOCO", desc: "Beba água regularmente durante os turnos de patrulhamento. Fadiga severa e desidratação podem reduzir o seu tempo de reação neurológica em mais de 30%.", category: "Saúde Ocupacional" },
-  { title: "DUELOS MULTIPLAYER", desc: "Antes de iniciar uma disputa cooperativa ou duelo síncrono, confira a base operacional e o nível de XP do seu oponente no mural para antecipar seu ritmo.", category: "Estratégia Organizada" },
+  { title: "MELHORIA CONTÍNUA", desc: "Monitore sua posição no painel de classificação geral para acompanhar seu crescimento individual e ver quem está alcançando o topo da pontuação operacional.", category: "Estratégia Organizada" },
   { title: "SINALIZAÇÃO DE OBRAS", desc: "Placas com detalhes em tons de laranja representam modificações temporárias por obras na pista. Reduza o ritmo imediatamente e redobre a atenção visual.", category: "Educação Rodoviária" },
   { title: "CONSISTÊNCIA DIÁRIA", desc: "Pratique ao menos cinco minutos de desafios lógicos diariamente. O aprendizado fragmentado contínuo fixa conexões neuronais de forma superior a maratonas exaustivas.", category: "Treinamento Humano" },
   { title: "FADIGA AO VOLANTE", desc: "Sintomas de fadiga extrema prejudicam os reflexos na mesma proporção de embriaguez leve. Se os olhos pesarem ou houver bocejos constantes, pare imediatamente no ponto de apoio mais próximo.", category: "Segurança de Tráfego" },
@@ -80,16 +80,23 @@ export function Home({ player, onPlay, onViewChange }: HomeProps) {
       const allPlayers: Player[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data() as any;
-        allPlayers.push({
-          ...data,
-          totalScore: typeof data.totalScore === 'string' ? parseFloat(data.totalScore) : (data.totalScore !== undefined ? data.totalScore : (data.pontos || 0)),
-          gamesPlayed: typeof data.gamesPlayed === 'string' ? parseInt(data.gamesPlayed, 10) : (data.gamesPlayed !== undefined ? data.gamesPlayed : (data.patrulhas || 0)),
-          completedGames: typeof data.completedGames === 'string' ? parseInt(data.completedGames, 10) : (data.completedGames !== undefined ? data.completedGames : (data.partidas || 0)),
-          victories: typeof data.victories === 'string' ? parseInt(data.victories, 10) : (data.victories !== undefined ? data.victories : (data.vitorias || 0)),
-          defeats: typeof data.defeats === 'string' ? parseInt(data.defeats, 10) : (data.defeats !== undefined ? data.defeats : (data.derrotas || 0)),
-          level: typeof data.level === 'string' ? parseInt(data.level, 10) : (data.level !== undefined ? data.level : (data.nivel || 1)),
-          uid: doc.id
-        });
+        const name = (data.displayName || data.apelido || '').toLowerCase();
+        const email = (data.email || '').toLowerCase().trim();
+        const isTestName = name === 'teste' || name.startsWith('teste ') || name === 'test' || name.includes('dummy') || name.includes('deletada') || name.includes('deletar') || name === 'recruta' || name.includes('teste');
+        const isTestEmail = email === 'teste@rodoplay.com.br' || email.includes('teste@') || email.includes('test@');
+        
+        if (!isTestName && !isTestEmail) {
+          allPlayers.push({
+            ...data,
+            totalScore: typeof data.totalScore === 'string' ? parseFloat(data.totalScore) : (data.totalScore !== undefined ? data.totalScore : (data.pontos || 0)),
+            gamesPlayed: typeof data.gamesPlayed === 'string' ? parseInt(data.gamesPlayed, 10) : (data.gamesPlayed !== undefined ? data.gamesPlayed : (data.patrulhas || 0)),
+            completedGames: typeof data.completedGames === 'string' ? parseInt(data.completedGames, 10) : (data.completedGames !== undefined ? data.completedGames : (data.partidas || 0)),
+            victories: typeof data.victories === 'string' ? parseInt(data.victories, 10) : (data.victories !== undefined ? data.victories : (data.vitorias || 0)),
+            defeats: typeof data.defeats === 'string' ? parseInt(data.defeats, 10) : (data.defeats !== undefined ? data.defeats : (data.derrotas || 0)),
+            level: typeof data.level === 'string' ? parseInt(data.level, 10) : (data.level !== undefined ? data.level : (data.nivel || 1)),
+            uid: doc.id
+          });
+        }
       });
       if (allPlayers.length > 0) {
         allPlayers.sort((a, b) => {

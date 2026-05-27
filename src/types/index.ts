@@ -18,7 +18,8 @@ export enum GameType {
   TIC_TAC_TOE = 'TIC_TAC_TOE',
   QUEENS = 'QUEENS',
   PALAVRAS_500 = 'PALAVRAS_500',
-  CONTEXTO = 'CONTEXTO'
+  CONTEXTO = 'CONTEXTO',
+  SUDOKU = 'SUDOKU'
 }
 
 export interface Player {
@@ -33,6 +34,8 @@ export interface Player {
   totalScore: number;
   gamesPlayed: number;
   lastActive: string;
+  apelido?: string;
+  turno?: string;
   
   // Custom multiplayer & statistics fields
   status?: 'online' | 'offline';
@@ -46,6 +49,9 @@ export interface Player {
   completedGames?: number;
   timedOutGames?: number;
   gameStats?: Record<string, { score: number; completions: number }>;
+  themeMode?: 'dark' | 'light';
+  themePrimary?: string;
+  themeSecondary?: string;
 }
 
 export interface Question {

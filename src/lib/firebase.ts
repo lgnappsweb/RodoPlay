@@ -18,25 +18,22 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-// Initialize Firestore with a robust fallback.
-// In iframe/private/mobile environments where IndexedDB or multi-tab locks are restricted,
-// persistentLocalCache can throw or deadlock, cause the client to think it is permanently offline.
+// Initialize Firestore with a robust fallback and custom database ID.
+const DATABASE_ID = "ai-studio-2463f31a-95a2-4f79-8de0-6f946503774e";
+
 let firestoreDb;
 try {
   firestoreDb = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  });
+  }, DATABASE_ID);
 } catch (err) {
   console.warn("Firestore persistent multi-tab cache not supported, trying default cache:", err);
   try {
-    firestoreDb = initializeFirestore(app, {});
+    firestoreDb = initializeFirestore(app, {}, DATABASE_ID);
   } catch (err2) {
     debugger;
     // Last resort fallback
-    import('firebase/firestore').then(({ memoryLocalCache }) => {
-      // Lazy load/retry if needed, but since we imported initialization, let's just use defaults
-    });
-    firestoreDb = initializeFirestore(app, {});
+    firestoreDb = initializeFirestore(app, {}, DATABASE_ID);
   }
 }
 

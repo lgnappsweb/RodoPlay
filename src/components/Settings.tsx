@@ -13,7 +13,8 @@ import { BASE_OPTIONS, SHIFT_OPTIONS } from '../constants';
 import { ALL_AVATARS } from '../data/avatars';
 import { getThemeSettings, saveThemeSettings, applyTheme } from '../lib/theme';
 import { db, auth } from '../lib/firebase';
-import { collection, query, where, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { sanitizeId } from '../lib/rankingSync';
 
 interface SettingsProps {
   player: Player;
@@ -116,6 +117,136 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
   const isPasswordRequired = !!(player.email && isPasswordUser);
 
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isWipingAll, setIsWipingAll] = useState(false);
+
+  const handleWipeAllAccounts = async () => {
+    setIsConfirmingDelete(false);
+    setIsWipingAll(true);
+    try {
+      const uid = player.uid;
+      const sEmail = player.email || '';
+      // Capture the last auth password from local storage BEFORE clearing it
+      const savedPass = localStorage.getItem('last_auth_password') || undefined;
+
+      console.log(`[CLIENT DELETE] Chamando a API backend /api/deleteUserCompletely para UID ${uid}`);
+
+      // 1. CALL SERVER-SIDE API ("CLOUD FUNCTION")
+      let serverPurgeSucceeded = false;
+      try {
+        const response = await fetch('/api/deleteUserCompletely', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ uid, email: sEmail }),
+        });
+        if (response.ok) {
+          const resJson = await response.json();
+          if (resJson.success) {
+            console.log("[CLIENT DELETE] Purga no backend executada com sucesso!");
+            serverPurgeSucceeded = true;
+          }
+        }
+      } catch (backendError) {
+        console.warn("[CLIENT DELETE] Erro ao chamar API backend, executando fallback local:", backendError);
+      }
+
+      // 2. CLIENT-SIDE FALLBACK (If Server Purge Failed Or Was Incomplete)
+      if (!serverPurgeSucceeded) {
+        console.log("[CLIENT DELETE] Executando purga manual via Firestore no cliente...");
+        try {
+          const batch = writeBatch(db);
+
+          // Delete user master profile documents
+          batch.delete(doc(db, 'players', uid));
+          batch.delete(doc(db, 'users', uid));
+          batch.delete(doc(db, 'rankings/global/players', uid));
+
+          // Clear from all possible shift and base rankings dynamically
+          if (BASE_OPTIONS && Array.isArray(BASE_OPTIONS)) {
+            BASE_OPTIONS.forEach((item) => {
+              batch.delete(doc(db, `rankings/bases/all_bases/${sanitizeId(item)}/players`, uid));
+            });
+          }
+          if (SHIFT_OPTIONS && Array.isArray(SHIFT_OPTIONS)) {
+            SHIFT_OPTIONS.forEach((item) => {
+              batch.delete(doc(db, `rankings/turnos/all_turnos/${sanitizeId(item)}/players`, uid));
+            });
+          }
+
+          // Delete active sessions
+          try {
+            const sessionsQuery = sEmail 
+              ? query(collection(db, 'sessions'), where('email', '==', sEmail))
+              : query(collection(db, 'sessions'), where('userId', '==', uid));
+            const sessionsSnap = await getDocs(sessionsQuery);
+            sessionsSnap.forEach((docSnap) => {
+              batch.delete(doc(db, 'sessions', docSnap.id));
+            });
+          } catch (e) {
+            console.warn("Error background cleaning sessions:", e);
+          }
+
+          // Fetch and delete notifications (where user is sender or recipient)
+          try {
+            const notifsQuery1 = query(collection(db, 'notifications'), where('recipientId', '==', uid));
+            const notifsSnap1 = await getDocs(notifsQuery1);
+            notifsSnap1.forEach((docSnap) => {
+              batch.delete(doc(db, 'notifications', docSnap.id));
+            });
+            const notifsQuery2 = query(collection(db, 'notifications'), where('senderId', '==', uid));
+            const notifsSnap2 = await getDocs(notifsQuery2);
+            notifsSnap2.forEach((docSnap) => {
+              batch.delete(doc(db, 'notifications', docSnap.id));
+            });
+          } catch (e) {
+            console.warn("Error background cleaning notifications:", e);
+          }
+
+          // Commit direct batch
+          await batch.commit();
+        } catch (fbClientErr) {
+          console.warn("[Settings] Client-side data purge fallback returned warnings, continuing with account deletion:", fbClientErr);
+        }
+      }
+
+      // 3. AUTH ACCOUNT TERMINATION (Must happen while session is still fully loaded in localStorage / IndexedDB)
+      console.log("[CLIENT DELETE] Disparando exclusão de credencial Auth do Firebase...");
+      await onDeleteProfile(savedPass);
+
+      // 4. COMPLETE DEVICE WIPE & CLEANUP (LocalStorage, SessionStorage, IndexedDB)
+      console.log("[CLIENT DELETE] Realizando limpeza total de caches e persistências locais...");
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Clear local IndexedDB databases if accessible
+      try {
+        if (typeof window.indexedDB !== 'undefined' && window.indexedDB.databases) {
+          const dbs = await window.indexedDB.databases();
+          dbs.forEach(dbInfo => {
+            if (dbInfo.name) {
+              window.indexedDB.deleteDatabase(dbInfo.name);
+            }
+          });
+        }
+      } catch (errDb) {
+        console.warn("Error wiping IndexedDB stores:", errDb);
+      }
+
+      // Default the redirect tab to registration for seamless layout sync
+      localStorage.setItem('auth_default_tab', 'register');
+
+    } catch (err: any) {
+      console.error("Deletion failed:", err);
+      if (err.message && err.message.includes("recentemente")) {
+        alert(err.message);
+      } else {
+        alert("Erro ao excluir conta: " + (err.message || String(err)));
+      }
+    } finally {
+      setIsWipingAll(false);
+    }
+  };
 
   // Load theme settings inside Settings component
   const initialTheme = getThemeSettings();
@@ -128,6 +259,11 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
     const newConfig = { mode, primary: primaryColor, secondary: secondaryColor };
     saveThemeSettings(newConfig);
     applyTheme(newConfig);
+    onUpdate({
+      themeMode: mode,
+      themePrimary: primaryColor,
+      themeSecondary: secondaryColor
+    }).catch(err => console.warn("Failed syncing themeMode to Firestore:", err));
   };
 
   const handlePrimaryColorChange = (color: string) => {
@@ -135,6 +271,11 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
     const newConfig = { mode: themeMode, primary: color, secondary: secondaryColor };
     saveThemeSettings(newConfig);
     applyTheme(newConfig);
+    onUpdate({
+      themeMode,
+      themePrimary: color,
+      themeSecondary: secondaryColor
+    }).catch(err => console.warn("Failed syncing primaryColor to Firestore:", err));
   };
 
   const handleSecondaryColorChange = (color: string) => {
@@ -142,6 +283,11 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
     const newConfig = { mode: themeMode, primary: primaryColor, secondary: color };
     saveThemeSettings(newConfig);
     applyTheme(newConfig);
+    onUpdate({
+      themeMode,
+      themePrimary: primaryColor,
+      themeSecondary: color
+    }).catch(err => console.warn("Failed syncing secondaryColor to Firestore:", err));
   };
 
   const handlePresetSelect = (primary: string, secondary: string) => {
@@ -150,6 +296,11 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
     const newConfig = { mode: themeMode, primary, secondary };
     saveThemeSettings(newConfig);
     applyTheme(newConfig);
+    onUpdate({
+      themeMode,
+      themePrimary: primary,
+      themeSecondary: secondary
+    }).catch(err => console.warn("Failed syncing preset to Firestore:", err));
   };
 
   const COLOR_PRESETS = [
@@ -525,6 +676,35 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
               </div>
             </button>
 
+            {/* Excluir Minha Conta / Cadastro */}
+            <div className="h-[1px] bg-slate-700/30 mx-6" />
+            <button 
+              type="button"
+              id="settings-wipe-all-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                setIsConfirmingDelete(true);
+              }}
+              disabled={isWipingAll}
+              className="w-full flex items-center gap-4 px-6 py-4 hover:bg-red-500/10 active:bg-red-500/20 transition-all group cursor-pointer text-left border-none bg-transparent pointer-events-auto select-none"
+            >
+              <div className="w-10 h-10 bg-red-500/15 rounded-xl flex items-center justify-center text-red-400 group-hover:text-red-300 transition-colors">
+                {isWipingAll ? (
+                  <Loader2 className="animate-spin text-red-500" size={18} />
+                ) : (
+                  <Trash2 size={18} />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-black uppercase text-red-400 group-hover:text-red-300 transition-colors">
+                  {isWipingAll ? 'Excluindo minha conta...' : 'Excluir Minha Conta / Cadastro'}
+                </p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter font-sans leading-relaxed">
+                  Exclui permanentemente seu e-mail, perfil, estatísticas de jogo e conquistas do servidor e limpa os dados locais
+                </p>
+              </div>
+            </button>
+
 
 
           </CardContent>
@@ -681,6 +861,61 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
             </div>
           </div>
         </motion.div>
+      )}
+
+      {/* Professional Deletion Modal */}
+      {isConfirmingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md select-none">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ type: 'spring', duration: 0.4 }}
+            className="w-full max-w-sm bg-slate-900 border-2 border-red-500/20 rounded-[2.5rem] p-8 text-center space-y-6 shadow-2xl relative overflow-hidden"
+          >
+            {/* Warning Glow element */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-red-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Trash visual badge */}
+            <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl mx-auto flex items-center justify-center text-red-500 shadow-md">
+              <Trash2 size={28} />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[9px] font-black bg-red-500/10 text-red-400 border border-red-500/25 px-2.5 py-1 rounded-lg uppercase tracking-widest leading-none">
+                Confirmação Crítica
+              </span>
+              <h3 className="text-sm font-black text-white uppercase italic tracking-tight pt-2">
+                Excluir Conta Permanentemente
+              </h3>
+              <p className="text-[11px] font-medium text-slate-400 leading-normal uppercase tracking-wide">
+                Essa ação apagará permanentemente sua conta, rankings, partidas, patrulhas, pontuações e todos os dados vinculados. Essa ação não poderá ser desfeita.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-4">
+              {/* Confirm deletion */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleWipeAllAccounts}
+                className="w-full h-12 bg-red-500 hover:bg-red-400 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-red-500/15 border-none"
+              >
+                <span>Excluir Permanentemente</span>
+              </motion.button>
+
+              {/* Cancel deletion */}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsConfirmingDelete(false)}
+                className="w-full h-12 bg-slate-800 hover:bg-slate-700 text-slate-300 font-black text-[10px] uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-700"
+              >
+                <span>Cancelar</span>
+              </motion.button>
+            </div>
+          </motion.div>
+        </div>
       )}
 
     </div>

@@ -96,27 +96,50 @@ export function sanitizeId(val: string): string {
  * Includes transition logic to prune old base/shift records if base or shift is edited.
  */
 export async function writePlayerProfile(uid: string, data: Partial<Player>): Promise<void> {
-  const playersPath = `players/${uid}`;
+  const playersPath = `users/${uid}`;
   try {
-    // 1. Fetch current existing state to perform relational consistency
-    const playerRef = doc(db, 'players', uid);
+    // 1. Fetch current existing state to perform relational consistency (from users master first, then players)
     let existingProfile: any = null;
     try {
-      const snap = await getDoc(playerRef);
+      const userRef = doc(db, 'users', uid);
+      const snap = await getDoc(userRef);
       if (snap.exists()) {
         existingProfile = snap.data();
+      } else {
+        const playerRef = doc(db, 'players', uid);
+        const playerSnap = await getDoc(playerRef);
+        if (playerSnap.exists()) {
+          existingProfile = playerSnap.data();
+        }
       }
     } catch (e) {
       console.warn("Could not retrieve current player document, continuing with merge: ", e);
     }
 
-    // Determine current values merging existing and updated
-    const displayName = data.displayName || existingProfile?.displayName || auth.currentUser?.displayName || 'Anon';
-    const email = data.email || existingProfile?.email || auth.currentUser?.email || '';
-    const avatar = data.avatar || existingProfile?.avatar || '👷';
-    const base = data.base || existingProfile?.base || 'Base 01';
-    const shift = data.shift || existingProfile?.shift || 'Turno A - Diurno';
-    const praca = (data as any).praca || existingProfile?.praca || (data as any).praça || existingProfile?.praça || 'Praça 01';
+    // 2. Load from localStorage backup cache to support offline or rapid reload states safely
+    let cached: any = null;
+    try {
+      const cachedStr = localStorage.getItem('last_player_profile');
+      if (cachedStr) {
+        const parsed = JSON.parse(cachedStr);
+        if (parsed && (parsed.uid === uid || parsed.email?.toLowerCase() === auth.currentUser?.email?.toLowerCase())) {
+          cached = parsed;
+          console.log("writePlayerProfile: found local backup cache layer to protect details from being reset");
+        }
+      }
+    } catch (errCache) {
+      console.warn("writePlayerProfile error parsing local cache fallback:", errCache);
+    }
+
+    // Determine current values using a bulletproof layered merge strategy
+    const finalApelido = data.apelido || data.displayName || existingProfile?.apelido || existingProfile?.displayName || cached?.apelido || cached?.displayName || auth.currentUser?.displayName?.split('@')[0] || 'Operador RodoPlay';
+    const email = data.email || existingProfile?.email || cached?.email || auth.currentUser?.email || '';
+    const avatar = data.avatar || existingProfile?.avatar || cached?.avatar || '👷';
+    const base = data.base || existingProfile?.base || cached?.base || 'Base 01';
+    const shift = data.shift || (data as any).turno || existingProfile?.shift || existingProfile?.turno || cached?.shift || cached?.turno || 'Turno A - Diurno';
+    const praca = (data as any).praca || (data as any).praça || existingProfile?.praca || existingProfile?.praça || cached?.praca || cached?.praça || 'Praça 01';
+    
+    const displayName = finalApelido;
     
     // Performance and progression scores
     const xp = data.xp !== undefined ? data.xp : (existingProfile?.xp || 0);

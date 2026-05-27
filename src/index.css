@@ -54,12 +54,30 @@
   --color-highway-yellow: var(--primary-color);
   --color-highway-slate: var(--bg-900);
 
+  --color-yellow-50: var(--primary-light);
+  --color-yellow-105: var(--primary-light);
+  --color-yellow-100: var(--primary-light);
+  --color-yellow-200: var(--primary-light);
   --color-yellow-300: var(--primary-light);
+  --color-yellow-350: var(--primary-light);
   --color-yellow-400: var(--primary-color);
+  --color-yellow-450: var(--primary-color);
   --color-yellow-500: var(--primary-color);
   --color-yellow-600: var(--primary-dark);
+  --color-yellow-700: var(--primary-dark);
+  --color-yellow-800: var(--primary-dark-extra);
+  --color-yellow-900: var(--primary-dark-extra);
+
+  --color-amber-50: var(--primary-light);
+  --color-amber-100: var(--primary-light);
+  --color-amber-200: var(--primary-light);
+  --color-amber-300: var(--primary-light);
+  --color-amber-400: var(--primary-color);
   --color-amber-500: var(--primary-dark);
   --color-amber-600: var(--primary-dark-extra);
+  --color-amber-700: var(--primary-dark-extra);
+  --color-amber-800: var(--primary-dark-extra);
+  --color-amber-900: var(--primary-dark-extra);
   
   --color-indigo-400: var(--secondary-light);
   --color-indigo-500: var(--secondary-color);
@@ -126,19 +144,19 @@
 
 /* 1. Game Config Top-Corner Back Buttons (w-10 h-10 rounded-xl bg-slate-800) */
 button.rounded-xl.bg-slate-800[class*="w-10"][class*="h-10"] {
-  border: 2px solid #eab308 !important; /* border-yellow-500 */
+  border: 2px solid var(--primary-color) !important;
   background-color: #020617 !important; /* slate-950 */
-  color: #eab308 !important; /* yellow-500 */
-  box-shadow: 0 0 15px rgba(234, 179, 8, 0.35) !important;
+  color: var(--primary-color) !important;
+  box-shadow: 0 0 15px color-mix(in srgb, var(--primary-color) 35%, transparent) !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
   border-radius: 1rem !important; /* rounded-2xl */
 }
 
 button.rounded-xl.bg-slate-800[class*="w-10"][class*="h-10"]:hover {
   background-color: #1e293b !important; /* slate-800 */
-  border-color: #facc15 !important; /* yellow-400 */
-  color: #facc15 !important;
-  box-shadow: 0 0 25px rgba(250, 204, 21, 0.6) !important;
+  border-color: var(--primary-light) !important;
+  color: var(--primary-light) !important;
+  box-shadow: 0 0 25px color-mix(in srgb, var(--primary-light) 60%, transparent) !important;
   transform: scale(1.1) rotate(-3deg) !important;
 }
 
@@ -146,9 +164,9 @@ button.rounded-xl.bg-slate-800[class*="w-10"][class*="h-10"]:hover {
 button[class*="border-slate-800"][class*="text-slate-400"],
 button[class*="border-slate-750"][class*="text-slate-400"],
 button[class*="border-slate-700"][class*="text-slate-400"][class*="w-full"] {
-  border: 2px solid rgba(234, 179, 8, 0.6) !important;
+  border: 2px solid color-mix(in srgb, var(--primary-color) 60%, transparent) !important;
   background-color: rgba(2, 6, 23, 0.95) !important; /* slate-950 */
-  color: #facc15 !important; /* yellow-450 */
+  color: var(--primary-color) !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
   font-weight: 950 !important;
@@ -158,10 +176,37 @@ button[class*="border-slate-700"][class*="text-slate-400"][class*="w-full"] {
 button[class*="border-slate-800"][class*="text-slate-400"]:hover,
 button[class*="border-slate-750"][class*="text-slate-400"]:hover,
 button[class*="border-slate-700"][class*="text-slate-400"][class*="w-full"]:hover {
-  border-color: #facc15 !important;
+  border-color: var(--primary-light) !important;
   background-color: #0f172a !important; /* slate-900 */
   color: #ffffff !important;
-  box-shadow: 0 0 25px rgba(250, 204, 21, 0.5) !important;
+  box-shadow: 0 0 25px color-mix(in srgb, var(--primary-light) 50%, transparent) !important;
   transform: scale(1.02) !important;
 }
+
+/* ==========================================================
+   SCROLLABLE BUTTON POSITION BETWEEN GESTÃO DA CONTA AND FOOTER
+   ========================================================== */
+div#root:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(7) > div:nth-of-type(1) > button:nth-of-type(1) {
+  position: relative !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  z-index: 10 !important;
+  width: 100% !important;
+  max-width: 448px !important;
+  margin: 1.5rem auto !important;
+  display: block !important;
+  background-color: var(--bg-800) !important;
+  border: 2px solid var(--primary-color) !important;
+  color: var(--primary-color) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), 0 0 10px color-mix(in srgb, var(--primary-color) 15%, transparent) !important;
+  border-radius: 1rem !important;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div:nth-of-type(7) > div:nth-of-type(1) > button:nth-of-type(1):hover {
+  background-color: var(--bg-750) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 25px color-mix(in srgb, var(--primary-light) 50%, transparent) !important;
+}
+
 

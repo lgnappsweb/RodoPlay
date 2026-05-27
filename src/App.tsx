@@ -13,7 +13,7 @@ import { db } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { getThemeSettings, applyTheme } from './lib/theme';
 import { createNotification } from './lib/notifications';
-import { Bell, Gamepad2, Shield } from 'lucide-react';
+import { Bell, Gamepad2, Shield, Trash2 } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 
 // Lazy load heavy or secondary components
@@ -35,6 +35,7 @@ const TicTacToe = lazy(() => import('./components/TicTacToe').then(m => ({ defau
 const QueensGame = lazy(() => import('./components/QueensGame').then(m => ({ default: m.QueensGame })));
 const Palavras500 = lazy(() => import('./components/Palavras500').then(m => ({ default: m.Palavras500 })));
 const ContextoGame = lazy(() => import('./components/ContextoGame').then(m => ({ default: m.ContextoGame })));
+const SudokuGame = lazy(() => import('./components/SudokuGame').then(m => ({ default: m.SudokuGame })));
 const GamesGrid = lazy(() => import('./components/GamesGrid').then(m => ({ default: m.GamesGrid })));
 
 export default function App() {
@@ -52,6 +53,7 @@ export default function App() {
     deleteProfile
   } = useAuth();
   const [view, setView] = useState<'home' | 'leaderboard' | 'settings' | 'multiplayer' | 'notifications' | GameType>('home');
+  const [isDeletedScreen, setIsDeletedScreen] = useState(false);
 
   // Sync user profile state changes including edits and newly obtained avatars into saved profiles list for rapid 1-click access
   useEffect(() => {
@@ -92,6 +94,15 @@ export default function App() {
 
   // Global Realtime listener for aggregated players' metrics
   useEffect(() => {
+    if (!user) {
+      setGlobalStats({
+        totalScore: 0,
+        gamesPlayed: 0,
+        completedGames: 0,
+        timedOutGames: 0
+      });
+      return;
+    }
     const q = query(collection(db, 'players'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       let sumScore = 0;
@@ -154,7 +165,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   // Global Realtime listener for unread notifications count
   useEffect(() => {
@@ -373,6 +384,64 @@ export default function App() {
            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
            className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full"
          />
+      </div>
+    );
+  }
+
+  if (isDeletedScreen) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden font-sans">
+        {/* Ambient red flare blur background */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-red-500/10 rounded-full blur-[100px] pointer-events-none" />
+        
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-slate-900 border-2 border-red-500/20 rounded-[2.5rem] p-8 text-center space-y-6 shadow-[0_0_50px_rgba(239,68,68,0.15)] relative"
+        >
+          {/* Visual deleted indicator icon */}
+          <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl mx-auto flex items-center justify-center text-red-400 shadow-md">
+            <Trash2 size={28} />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-block bg-red-500/10 text-red-400 border border-red-500/20 px-2.5 py-0.5 font-black uppercase text-[9px] tracking-wider rounded-lg">
+              SISTEMA RESETADO
+            </div>
+            <h2 className="text-xl font-black text-white italic uppercase tracking-tight">
+              Conta excluída com sucesso.
+            </h2>
+            <p className="text-slate-400 font-medium text-xs leading-relaxed">
+              Todos os seus dados (e-mail, perfil, estatísticas de jogo e registros de ranking) foram apagados definitivamente de nossa base de dados.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 pt-4">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                localStorage.setItem('auth_default_tab', 'register');
+                setIsDeletedScreen(false);
+              }}
+              className="w-full h-12 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-yellow-500/10 border-none"
+            >
+              <span>Criar nova conta</span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                localStorage.setItem('auth_default_tab', 'login');
+                setIsDeletedScreen(false);
+              }}
+              className="w-full h-12 bg-slate-800 hover:bg-slate-700/80 text-slate-300 font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-slate-700"
+            >
+              <span>Entrar com outro email</span>
+            </motion.button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -712,7 +781,7 @@ export default function App() {
                 onDeleteProfile={async (passwordConfirm?: string) => {
                   if (player?.uid) {
                     await deleteProfile(player.uid, passwordConfirm);
-                    setView('home');
+                    setIsDeletedScreen(true);
                   }
                 }}
                 onBack={() => setView('home')}
@@ -1017,6 +1086,25 @@ export default function App() {
               exit={{ opacity: 0 }}
             >
               <ContextoGame
+                currentPlayerId={player.uid}
+                onComplete={handleGameComplete}
+                onScoreUpdate={handleScoreUpdate}
+                onCancel={() => {
+                  setSessionScore(0);
+                  setView('home');
+                }}
+              />
+            </motion.div>
+          )}
+
+          {view === GameType.SUDOKU && (
+            <motion.div
+              key="sudokugame"
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <SudokuGame
                 currentPlayerId={player.uid}
                 onComplete={handleGameComplete}
                 onScoreUpdate={handleScoreUpdate}

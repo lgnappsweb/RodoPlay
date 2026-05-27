@@ -56,6 +56,7 @@ const LEAD_GAMES = [
   { id: 'QUEENS', name: 'Queens (Rainhas)', icon: '👑' },
   { id: 'PALAVRAS_500', name: 'Palavras 500', icon: '📚' },
   { id: 'CONTEXTO', name: 'Contexto', icon: '🧠' },
+  { id: 'SUDOKU', name: 'Sudoku Tático', icon: '🔢' },
   { id: 'TIC_TAC_TOE', name: 'Jogo da Velha', icon: '❌' },
 ];
 
@@ -342,6 +343,45 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
   const filteredPlayers = useMemo(() => {
     let list = [...enhancedPlayers];
 
+    // Safe de-duplication and test-record purging to maintain extreme visual polish:
+    // 1. Exclude any duplicate profiles having the exact same display name as the current user but with a different UID
+    if (currentPlayer?.displayName) {
+      const myCleanName = currentPlayer.displayName.trim().toLowerCase();
+      list = list.filter(p => {
+        if (p.uid === currentPlayer.uid) return true;
+        const otherName = (p.displayName || p.apelido || '').trim().toLowerCase();
+        return otherName !== myCleanName;
+      });
+    }
+
+    // 2. Exclude any duplicate profiles having the exact same email as the current user but with a different UID (if email is defined)
+    if (currentPlayer?.email) {
+      const myCleanEmail = currentPlayer.email.trim().toLowerCase();
+      list = list.filter(p => {
+        if (p.uid === currentPlayer.uid) return true;
+        const otherEmail = (p.email || '').trim().toLowerCase();
+        return otherEmail !== myCleanEmail;
+      });
+    }
+
+    // 3. Exclude uninitialized test records/accounts (with 0 score and 0 games played) that are not the current user
+    list = list.filter(p => {
+      if (p.uid === currentPlayer?.uid) return true;
+      const score = p.totalScore || p.pontos || p.scoreTotal || 0;
+      const games = p.gamesPlayed || p.patrulhas || p.completedGames || p.partidas || 0;
+      return score > 0 || games > 0;
+    });
+
+    // 4. Exclude any placeholder or debug names commonly used in tests that are not the active user
+    list = list.filter(p => {
+      if (p.uid === currentPlayer?.uid) return true;
+      const name = (p.displayName || p.apelido || '').toLowerCase();
+      const email = (p.email || '').toLowerCase().trim();
+      const isTestName = name === 'teste' || name.startsWith('teste ') || name === 'test' || name.includes('dummy') || name.includes('deletada') || name.includes('deletar') || name === 'recruta' || name.includes('teste');
+      const isTestEmail = email === 'teste@rodoplay.com.br' || email.includes('teste@') || email.includes('test@');
+      return !isTestName && !isTestEmail;
+    });
+
     // 1. Base Filter matching
     if (selectedBase && selectedBase !== 'all') {
       list = list.filter(p => sanitizeId(p.base) === sanitizeId(selectedBase));
@@ -493,6 +533,8 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
       case 'PARKING_ESCAPE': return 'Escape de Pátio';
       case 'QUEENS': return 'Queens (Rainhas)';
       case 'PALAVRAS_500': return 'Palavras 500';
+      case 'CONTEXTO': return 'Contexto';
+      case 'SUDOKU': return 'Sudoku Tático';
       default: return 'Desafio';
     }
   };

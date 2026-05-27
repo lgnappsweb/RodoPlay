@@ -516,7 +516,7 @@ export function NotificationsPage({
               <div className="space-y-1">
                 <h3 className="text-sm font-black uppercase text-white tracking-wider">Apagar Notificação?</h3>
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-                  Tem certeza que deseja apagar esta notificação de patrulha ou duelo permanentemente?
+                  Tem certeza que deseja apagar esta notificação de patrulha permanentemente?
                 </p>
               </div>
 

@@ -205,6 +205,18 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
       borderClass: 'border-slate-705',
       rotateClass: '-rotate-12 group-hover:rotate-0',
       bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.SUDOKU,
+      friendlyName: 'Sudoku Tático',
+      title: 'SUDOKU',
+      desc: 'Lógica Numérica',
+      bgIcon: Grid,
+      mainIcon: Grid,
+      iconClass: 'bg-yellow-400 text-slate-950',
+      borderClass: 'border-slate-705',
+      rotateClass: 'group-hover:scale-110 rotate-6',
+      bgIconSize: 'w-12 h-12',
     }
   ];
 

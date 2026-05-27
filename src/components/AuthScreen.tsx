@@ -34,53 +34,21 @@ interface AuthScreenProps {
 }
 
 export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProps) {
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [tab, setTab] = useState<'login' | 'register'>(() => {
+    try {
+      const saved = localStorage.getItem('auth_default_tab');
+      if (saved === 'register' || saved === 'login') {
+        localStorage.removeItem('auth_default_tab');
+        return saved;
+      }
+    } catch (e) {}
+    return 'login';
+  });
   
   const [savedProfiles, setSavedProfiles] = useState<any[]>(() => {
     try {
       const data = localStorage.getItem('roplay_saved_profiles');
       let parsed = data ? JSON.parse(data) : [];
-      
-      // If empty, let's pre-populate with the user's email so they can click and log in instantly on first load!
-      if (parsed.length === 0) {
-        const lastProfileStr = localStorage.getItem('last_player_profile');
-        const lastPass = localStorage.getItem('last_auth_password') || '123456';
-        
-        if (lastProfileStr) {
-          try {
-            const profile = JSON.parse(lastProfileStr);
-            parsed.push({
-              uid: profile.uid || 'saved-user',
-              email: profile.email || 'lgnappsweb@gmail.com',
-              password: lastPass,
-              displayName: profile.displayName || 'LGN APPS',
-              avatar: profile.avatar || '👷',
-              base: profile.base || 'Base 01',
-              shift: profile.shift || 'Turno A Diurno',
-              praca: (profile as any).praca || (profile as any).praça || 'Não Aplicável'
-            });
-          } catch (e) {
-            console.warn("Error parsing last_player_profile:", e);
-          }
-        }
-        
-        // Guarantee that the main user email has a pre-saved profile ready to tap!
-        const hasMainEmail = parsed.some((p: any) => p.email.toLowerCase() === 'lgnappsweb@gmail.com');
-        if (!hasMainEmail) {
-          parsed.push({
-            uid: 'lgn-apps-default',
-            email: 'lgnappsweb@gmail.com',
-            password: lastPass,
-            displayName: 'LGN APPS',
-            avatar: '⚡',
-            base: 'Base 01',
-            shift: 'Turno A - Diurno',
-            praca: 'Não Aplicável'
-          });
-        }
-        
-        localStorage.setItem('roplay_saved_profiles', JSON.stringify(parsed));
-      }
       
       // Always filter out the test account 'teste@rodoplay.com.br' from list to keep only real registered users
       const filtered = parsed.filter((p: any) => p.email.toLowerCase() !== 'teste@rodoplay.com.br');
@@ -150,9 +118,14 @@ export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProp
   ];
 
   const SHIFTS = [
-    'Turno A Diurno', 'Turno A Noturno', 
-    'Turno B Diurno', 'Turno B Noturno',
-    'Turno A', 'Turno B', 'Turno C', 'Turno D'
+    'Turno A - Diurno',
+    'Turno A - Noturno',
+    'Turno B - Diurno',
+    'Turno B - Noturno',
+    'Turno A',
+    'Turno B',
+    'Turno C',
+    'Turno D'
   ];
 
   // RegEx for clean e-mail verification
@@ -351,10 +324,10 @@ export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProp
             initial={{ opacity: 0, scale: 0.95, y: -12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', duration: 0.5 }}
-            className="flex flex-col gap-3 bg-gradient-to-b from-slate-900/90 to-slate-950/90 p-4.5 rounded-[2rem] border-2 border-yellow-400/35 mb-6 shadow-2xl relative overflow-hidden"
+            className="flex flex-col gap-3.5 bg-gradient-to-b from-slate-900/95 to-slate-950/95 p-5 rounded-[2rem] border-2 border-yellow-400/40 mb-6 shadow-2xl relative overflow-hidden"
           >
             {/* Shimmer backdrop effect */}
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent animate-pulse" />
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/50 to-transparent animate-pulse" />
             
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-1.5">
@@ -364,48 +337,93 @@ export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProp
                   Acesso Instantâneo Gravado
                 </span>
               </div>
-              <span className="text-[8px] bg-yellow-400/10 text-yellow-400 px-2.5 py-0.5 rounded-full font-black uppercase tracking-widest border border-yellow-400/20 active:scale-95 transition-all">
-                Apenas 1 Clique
-              </span>
+              <div className="flex gap-2">
+                <span className="text-[8px] bg-yellow-400/10 text-yellow-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-yellow-400/20 antialiased">
+                  {savedProfiles.length} {savedProfiles.length === 1 ? 'Perfil' : 'Perfis'}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (window.confirm("Deseja mesmo remover todos os emails e contas salvos de motoristas neste aparelho?")) {
+                      setSavedProfiles([]);
+                      localStorage.setItem('roplay_saved_profiles', '[]');
+                    }
+                  }}
+                  className="text-[8px] bg-red-400/15 hover:bg-red-400/25 text-red-400 px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-red-500/25 active:scale-95 transition-all cursor-pointer"
+                >
+                  Limpar Todos
+                </button>
+              </div>
             </div>
             
-            <div className="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-3.5 max-h-[400px] overflow-y-auto pr-1">
               {savedProfiles.map((p) => (
                 <div
                   key={p.email}
-                  onClick={() => !loading && handleQuickLogin(p)}
-                  className={`w-full flex items-center gap-3 p-2.5 bg-slate-950/90 hover:bg-slate-900/60 border border-slate-800 hover:border-yellow-400/50 rounded-2xl transition-all text-left relative group select-none hover:shadow-[0_0_12px_rgba(250,204,21,0.1)] active:scale-[0.99] ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  className="w-full bg-slate-950 p-4 border border-slate-850 hover:border-yellow-400/50 rounded-[1.5rem] transition-all flex flex-col gap-3 relative shadow-md hover:shadow-[0_0_15px_rgba(250,204,21,0.08)]"
                 >
-                  <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-xl border-2 border-slate-800 group-hover:border-yellow-400/30 overflow-hidden shrink-0 select-none transition-colors relative">
-                    {p.avatar && (p.avatar.startsWith('data:image') || p.avatar.startsWith('http')) ? (
-                      <img src={p.avatar} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <span className="transition-transform duration-300 group-hover:scale-110 block">{p.avatar || '👷'}</span>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black text-white hover:text-yellow-400 uppercase tracking-tight truncate leading-none transition-colors">
-                      {p.displayName}
-                    </p>
-                    <p className="text-[8.5px] font-bold text-slate-400 uppercase tracking-tighter truncate mt-1.5">
-                      {p.base !== 'Não Aplicável' ? p.base : p.praca} • {p.shift}
-                    </p>
+                  {/* Header: User Info / Avatar / Email */}
+                  <div className="flex items-start gap-3">
+                    {/* Avatar */}
+                    <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-2xl border-2 border-slate-800 overflow-hidden shrink-0 select-none relative shadow-inner">
+                      {p.avatar && (p.avatar.startsWith('data:image') || p.avatar.startsWith('http')) ? (
+                        <img src={p.avatar} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <span>{p.avatar || '👷'}</span>
+                      )}
+                    </div>
+
+                    {/* Nickname & Email */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-white uppercase tracking-tight truncate leading-tight">
+                        {p.displayName}
+                      </p>
+                      <p className="text-[10px] font-semibold text-slate-400 tracking-tight lowercase truncate mt-0.5">
+                        {p.email}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black text-yellow-400 uppercase tracking-wider bg-yellow-400/10 px-2 py-0.5 rounded-md">
-                      Entrar
-                    </span>
-                    <button
+                  {/* Badges for Base and Turno/Shift */}
+                  <div className="flex flex-wrap gap-2">
+                    <div className="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-xl text-[9px] font-black text-slate-300 uppercase tracking-wider flex items-center gap-1 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
+                      <span>{p.base !== 'Não Aplicável' ? p.base : p.praca}</span>
+                    </div>
+                    <div className="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-xl text-[9px] font-black text-slate-300 uppercase tracking-wider flex items-center gap-1 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                      <span>{p.shift}</span>
+                    </div>
+                  </div>
+
+                  {/* Operational Controls */}
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    {/* Entrar: 1-click Automatic Login */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleQuickLogin(p)}
+                      className="h-10 bg-yellow-400 hover:bg-yellow-300 disabled:opacity-50 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-yellow-400/10 border-none"
+                    >
+                      <Zap size={12} className="fill-current text-slate-950" />
+                      <span>Entrar</span>
+                    </motion.button>
+
+                    {/* Remover deste dispositivo */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       type="button"
                       disabled={loading}
                       onClick={(e) => handleRemoveSavedProfile(p.email, e)}
-                      className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/15 rounded-xl transition-all cursor-pointer pointer-events-auto"
-                      title="Excluir conta salva neste dispositivo"
+                      className="h-10 bg-slate-900 hover:bg-red-400/10 hover:border-red-400/40 border border-slate-800 text-slate-400 hover:text-red-400 font-bold text-[9px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
-                      <Trash2 size={13} />
-                    </button>
+                      <Trash2 size={11} />
+                      <span>Remover</span>
+                    </motion.button>
                   </div>
                 </div>
               ))}

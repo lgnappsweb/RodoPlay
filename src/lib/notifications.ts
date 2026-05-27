@@ -139,7 +139,7 @@ export async function seedWelcomeNotifications(
     await createNotification(
       recipientId,
       "Bem-vindo(a) ao RodoPlay! 👷",
-      `Olá, motorista ${displayName}! Sua central de patrulhas e duelos está pronta. Jogue com seus colegas e suba no ranking!`,
+      `Olá, motorista ${displayName}! Sua central de patrulhas está pronta. Faça novos desafios lógicos e suba no ranking!`,
       "system"
     );
 
@@ -166,9 +166,9 @@ export async function seedWelcomeNotifications(
     // 4. Default mock friendly invite to show the user how invites look
     await createNotification(
       recipientId,
-      "Duelo Exemplo Recebido 👥",
-      "O motorista do turno da noite te desafiou para um duelo rápido de Super Quiz!",
-      "invite",
+      "Dica do Parça do Turno 👥",
+      "O motorista do turno da noite enviou uma lembrança: preste muita atenção nas placas de sinalização de obras em dias chuvosos!",
+      "system",
       "mock_sender_id",
       "Carlos Silva (Turno da Noite)",
       "👷"
