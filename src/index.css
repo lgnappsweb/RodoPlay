@@ -119,3 +119,49 @@
 
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+
+/* ==========================================================
+   RODOPLAY TRAFFIC THEMED HIGHLIGHTED BACK BUTTONS
+   ========================================================== */
+
+/* 1. Game Config Top-Corner Back Buttons (w-10 h-10 rounded-xl bg-slate-800) */
+button.rounded-xl.bg-slate-800[class*="w-10"][class*="h-10"] {
+  border: 2px solid #eab308 !important; /* border-yellow-500 */
+  background-color: #020617 !important; /* slate-950 */
+  color: #eab308 !important; /* yellow-500 */
+  box-shadow: 0 0 15px rgba(234, 179, 8, 0.35) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 1rem !important; /* rounded-2xl */
+}
+
+button.rounded-xl.bg-slate-800[class*="w-10"][class*="h-10"]:hover {
+  background-color: #1e293b !important; /* slate-800 */
+  border-color: #facc15 !important; /* yellow-400 */
+  color: #facc15 !important;
+  box-shadow: 0 0 25px rgba(250, 204, 21, 0.6) !important;
+  transform: scale(1.1) rotate(-3deg) !important;
+}
+
+/* 2. Full-width game configuration and end-of-game cancel/back buttons */
+button[class*="border-slate-800"][class*="text-slate-400"],
+button[class*="border-slate-750"][class*="text-slate-400"],
+button[class*="border-slate-700"][class*="text-slate-400"][class*="w-full"] {
+  border: 2px solid rgba(234, 179, 8, 0.6) !important;
+  background-color: rgba(2, 6, 23, 0.95) !important; /* slate-950 */
+  color: #facc15 !important; /* yellow-450 */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-weight: 950 !important;
+  border-radius: 1rem !important; /* rounded-2xl */
+}
+
+button[class*="border-slate-800"][class*="text-slate-400"]:hover,
+button[class*="border-slate-750"][class*="text-slate-400"]:hover,
+button[class*="border-slate-700"][class*="text-slate-400"][class*="w-full"]:hover {
+  border-color: #facc15 !important;
+  background-color: #0f172a !important; /* slate-900 */
+  color: #ffffff !important;
+  box-shadow: 0 0 25px rgba(250, 204, 21, 0.5) !important;
+  transform: scale(1.02) !important;
+}
+

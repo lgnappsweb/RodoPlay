@@ -141,7 +141,7 @@ export function Home({ player, onPlay, onViewChange }: HomeProps) {
               PAINEL DA PATRULHA
             </div>
             <h2 className="text-4xl font-black tracking-tighter uppercase italic drop-shadow-2xl text-white">
-              BEM-VINDO, OPERADOR
+              BEM-VINDO, {player?.displayName ? player.displayName.toUpperCase() : 'OPERADOR'}
             </h2>
           </div>
 

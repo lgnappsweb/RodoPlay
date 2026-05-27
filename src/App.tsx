@@ -455,7 +455,7 @@ export default function App() {
           id: notiId,
           recipientId: player.uid,
           title: "Patrulha Homologada! 📋✅",
-          message: `Inspecionada com sucesso! Você obteve +${finalP1Score} pontos e +${xpGained} XP na patrulha "${gameFriendly}".`,
+          message: `Inspecionada com sucesso!\n\n• Patrulha executada: ${gameFriendly}\n• Pontos adquiridos nesta partida: +${finalP1Score} pontos\n• XP ganho nesta partida: +${xpGained} XP\n\n📊 SALDO DE CARREIRA ATUALIZADO:\n• Pontuação Geral Acumulada: ${newTotalScore} pontos\n• Total de Patrulhas Executadas: ${newGamesPlayed} patrulhas\n\nA Central RodoPlay registrou suas métricas operacionais com sucesso. Continue rodando e preservando as vias!`,
           type: "patrol",
           timestamp: new Date().toISOString(),
           read: false,
@@ -532,114 +532,116 @@ export default function App() {
   return (
     <div className="max-w-md mx-auto min-h-screen relative overflow-x-hidden bg-slate-900 border-x border-slate-800 shadow-2xl flex flex-col">
       {/* Top Hazard Stripe */}
-      <div className="h-16 w-full hazard-stripe opacity-80 shrink-0" />
+      <div className="h-24 w-full hazard-stripe opacity-80 shrink-0" />
 
       {/* Persistent Real-time Header */}
-      <div className="bg-slate-900/90 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
-        <header className={`relative flex transition-all duration-500 p-4 ${isHome ? 'flex-col gap-8 pt-8 pb-10' : 'justify-between items-center'}`}>
-          {/* Notification Bell Button */}
-          {isHome && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setView('notifications')}
-              className={`absolute top-4 right-4 p-3 rounded-2xl bg-slate-800/90 border border-slate-700/50 hover:bg-slate-700/50 hover:border-yellow-500/30 transition-all cursor-pointer z-50 flex items-center justify-center shadow-lg ${
-                unreadCount > 0 ? 'text-yellow-400' : 'text-slate-400'
-              }`}
-            >
-              <Bell size={18} className={unreadCount > 0 ? 'fill-yellow-500/10' : ''} />
-              
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white font-mono border border-slate-900 shadow-md">
-                  {unreadCount}
-                </span>
-              )}
-            </motion.button>
-          )}
+      {view === 'home' && (
+        <div className="bg-slate-900/90 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
+          <header className={`relative flex transition-all duration-500 p-4 ${isHome ? 'flex-col gap-8 pt-8 pb-10' : 'justify-between items-center'}`}>
+            {/* Notification Bell Button */}
+            {isHome && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setView('notifications')}
+                className={`absolute top-4 right-4 p-3 rounded-2xl bg-slate-800/90 border border-slate-700/50 hover:bg-slate-700/50 hover:border-yellow-500/30 transition-all cursor-pointer z-50 flex items-center justify-center shadow-lg ${
+                  unreadCount > 0 ? 'text-yellow-400' : 'text-slate-400'
+                }`}
+              >
+                <Bell size={18} className={unreadCount > 0 ? 'fill-yellow-500/10' : ''} />
+                
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-[8px] font-black text-white font-mono border border-slate-900 shadow-md">
+                    {unreadCount}
+                  </span>
+                )}
+              </motion.button>
+            )}
 
-          <div className={`flex transition-all duration-500 ${isHome ? 'flex-col items-center gap-5' : 'items-center gap-3'}`}>
-            <div className="relative">
-              <div className={`rounded-2xl bg-slate-800 flex items-center justify-center shadow-inner border-2 border-slate-700 overflow-hidden transition-all duration-500 ${isHome ? 'w-24 h-24 text-7xl leading-none select-none shadow-[0_0_30px_rgba(30,41,59,0.5)]' : 'w-12 h-12 text-4xl leading-none select-none'}`}>
-                {player.avatar?.startsWith('data') || player.avatar?.startsWith('http') ? (
-                  <img src={player.avatar} alt="Avatar" className="w-full h-full object-cover" />
+            <div className={`flex transition-all duration-500 ${isHome ? 'flex-col items-center gap-5' : 'items-center gap-3'}`}>
+              <div className="relative">
+                <div className={`rounded-2xl bg-slate-800 flex items-center justify-center shadow-inner border-2 border-slate-700 overflow-hidden transition-all duration-500 ${isHome ? 'w-24 h-24 text-7xl leading-none select-none shadow-[0_0_30px_rgba(30,41,59,0.5)]' : 'w-12 h-12 text-4xl leading-none select-none'}`}>
+                  {player.avatar?.startsWith('data') || player.avatar?.startsWith('http') ? (
+                    <img src={player.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    player.avatar || '👷'
+                  )}
+                </div>
+                <div className={`absolute bg-blue-600 font-black rounded-lg border border-white uppercase transition-all duration-500 ${isHome ? '-bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 text-[10px]' : '-bottom-1 -right-1 px-1.5 py-0.5 text-[8px]'}`}>
+                  LV {player.level}
+                </div>
+              </div>
+              <div className={isHome ? 'text-center' : ''}>
+                <h1 className={`font-black uppercase text-white truncate transition-all duration-500 ${isHome ? 'text-2xl tracking-tight mb-2' : 'text-sm max-w-[120px]'}`}>
+                  {player.displayName}
+                </h1>
+                {player.email && (
+                  <p className={`text-slate-400 font-semibold tracking-tight lowercase truncate -mt-1.5 mb-2 ${isHome ? 'text-xs text-center' : 'text-[9px] text-left max-w-[120px]'}`} title={player.email}>
+                    {player.email}
+                  </p>
+                )}
+                <div className={`flex items-center gap-2 mt-0.5 ${isHome ? 'justify-center' : ''}`}>
+                  <div className={`${isHome ? 'w-32 h-2' : 'w-20 h-1.5'} bg-slate-800 rounded-full overflow-hidden border border-white/5`}>
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${xpProgress}%` }}
+                      className="h-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]" 
+                    />
+                  </div>
+                  <span className={`${isHome ? 'text-[10px]' : 'text-[8px]'} text-slate-500 font-bold uppercase tracking-tighter`}>
+                    {Math.floor(displayXP)} / {xpNextThreshold} XP
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className={`flex gap-3 transition-all duration-500 ${isHome ? 'justify-center w-full px-2' : ''}`}>
+              <motion.div 
+                key={globalDisplayTotalScore}
+                initial={{ scale: 1.1, borderColor: 'rgba(250, 204, 21, 0.5)' }}
+                animate={{ scale: 1, borderColor: 'rgba(51, 65, 85, 0.8)' }}
+                className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-3' : 'min-w-[85px] px-3 py-1.5'}`}
+              >
+                <span className={`font-black text-yellow-500 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Pontos Gerais</span>
+                <span className={`font-black text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)] leading-none ${isHome ? 'text-xl' : 'text-sm'}`}>
+                  {globalDisplayTotalScore.toLocaleString()}
+                </span>
+                <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Todos Cadastrados</span>
+              </motion.div>
+              <div className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-1.5 px-3' : 'min-w-[85px] px-2 py-1.5'}`}>
+                <span className={`font-black text-blue-400 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Patrulhas Coletivas</span>
+                {isHome ? (
+                  <div className="flex items-center gap-3 w-full justify-around mt-1">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[7px] font-black uppercase text-slate-500">Total</span>
+                      <span className="font-black text-blue-400 text-sm">{globalDisplayGamesPlayed}</span>
+                    </div>
+                    <div className="h-4 w-px bg-slate-700" />
+                    <div className="flex flex-col items-center">
+                      <span className="text-[7px] font-black uppercase text-emerald-500">Concluídas</span>
+                      <span className="font-black text-emerald-400 text-sm">{globalDisplayCompletedGames}</span>
+                    </div>
+                    <div className="h-4 w-px bg-slate-700" />
+                    <div className="flex flex-col items-center">
+                      <span className="text-[7px] font-black uppercase text-rose-500">Excedidas</span>
+                      <span className="font-black text-rose-400 text-sm">{globalDisplayTimedOutGames}</span>
+                    </div>
+                  </div>
                 ) : (
-                  player.avatar || '👷'
+                  <>
+                    <span className="font-black text-blue-400 leading-none text-sm">
+                      {globalDisplayGamesPlayed}
+                    </span>
+                    <span className="text-[7px] font-mono font-bold text-slate-400 mt-0.5 whitespace-nowrap">
+                      C:{globalDisplayCompletedGames} E:{globalDisplayTimedOutGames}
+                    </span>
+                  </>
                 )}
               </div>
-              <div className={`absolute bg-blue-600 font-black rounded-lg border border-white uppercase transition-all duration-500 ${isHome ? '-bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 text-[10px]' : '-bottom-1 -right-1 px-1.5 py-0.5 text-[8px]'}`}>
-                LV {player.level}
-              </div>
             </div>
-            <div className={isHome ? 'text-center' : ''}>
-              <h1 className={`font-black uppercase text-white truncate transition-all duration-500 ${isHome ? 'text-2xl tracking-tight mb-2' : 'text-sm max-w-[120px]'}`}>
-                {player.displayName}
-              </h1>
-              {player.email && (
-                <p className={`text-slate-400 font-semibold tracking-tight lowercase truncate -mt-1.5 mb-2 ${isHome ? 'text-xs text-center' : 'text-[9px] text-left max-w-[120px]'}`} title={player.email}>
-                  {player.email}
-                </p>
-              )}
-              <div className={`flex items-center gap-2 mt-0.5 ${isHome ? 'justify-center' : ''}`}>
-                <div className={`${isHome ? 'w-32 h-2' : 'w-20 h-1.5'} bg-slate-800 rounded-full overflow-hidden border border-white/5`}>
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${xpProgress}%` }}
-                    className="h-full bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)]" 
-                  />
-                </div>
-                <span className={`${isHome ? 'text-[10px]' : 'text-[8px]'} text-slate-500 font-bold uppercase tracking-tighter`}>
-                  {Math.floor(displayXP)} / {xpNextThreshold} XP
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className={`flex gap-3 transition-all duration-500 ${isHome ? 'justify-center w-full px-2' : ''}`}>
-            <motion.div 
-              key={globalDisplayTotalScore}
-              initial={{ scale: 1.1, borderColor: 'rgba(250, 204, 21, 0.5)' }}
-              animate={{ scale: 1, borderColor: 'rgba(51, 65, 85, 0.8)' }}
-              className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-3' : 'min-w-[85px] px-3 py-1.5'}`}
-            >
-              <span className={`font-black text-yellow-500 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Pontos Gerais</span>
-              <span className={`font-black text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)] leading-none ${isHome ? 'text-xl' : 'text-sm'}`}>
-                {globalDisplayTotalScore.toLocaleString()}
-              </span>
-              <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Todos Cadastrados</span>
-            </motion.div>
-            <div className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-1.5 px-3' : 'min-w-[85px] px-2 py-1.5'}`}>
-              <span className={`font-black text-blue-400 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Patrulhas Coletivas</span>
-              {isHome ? (
-                <div className="flex items-center gap-3 w-full justify-around mt-1">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[7px] font-black uppercase text-slate-500">Total</span>
-                    <span className="font-black text-blue-400 text-sm">{globalDisplayGamesPlayed}</span>
-                  </div>
-                  <div className="h-4 w-px bg-slate-700" />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[7px] font-black uppercase text-emerald-500">Concluídas</span>
-                    <span className="font-black text-emerald-400 text-sm">{globalDisplayCompletedGames}</span>
-                  </div>
-                  <div className="h-4 w-px bg-slate-700" />
-                  <div className="flex flex-col items-center">
-                    <span className="text-[7px] font-black uppercase text-rose-500">Excedidas</span>
-                    <span className="font-black text-rose-400 text-sm">{globalDisplayTimedOutGames}</span>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <span className="font-black text-blue-400 leading-none text-sm">
-                    {globalDisplayGamesPlayed}
-                  </span>
-                  <span className="text-[7px] font-mono font-bold text-slate-400 mt-0.5 whitespace-nowrap">
-                    C:{globalDisplayCompletedGames} E:{globalDisplayTimedOutGames}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </header>
-      </div>
+          </header>
+        </div>
+      )}
       
       <main className="flex-1 overflow-y-auto pb-24">
         <Suspense fallback={
@@ -676,6 +678,7 @@ export default function App() {
             >
               <GamesGrid 
                 onPlay={(gameType) => setView(gameType)} 
+                onBack={() => setView('home')}
               />
             </motion.div>
           )}
@@ -688,7 +691,7 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="p-4"
             >
-              <Leaderboard />
+              <Leaderboard onBack={() => setView('home')} />
             </motion.div>
           )}
 
@@ -712,6 +715,7 @@ export default function App() {
                     setView('home');
                   }
                 }}
+                onBack={() => setView('home')}
               />
             </motion.div>
           )}
@@ -1086,7 +1090,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Bottom Hazard Stripe */}
-      <div className="h-12 w-full hazard-stripe opacity-80 shrink-0" />
+      <div className="h-24 w-full hazard-stripe opacity-80 shrink-0" />
     </div>
   );
 }

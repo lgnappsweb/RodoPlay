@@ -30,7 +30,9 @@ import {
   Gamepad2, 
   BadgeAlert,
   SlidersHorizontal,
-  Sparkles
+  Sparkles,
+  ArrowLeft,
+  Car
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../hooks/useAuth';
@@ -60,9 +62,10 @@ const LEAD_GAMES = [
 export interface LeaderboardProps {
   isMini?: boolean;
   onViewAll?: () => void;
+  onBack?: () => void;
 }
 
-export function Leaderboard({ isMini = false, onViewAll }: LeaderboardProps) {
+export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardProps) {
   // Current authenticated user context
   const { player: currentPlayer } = useAuth();
 
@@ -798,36 +801,32 @@ export function Leaderboard({ isMini = false, onViewAll }: LeaderboardProps) {
   return (
     <div className="space-y-6 pb-24 text-left font-sans max-w-7xl mx-auto px-1">
       
-      {/* 1. STATEFUL UPPER BANNER */}
-      <div className="relative overflow-hidden rounded-3xl bg-slate-950 border border-slate-850 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
-        {/* Glow vector effect */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-yellow-500/10 to-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
-        
-        <div className="space-y-2 z-15">
-          <div className="flex items-center gap-2.5">
-            <Trophy className="h-7 w-7 text-yellow-400 stroke-[2] drop-shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
-            <h1 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter">
-              RANKING DE CONDUTORES
-            </h1>
-          </div>
-          <p className="text-[10px] md:text-[11px] font-black uppercase text-slate-400 tracking-widest">
-            Sincronização global de pontuações e patrulhas atualizada ao vivo em tempo real
-          </p>
+      {!isMini && onBack && (
+        <div className="flex justify-start pt-2 px-1">
+          <motion.button 
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onBack}
+            className="flex items-center gap-1.5 bg-slate-900/90 border-2 border-yellow-500 hover:border-yellow-405 hover:bg-slate-800 text-yellow-400 hover:text-yellow-300 px-3 py-1.5 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.25)] transition-all focus:outline-none font-sans font-black text-[10px] tracking-wider uppercase cursor-pointer z-20"
+          >
+            <ArrowLeft size={11} className="stroke-[3]" />
+            <Car size={11} className="stroke-[2]" />
+            <span>Voltar</span>
+          </motion.button>
         </div>
+      )}
 
-        {/* Online Pulse Widget */}
-        <div className="flex items-center gap-4.5 bg-slate-900/60 border border-slate-800 p-3.5 rounded-2xl shrink-0 z-10 shadow-lg">
-          <div className="flex flex-col">
-            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest font-mono">STATUS DO SISTEMA</span>
-            <span className="text-xs font-black text-white uppercase italic tracking-tight flex items-center gap-1.5 mt-0.5">
-              ATUALIZAÇÃO AO VIVO 
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-            </span>
-          </div>
+      {/* 1. STATEFUL UPPER BANNER - NOW CENTERED & REDESIGNED */}
+      <div className="text-center space-y-2 py-4">
+        <div className="inline-block bg-yellow-400 text-black px-4 py-1 font-black skew-x-[-12deg] text-xs uppercase shadow-[3px_3px_0px_#f97316]">
+          🏆 SALÃO DA FAMA
         </div>
+        <h1 className="text-3xl font-black tracking-tighter uppercase italic drop-shadow-2xl text-white">
+          RANKING DE CONDUTORES
+        </h1>
+        <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">
+          Sincronização global de pontuações e patrulhas em tempo real
+        </p>
       </div>
 
       {/* 2. NOISELESS COMPREHENSIVE TABS */}

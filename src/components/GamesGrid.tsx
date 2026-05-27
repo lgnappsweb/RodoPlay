@@ -4,14 +4,15 @@
  */
 
 import { GameType } from '../types';
-import { HelpCircle, Shield, Search, Type, Gamepad2, Brain, Zap, Calculator, Info, Map, Hash, Car, Compass, Grid, Trophy, Sparkles, Crown, Flame } from 'lucide-react';
+import { HelpCircle, Shield, Search, Type, Gamepad2, Brain, Zap, Calculator, Info, Map, Hash, Car, Compass, Grid, Trophy, Sparkles, Crown, Flame, ArrowLeft, Construction } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface GamesGridProps {
   onPlay: (gameType: GameType) => void;
+  onBack?: () => void;
 }
 
-export function GamesGrid({ onPlay }: GamesGridProps) {
+export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
   const games: Array<{
     type: GameType;
     friendlyName: string;
@@ -209,15 +210,29 @@ export function GamesGrid({ onPlay }: GamesGridProps) {
 
   return (
     <div className="px-4 py-6 space-y-6">
-      <div className="text-center space-y-2">
-        <div className="inline-block bg-yellow-400 text-black px-4 py-1 font-black skew-x-[-12deg] text-sm uppercase shadow-[3px_3px_0px_#f97316]">
-          RODADA SOLO
+      {onBack && (
+        <div className="flex justify-start pt-2">
+          <motion.button 
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onBack}
+            className="flex items-center gap-1.5 bg-slate-900/90 border-2 border-yellow-500 hover:border-yellow-405 hover:bg-slate-800 text-yellow-400 hover:text-yellow-300 px-3 py-1.5 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.25)] transition-all focus:outline-none font-sans font-black text-[10px] tracking-wider uppercase cursor-pointer z-20"
+          >
+            <ArrowLeft size={11} className="stroke-[3]" />
+            <Construction size={11} className="stroke-[2]" />
+            <span>Voltar</span>
+          </motion.button>
         </div>
-        <h2 className="text-4xl font-black tracking-tighter uppercase italic drop-shadow-2xl text-white">
+      )}
+      <div className="text-center space-y-2 py-2">
+        <div className="inline-block bg-yellow-400 text-black px-4 py-1 font-black skew-x-[-12deg] text-xs uppercase shadow-[3px_3px_0px_#f97316]">
+          🚧 PATRULHAS SOLO
+        </div>
+        <h2 className="text-3xl font-black tracking-tighter uppercase italic drop-shadow-2xl text-white">
           CENTRAL DE JOGOS
         </h2>
         <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">
-          Escolha um desafio e teste as suas habilidades
+          Escolha um desafio e teste as suas habilidades operacionais
         </p>
       </div>
 

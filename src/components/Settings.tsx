@@ -7,7 +7,7 @@ import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { Player } from '../types';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { LogOut, User, Camera, Shield, Check, RefreshCw, Upload, Sun, Moon, Palette, Smartphone, Monitor, Laptop, HelpCircle, Activity, Trash2, X, FileText, Loader2 } from 'lucide-react';
+import { LogOut, User, Camera, Shield, Check, RefreshCw, Upload, Sun, Moon, Palette, Smartphone, Monitor, Laptop, HelpCircle, Activity, Trash2, X, FileText, Loader2, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BASE_OPTIONS, SHIFT_OPTIONS } from '../constants';
 import { ALL_AVATARS } from '../data/avatars';
@@ -20,9 +20,10 @@ interface SettingsProps {
   onUpdate: (data: Partial<Player>) => Promise<void>;
   onLogout: () => Promise<void>;
   onDeleteProfile: (password?: string) => Promise<void>;
+  onBack?: () => void;
 }
 
-export function Settings({ player, onUpdate, onLogout, onDeleteProfile }: SettingsProps) {
+export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }: SettingsProps) {
   const [name, setName] = useState(player.displayName);
   const [shift, setShift] = useState(player.shift);
   const [selectedAvatar, setSelectedAvatar] = useState(player.avatar || '👷');
@@ -206,20 +207,42 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile }: Settin
 
   return (
     <div className="space-y-8 p-4 pb-28">
-      <div className="flex items-center gap-4 mb-4">
-         <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-slate-800 rounded-3xl flex items-center justify-center text-5xl border-2 border-slate-700 shadow-xl overflow-hidden select-none leading-none shrink-0">
-               {isImageAvatar ? (
-                  <img src={selectedAvatar} alt="Avatar" className="w-full h-full object-cover" />
-               ) : (
-                  selectedAvatar
-               )}
-            </div>
-            <div>
-               <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">AJUSTES</h2>
-               <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-tight">Configurações de Perfil</p>
-            </div>
-         </div>
+      {onBack && (
+        <div className="flex justify-start pt-2">
+          <motion.button 
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onBack}
+            className="flex items-center gap-1.5 bg-slate-900/90 border-2 border-yellow-500 hover:border-yellow-405 hover:bg-slate-800 text-yellow-400 hover:text-yellow-300 px-3 py-1.5 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.25)] transition-all focus:outline-none font-sans font-black text-[10px] tracking-wider uppercase cursor-pointer z-20"
+          >
+            <ArrowLeft size={11} className="stroke-[3]" />
+            <Activity size={11} className="stroke-[2]" />
+            <span>Voltar</span>
+          </motion.button>
+        </div>
+      )}
+      {/* Centered Title Area */}
+      <div className="text-center space-y-2 py-2">
+        <div className="inline-block bg-yellow-400 text-black px-4 py-1 font-black skew-x-[-12deg] text-xs uppercase shadow-[3px_3px_0px_#f97316]">
+          ⚙️ CONFIGURAÇÕES OPERACIONAIS
+        </div>
+        <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter text-center">AJUSTES</h2>
+        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest text-center">Configurações de Perfil e Conexão</p>
+      </div>
+
+      {/* Profile avatar centered preview is extra elegant */}
+      <div className="flex flex-col items-center justify-center gap-3">
+        <div className="w-20 h-20 bg-slate-800 rounded-3xl flex items-center justify-center text-6xl border-2 border-slate-700 shadow-xl overflow-hidden select-none leading-none shrink-0 relative">
+           {isImageAvatar ? (
+              <img src={selectedAvatar} alt="Avatar" className="w-full h-full object-cover" />
+           ) : (
+              selectedAvatar
+           )}
+        </div>
+        <div className="text-center">
+          <p className="text-white font-black uppercase text-sm tracking-tight">{name || player.displayName}</p>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">{player.base} • {shift || player.shift}</p>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -410,98 +433,7 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile }: Settin
           </div>
         </Card>
 
-        {/* Card de Sessões e Multi-dispositivos */}
-        <Card className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden p-6 space-y-4">
-          <div className="flex items-center gap-3 border-b border-slate-700/50 pb-4">
-            <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-slate-400">
-               <Smartphone size={20} className="text-yellow-400 animate-pulse" />
-            </div>
-            <div className="flex-1">
-               <p className="text-xs font-black uppercase text-white">Sessões e Dispositivos</p>
-               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Status Multi-Dispositivo</p>
-            </div>
-            <span className="text-[9px] font-black bg-yellow-400/10 text-yellow-400 px-2 py-1 rounded-full uppercase tracking-wider font-sans">
-              {sessions.length} {sessions.length === 1 ? 'Dispositivo Logado' : 'Dispositivos Logados'}
-            </span>
-          </div>
 
-          <p className="text-[10px] text-slate-400 uppercase font-semibold leading-relaxed">
-            Você pode acessar sua conta em vários dispositivos ao mesmo tempo. Gerencie seus logins ativos abaixo:
-          </p>
-
-          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-            {sessions.map((sess) => {
-              const isCurrent = sess.id === currentSessionIdLoc;
-              const formattedTime = sess.loginTime ? new Date(sess.loginTime).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-              }) : 'N/A';
-
-              let DeviceIcon = Laptop;
-              if (sess.platform === 'Mobile') DeviceIcon = Smartphone;
-              if (sess.platform === 'Tablet') DeviceIcon = Laptop;
-              if (sess.platform === 'Desktop') DeviceIcon = Monitor;
-
-              return (
-                <div 
-                  key={sess.id}
-                  className={`flex items-center gap-3 p-3 rounded-2xl border transition-all ${
-                    isCurrent 
-                      ? 'bg-slate-900/80 border-yellow-400/30 shadow-md ring-1 ring-yellow-400/10' 
-                      : 'bg-slate-900/40 border-slate-700/30'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 shrink-0 ${
-                    isCurrent ? 'bg-yellow-400/10 text-yellow-400' : 'bg-slate-800'
-                  }`}>
-                    <DeviceIcon size={18} />
-                  </div>
-
-                  <div className="min-w-0 flex-1 relative">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] font-black uppercase text-white truncate">{sess.deviceName || 'Conexão Segura'}</p>
-                      {isCurrent && (
-                        <span className="text-[7px] font-black bg-yellow-400 text-slate-950 px-1 py-0.5 rounded uppercase leading-none">
-                          ATUAL
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 relative ${
-                        sess.online ? 'bg-emerald-500' : 'bg-slate-500'
-                      }`}>
-                        {sess.online && (
-                          <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-                        )}
-                      </span>
-                      <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter ml-1 truncate">
-                        {sess.online ? 'ONLINE AGORA' : 'AUSENTE'} • LOGIN EM {formattedTime}
-                      </p>
-                    </div>
-                  </div>
-
-                  {!isCurrent && (
-                    <button
-                      onClick={() => handleRevokeSession(sess.id)}
-                      className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all shrink-0 cursor-pointer"
-                      title="Desconectar este dispositivo"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-
-            {sessions.length === 0 && (
-              <div className="text-center py-4 bg-slate-900/20 rounded-2xl border border-slate-800/40">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Buscando sessões operacionais...</p>
-              </div>
-            )}
-          </div>
-        </Card>
 
         <Card className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden">
           <CardContent className="p-0">
@@ -721,8 +653,8 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile }: Settin
                   </div>
                   <h4 className="text-xs font-black uppercase text-white tracking-wider">Preservação da Saúde e Sono</h4>
                 </div>
-                <p className="text-[10px] leading-relaxed font-semibold uppercase text-slate-400">
-                  Operador, sua integridade física é prioridade. Mantenha rotinas de sono regulares e hidrate-se durante as jornadas. Evite usar o aplicativo excessivamente para não comprometer seus períodos mínimos de descanso obrigatórios por lei.
+                <p className="text-[10px] leading-relaxed font-semibold uppercase text-slate-400 font-sans">
+                  {player?.displayName ? player.displayName : 'Operador'}, sua integridade física é prioridade. Mantenha rotinas de sono regulares e hidrate-se durante as jornadas. Evite usar o aplicativo excessivamente para não comprometer seus períodos mínimos de descanso obrigatórios por lei.
                 </p>
               </div>
             </div>

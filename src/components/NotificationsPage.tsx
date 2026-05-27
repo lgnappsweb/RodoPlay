@@ -185,25 +185,35 @@ export function NotificationsPage({
 
   return (
     <div className="p-4 flex flex-col min-h-screen pb-24 text-white">
-      {/* Header section */}
-      <div className="flex items-center justify-between mb-6">
-        <button 
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors py-2 px-1 focus:outline-none"
-        >
-          <ArrowLeft size={18} />
-          <span className="text-xs font-black uppercase tracking-wider">Voltar</span>
-        </button>
-
-        <h2 className="text-xl font-black italic uppercase tracking-tight text-white flex items-center gap-2">
-          <Bell className="w-5 h-5 text-yellow-500 fill-yellow-500/20" />
-          Notificações
-          {unreadCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500 text-white font-extrabold font-mono animate-pulse">
-              {unreadCount}
-            </span>
-          )}
-        </h2>
+      {onBack && (
+        <div className="flex justify-start mb-4">
+          <motion.button 
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onBack}
+            className="flex items-center gap-1.5 bg-slate-900/90 border-2 border-yellow-500 hover:border-yellow-405 hover:bg-slate-800 text-yellow-400 hover:text-yellow-300 px-3 py-1.5 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.25)] transition-all focus:outline-none font-sans font-black text-[10px] tracking-wider uppercase cursor-pointer z-20"
+          >
+            <ArrowLeft size={11} className="stroke-[3]" />
+            <ShieldAlert size={11} className="stroke-[2]" />
+            <span>Voltar</span>
+          </motion.button>
+        </div>
+      )}
+      {/* Centered Title Section */}
+      <div className="flex flex-col items-center justify-center mb-6 py-2">
+        <div className="text-center space-y-1">
+          <div className="inline-block bg-yellow-400 text-black px-3 py-0.5 font-black skew-x-[-12deg] text-[10px] uppercase shadow-[2px_2px_0px_#f97316]">
+            🚨 ALERTA GERAL
+          </div>
+          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white flex items-center justify-center gap-2">
+            ALERTAS
+            {unreadCount > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-red-500 text-white font-extrabold font-mono animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </h2>
+        </div>
       </div>
 
       {/* Control Buttons */}
@@ -330,7 +340,7 @@ export function NotificationsPage({
                           {noti.title}
                         </h3>
                         
-                        <p className="text-[11px] font-medium leading-relaxed text-slate-300">
+                        <p className="text-[11px] font-medium leading-relaxed text-slate-300 whitespace-pre-line">
                           {noti.message}
                         </p>
 
@@ -449,7 +459,7 @@ export function NotificationsPage({
                     {noti.title}
                   </h2>
 
-                  <p className="text-sm font-medium text-slate-200 bg-slate-950/60 rounded-2xl p-4 leading-relaxed border border-white/5 max-h-[160px] overflow-y-auto">
+                  <p className="text-sm font-medium text-slate-200 bg-slate-950/60 rounded-2xl p-4 leading-relaxed border border-white/5 max-h-[160px] overflow-y-auto whitespace-pre-line">
                     {noti.message}
                   </p>
                 </div>

@@ -16,6 +16,7 @@ import { doc, onSnapshot, getDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { Player } from '../types';
 import { writePlayerProfile } from '../lib/rankingSync';
+import { createNotification } from '../lib/notifications';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -299,6 +300,26 @@ export function useAuth() {
       writePlayerProfile(uid, newPlayer).catch((writeErr) => {
         console.warn("Background profile write error:", writeErr);
       });
+
+      // 4. Send a professional welcome notification
+      try {
+        const welcomeTitle = `Bem-vindo(a) ao RodoPlay, ${displayName.trim()}! 👷🎖️`;
+        const welcomeMsg = `Olá, Operador(a) ${displayName.trim()}!\n\nSeja muito bem-vindo(a) à nossa plataforma de capacitação operacional e patrulhamento de vias.\n\nSeu cadastro do turno ${shift} na ${base} foi homologado com absoluto sucesso em nosso sistema de monitoramento profissional. A partir de agora, você está habilitado(a) a registrar patrulhas, acumular pontos operenciais, subir no ranking e desafiar outros colegas de equipe em duelos de conhecimento.\n\nSua integridade física e atenção nas vias permanecem como prioridade número um. Desejamos uma excelente jornada d'água e muito sucesso nas suas inspeções operacionais!`;
+        
+        createNotification(
+          uid,
+          welcomeTitle,
+          welcomeMsg,
+          'system',
+          'system',
+          'Suporte RodoPlay',
+          '🚨'
+        ).catch((errNoti) => {
+          console.warn("Welcome notification creation failed:", errNoti);
+        });
+      } catch (errNotiOuter) {
+        console.warn("Welcome notification dispatch error:", errNotiOuter);
+      }
 
       // Clean localStorage cache
       localStorage.removeItem('pending_registration_data');
