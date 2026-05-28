@@ -36,6 +36,7 @@ const QueensGame = lazy(() => import('./components/QueensGame').then(m => ({ def
 const Palavras500 = lazy(() => import('./components/Palavras500').then(m => ({ default: m.Palavras500 })));
 const ContextoGame = lazy(() => import('./components/ContextoGame').then(m => ({ default: m.ContextoGame })));
 const SudokuGame = lazy(() => import('./components/SudokuGame').then(m => ({ default: m.SudokuGame })));
+const DamaGame = lazy(() => import('./components/DamaGame').then(m => ({ default: m.DamaGame })));
 const GamesGrid = lazy(() => import('./components/GamesGrid').then(m => ({ default: m.GamesGrid })));
 
 export default function App() {
@@ -87,6 +88,7 @@ export default function App() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [globalStats, setGlobalStats] = useState({
     totalScore: 0,
+    totalXP: 0,
     gamesPlayed: 0,
     completedGames: 0,
     timedOutGames: 0
@@ -97,6 +99,7 @@ export default function App() {
     if (!user) {
       setGlobalStats({
         totalScore: 0,
+        totalXP: 0,
         gamesPlayed: 0,
         completedGames: 0,
         timedOutGames: 0
@@ -106,6 +109,7 @@ export default function App() {
     const q = query(collection(db, 'players'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       let sumScore = 0;
+      let sumXP = 0;
       let sumGames = 0;
       let sumCompleted = 0;
       let sumTimedOut = 0;
@@ -140,15 +144,22 @@ export default function App() {
           : (data.gamesPlayed !== undefined ? data.gamesPlayed : (data.patrulhas || 0));
         const finalGames = Math.max(gamesStr, statsGamesSum);
 
-        const completedStr = typeof data.completedGames === 'string' 
+        const rawCompleted = typeof data.completedGames === 'string' 
           ? parseInt(data.completedGames, 10) 
-          : (data.completedGames !== undefined ? data.completedGames : 0);
+          : (data.completedGames !== undefined && data.completedGames !== null ? Number(data.completedGames) : (data.partidas !== undefined && data.partidas !== null ? Number(data.partidas) : 0));
+        const completedStr = isNaN(rawCompleted) ? 0 : rawCompleted;
 
-        const timedOutStr = typeof data.timedOutGames === 'string' 
+        const rawTimedOut = typeof data.timedOutGames === 'string' 
           ? parseInt(data.timedOutGames, 10) 
-          : (data.timedOutGames !== undefined ? data.timedOutGames : 0);
+          : (data.timedOutGames !== undefined && data.timedOutGames !== null ? Number(data.timedOutGames) : (data.excedidas !== undefined && data.excedidas !== null ? Number(data.excedidas) : 0));
+        const timedOutStr = isNaN(rawTimedOut) ? 0 : rawTimedOut;
 
         sumScore += finalScore;
+        const rawXp = typeof data.xp === 'string'
+          ? parseFloat(data.xp)
+          : (data.xp !== undefined && data.xp !== null ? Number(data.xp) : 0);
+        sumXP += isNaN(rawXp) ? (finalScore / 2) : Math.max(rawXp, finalScore / 2);
+
         sumGames += finalGames;
         sumCompleted += completedStr;
         sumTimedOut += timedOutStr;
@@ -156,6 +167,7 @@ export default function App() {
 
       setGlobalStats({
         totalScore: sumScore,
+        totalXP: sumXP,
         gamesPlayed: sumGames,
         completedGames: sumCompleted,
         timedOutGames: sumTimedOut
@@ -271,6 +283,7 @@ export default function App() {
       case 'QUEENS': return 'Queens';
       case 'PALAVRAS_500': return 'Palavras 500';
       case 'CONTEXTO': return 'Contexto';
+      case 'DAMA': return 'Jogo de Dama';
       default: return 'Patrulha Ativa';
     }
   };
@@ -469,11 +482,12 @@ export default function App() {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout = false
+    isTimeout = false,
+    keepInGameSelection = false
   ) => {
     if (roundsPlayed <= 0 || !player) {
       setSessionScore(0);
-      setView('home');
+      setView('multiplayer');
       return;
     }
 
@@ -575,7 +589,9 @@ export default function App() {
     } finally {
       // Transiciona a interface de volta para a central de jogos após a conclusão ou falha
       setSessionScore(0);
-      setView('home');
+      if (!keepInGameSelection) {
+        setView('multiplayer');
+      }
     }
   };
 
@@ -592,6 +608,7 @@ export default function App() {
   // Compute aggregated real-time metrics across all registered users
   // (We add current unsubmitted sessionScore so that the local user is immediately represented in real-time)
   const globalDisplayTotalScore = globalStats.totalScore + sessionScore;
+  const globalDisplayTotalXP = globalStats.totalXP + (sessionScore / 2);
   const globalDisplayGamesPlayed = globalStats.gamesPlayed;
   const globalDisplayCompletedGames = globalStats.completedGames;
   const globalDisplayTimedOutGames = globalStats.timedOutGames;
@@ -677,35 +694,12 @@ export default function App() {
                 </span>
                 <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Todos Cadastrados</span>
               </motion.div>
-              <div className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-1.5 px-3' : 'min-w-[85px] px-2 py-1.5'}`}>
+              <div className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-3' : 'min-w-[85px] px-2 py-1.5'}`}>
                 <span className={`font-black text-blue-400 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Patrulhas Coletivas</span>
-                {isHome ? (
-                  <div className="flex items-center gap-3 w-full justify-around mt-1">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[7px] font-black uppercase text-slate-500">Total</span>
-                      <span className="font-black text-blue-400 text-sm">{globalDisplayGamesPlayed}</span>
-                    </div>
-                    <div className="h-4 w-px bg-slate-700" />
-                    <div className="flex flex-col items-center">
-                      <span className="text-[7px] font-black uppercase text-emerald-500">Concluídas</span>
-                      <span className="font-black text-emerald-400 text-sm">{globalDisplayCompletedGames}</span>
-                    </div>
-                    <div className="h-4 w-px bg-slate-700" />
-                    <div className="flex flex-col items-center">
-                      <span className="text-[7px] font-black uppercase text-rose-500">Excedidas</span>
-                      <span className="font-black text-rose-400 text-sm">{globalDisplayTimedOutGames}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <span className="font-black text-blue-400 leading-none text-sm">
-                      {globalDisplayGamesPlayed}
-                    </span>
-                    <span className="text-[7px] font-mono font-bold text-slate-400 mt-0.5 whitespace-nowrap">
-                      C:{globalDisplayCompletedGames} E:{globalDisplayTimedOutGames}
-                    </span>
-                  </>
-                )}
+                <span className={`font-black text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)] leading-none ${isHome ? 'text-xl' : 'text-sm'}`}>
+                  {globalDisplayGamesPlayed.toLocaleString()}
+                </span>
+                <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Todos Cadastrados</span>
               </div>
             </div>
           </header>
@@ -818,7 +812,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -837,7 +831,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -856,7 +850,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -875,7 +869,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -894,7 +888,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -913,7 +907,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -932,7 +926,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -951,7 +945,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -970,7 +964,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -989,7 +983,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -1008,7 +1002,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -1030,7 +1024,7 @@ export default function App() {
                   if (activeRoom) {
                     handleLeaveSession();
                   } else {
-                    setView('home');
+                    setView('multiplayer');
                   }
                 }}
                 room={activeRoom}
@@ -1053,7 +1047,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -1072,7 +1066,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -1091,7 +1085,7 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -1110,7 +1104,26 @@ export default function App() {
                 onScoreUpdate={handleScoreUpdate}
                 onCancel={() => {
                   setSessionScore(0);
-                  setView('home');
+                  setView('multiplayer');
+                }}
+              />
+            </motion.div>
+          )}
+
+          {view === GameType.DAMA && (
+            <motion.div
+              key="damagame"
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <DamaGame
+                currentPlayerId={player.uid}
+                onComplete={handleGameComplete}
+                onScoreUpdate={handleScoreUpdate}
+                onCancel={() => {
+                  setSessionScore(0);
+                  setView('multiplayer');
                 }}
               />
             </motion.div>
@@ -1203,6 +1216,24 @@ function GamePremiumFooter() {
           -webkit-text-fill-color: transparent;
           animation: textColorFlow 6s linear infinite;
         }
+        .gradient-border-card {
+          position: relative;
+          z-index: 10;
+        }
+        .gradient-border-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: 1rem;
+          padding: 1.5px;
+          background: linear-gradient(90deg, #fbbf24, #10b981, #06b6d4, #fbbf24);
+          background-size: 200% auto;
+          animation: textColorFlow 6s linear infinite;
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
       `}}/>
 
       <div className="max-w-md mx-auto space-y-6 relative z-10">
@@ -1224,7 +1255,7 @@ function GamePremiumFooter() {
         </div>
 
         {/* Developer Highlight Segment */}
-        <div className="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-2.5 shadow-inner">
+        <div className="gradient-border-card bg-slate-900/40 p-5 rounded-2xl space-y-2.5 shadow-inner">
           <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em] block leading-none">
             DESENVOLVEDOR EM DESTAQUE
           </span>

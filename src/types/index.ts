@@ -19,7 +19,8 @@ export enum GameType {
   QUEENS = 'QUEENS',
   PALAVRAS_500 = 'PALAVRAS_500',
   CONTEXTO = 'CONTEXTO',
-  SUDOKU = 'SUDOKU'
+  SUDOKU = 'SUDOKU',
+  DAMA = 'DAMA'
 }
 
 export interface Player {
@@ -62,6 +63,8 @@ export interface Question {
   category: 'Signs' | 'Safety' | 'Situational' | 'Visual' | 'Logic';
   difficulty?: number;
   image?: string;
+  theme?: string;
+  themeId?: string;
 }
 
 export interface GameResult {

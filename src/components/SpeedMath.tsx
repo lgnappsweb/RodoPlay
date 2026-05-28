@@ -19,7 +19,8 @@ interface SpeedMathProps {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout?: boolean
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -38,6 +39,7 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
   const [isRevealing, setIsRevealing] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isTimeOut, setIsTimeOut] = useState(false);
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
   const totalRounds = 20;
 
   // Multiplayer State
@@ -53,19 +55,10 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     }
   }, [currentRound, gameState]);
 
+  // Timer is disabled per user request
   useEffect(() => {
-    if (gameState !== 'playing') return;
-    if (isTimeOut) return;
-    
-    if (timeLeft <= 0) {
-      setIsTimeOut(true);
-      return;
-    }
-    const timer = setInterval(() => {
-      if (!isRevealing) setTimeLeft(t => t - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft, isRevealing, gameState, isTimeOut]);
+    // No timer/timeouts running
+  }, []);
 
   const generateProblem = () => {
     // Progression: numbers grow every 10 rounds
@@ -129,7 +122,7 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     
     let points = 0;
     if (val === problem.answer) {
-      points = 100 + (timeLeft * 20);
+      points = 100;
       if (multiplayerMode === '2p') {
         if (activePlayerTurn === 'p1') {
           setP1Score(s => s + points);
@@ -206,7 +199,7 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
                   <div className="flex flex-col text-left">
                     <span className="font-black uppercase text-sm italic">{level === 'easy' ? 'Fácil' : level === 'medium' ? 'Médio' : 'Difícil'}</span>
                     <span className={`text-[8px] font-bold uppercase tracking-tighter mt-0.5 ${difficulty === level ? 'text-slate-900/60' : 'text-slate-600'}`}>
-                      {level === 'easy' ? 'Básico (+, -) | 25s' : level === 'medium' ? 'Intermediário (+, -, *) | 15s' : 'Expert (Multiplicação) | 10s'}
+                      {level === 'easy' ? 'Básico (Soma e Subtração)' : level === 'medium' ? 'Intermediário (Soma, Subtração e Multiplicação)' : 'Especialista (Operações Rápidas)'}
                     </span>
                   </div>
                   {difficulty === level && (
@@ -291,23 +284,8 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       <div className="flex-1 flex flex-col items-center justify-center space-y-8">
         <div className="relative">
              <div className="w-24 h-24 bg-slate-800 rounded-full border-4 border-slate-700 flex items-center justify-center text-3xl font-black text-white italic">
-                {timeLeft}s
+                🧮
              </div>
-             <svg className="absolute top-0 left-0 w-24 h-24 -rotate-90">
-                <circle
-                  cx="48" cy="48" r="44"
-                  fill="none" stroke="currentColor" strokeWidth="4"
-                  className="text-yellow-400/20"
-                />
-                <motion.circle
-                  cx="48" cy="48" r="44"
-                  fill="none" stroke="currentColor" strokeWidth="4"
-                  strokeDasharray="276"
-                  initial={{ strokeDashoffset: 276 }}
-                  animate={{ strokeDashoffset: 276 - (timeLeft / Math.max(3, baseTime - Math.floor((currentRound - 1) / 10))) * 276 }}
-                  className="text-yellow-400"
-                />
-             </svg>
         </div>
 
         <div className="text-5xl font-black text-white italic tracking-tighter">
@@ -355,41 +333,110 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
               <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20">
                 <span className="text-4xl animate-pulse">⏱️</span>
               </div>
-              <span className="absolute -top-1 -right-1 text-xl">⚠️</span>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
             </div>
 
             <div className="space-y-2">
-              <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FIM DO TEMPO</span>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Tempo Esgotado!</h3>
+              <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FALHA NA OPERAÇÃO</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Tempo Resolvido!</h3>
               <p className="text-slate-400 text-xs leading-relaxed italic">
-                O cronômetro encerrou antes que você pudesse digitar o resultado. Reivindique os pontos já conquistados:
+                O tempo regulamentar para concluir esta inspeção expirou. Nenhum ponto de vistoria foi faturado nesta jogada.
               </p>
             </div>
 
             {/* Score box */}
             <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontuação Conquistada</span>
-              <span className="text-3xl font-black text-yellow-400 font-mono block">{multiplayerMode === '2p' ? p1Score + p2Score : score} XP</span>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
             </div>
 
             <div className="w-full flex flex-col gap-3">
               <Button 
                 onClick={() => onComplete(
-                  multiplayerMode === '2p' ? p1Score : score,
+                  0,
                   1,
                   multiplayerMode === '2p',
                   selectedPartner,
-                  p1Score,
-                  p2Score,
+                  0,
+                  0,
                   'SPEED_MATH',
-                  isTimeOut
+                  true,
+                  false
                 )} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setGameState('selection');
+                  setCurrentRound(1);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setIsRevealing(false);
+                  setSelectedAnswer(null);
+                  setIsTimeOut(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
                 className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
               >
                 VOLTAR À CENTRAL DE JOGOS
               </Button>
               <Button 
-                onClick={() => startGame(difficulty)} 
+                onClick={() => {
+                  setGameState('selection');
+                  setCurrentRound(1);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setIsRevealing(false);
+                  setSelectedAnswer(null);
+                  setIsTimeOut(false);
+                  setShowAbandonModal(false);
+                }} 
                 variant="outline" 
                 className="w-full h-14 border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all"
               >
@@ -403,13 +450,23 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       <div className="w-full flex justify-center mt-6">
         <Button 
           onClick={() => {
-            setGameState('selection');
-            setCurrentRound(1);
-            setScore(0);
+            // Salva os pontos conquistados no momento e computa os mesmos imediatamente
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'SPEED_MATH',
+              false,
+              true // keepInGameSelection = true salva pontos mas retém o componente do jogo montado
+            );
+            setShowAbandonModal(true);
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
-          Abandonar Patrulha
+          ABANDONAR PATRULHA
         </Button>
       </div>
     </div>

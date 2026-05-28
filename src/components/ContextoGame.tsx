@@ -23,7 +23,9 @@ import {
   Brain
 } from 'lucide-react';
 import { Player } from '../types';
+import { Button } from './ui/button';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
+import { CONTEXT_DICTIONARY_THEMES, PredefinedThemeInfo } from './contextoWordsData';
 
 interface ContextoGameProps {
   onComplete: (
@@ -34,7 +36,8 @@ interface ContextoGameProps {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout?: boolean
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -55,348 +58,150 @@ interface PredefinedTheme {
   words: PredefinedWord[];
 }
 
-// 8 Rich and engaging Portuguese themes with hand-curated semantic proximities
-const CONTEXT_THEMES: PredefinedTheme[] = [
-  {
-    themeId: 'TRANSITO',
-    themeName: 'Trânsito & Condução',
-    icon: '🚗',
-    secretWord: 'carro',
-    description: 'Relacionado a veículos, rodovias e regras de circulação.',
-    words: [
-      { word: 'carro', rank: 1 },
-      { word: 'veiculo', rank: 2 },
-      { word: 'automovel', rank: 3 },
-      { word: 'viatura', rank: 5 },
-      { word: 'motorista', rank: 8 },
-      { word: 'condutor', rank: 10 },
-      { word: 'transito', rank: 12 },
-      { word: 'estrada', rank: 15 },
-      { word: 'rodovia', rank: 18 },
-      { word: 'avenida', rank: 20 },
-      { word: 'rua', rank: 22 },
-      { word: 'pista', rank: 25 },
-      { word: 'asfalto', rank: 30 },
-      { word: 'moto', rank: 35 },
-      { word: 'caminhao', rank: 38 },
-      { word: 'onibus', rank: 40 },
-      { word: 'pedestre', rank: 45 },
-      { word: 'guardas', rank: 50 },
-      { word: 'policia', rank: 55 },
-      { word: 'sinal', rank: 60 },
-      { word: 'semaforo', rank: 65 },
-      { word: 'placa', rank: 70 },
-      { word: 'faixa', rank: 75 },
-      { word: 'cruzamento', rank: 80 },
-      { word: 'velocidade', rank: 85 },
-      { word: 'freio', rank: 90 },
-      { word: 'acelerador', rank: 95 },
-      { word: 'volante', rank: 100 },
-      { word: 'marcha', rank: 110 },
-      { word: 'embreagem', rank: 120 },
-      { word: 'pneu', rank: 130 },
-      { word: 'roda', rank: 140 },
-      { word: 'combustivel', rank: 150 },
-      { word: 'gasolina', rank: 160 },
-      { word: 'diesel', rank: 170 },
-      { word: 'etanol', rank: 180 },
-      { word: 'tanque', rank: 190 },
-      { word: 'motor', rank: 200 },
-      { word: 'farol', rank: 215 },
-      { word: 'seta', rank: 230 },
-      { word: 'buzina', rank: 245 },
-      { word: 'cinto', rank: 260 },
-      { word: 'multa', rank: 280 },
-      { word: 'radar', rank: 300 },
-      { word: 'engarrafamento', rank: 320 },
-      { word: 'lombada', rank: 340 },
-      { word: 'pedagio', rank: 360 },
-      { word: 'viagem', rank: 380 },
-      { word: 'destino', rank: 400 },
-      { word: 'mapa', rank: 420 },
-      { word: 'rotatoria', rank: 440 },
-      { word: 'reboque', rank: 460 },
-      { word: 'guincho', rank: 480 },
-      { word: 'estacionamento', rank: 500 }
-    ]
-  },
-  {
-    themeId: 'SEGURANCA',
-    themeName: 'Segurança & Defesa',
-    icon: '🛡️',
-    secretWord: 'segurança',
-    description: 'Relacionado à proteção, patrulhamento e mitigação de riscos.',
-    words: [
-      { word: 'segurança', rank: 1 },
-      { word: 'proteçao', rank: 2 },
-      { word: 'defesa', rank: 3 },
-      { word: 'alerta', rank: 5 },
-      { word: 'patrulha', rank: 8 },
-      { word: 'ronda', rank: 10 },
-      { word: 'vigilancia', rank: 12 },
-      { word: 'guarda', rank: 15 },
-      { word: 'policial', rank: 18 },
-      { word: 'cuidado', rank: 20 },
-      { word: 'prevençao', rank: 25 },
-      { word: 'resgate', rank: 30 },
-      { word: 'socorro', rank: 35 },
-      { word: 'alarme', rank: 40 },
-      { word: 'camera', rank: 45 },
-      { word: 'monitoramento', rank: 50 },
-      { word: 'perigo', rank: 55 },
-      { word: 'risco', rank: 60 },
-      { word: 'acidente', rank: 65 },
-      { word: 'emergencia', rank: 70 },
-      { word: 'colete', rank: 80 },
-      { word: 'capacete', rank: 90 },
-      { word: 'cadeado', rank: 100 },
-      { word: 'chave', rank: 110 },
-      { word: 'cofre', rank: 120 },
-      { word: 'blindagem', rank: 130 },
-      { word: 'cerca', rank: 140 },
-      { word: 'portao', rank: 150 },
-      { word: 'senha', rank: 160 },
-      { word: 'barreira', rank: 170 },
-      { word: 'controle', rank: 180 },
-      { word: 'fiscalizaçao', rank: 190 },
-      { word: 'vistoria', rank: 200 },
-      { word: 'inspeçao', rank: 220 },
-      { word: 'detençao', rank: 240 },
-      { word: 'protocolo', rank: 260 },
-      { word: 'norma', rank: 280 },
-      { word: 'regra', rank: 300 },
-      { word: 'lei', rank: 320 },
-      { word: 'ordem', rank: 340 },
-      { word: 'paz', rank: 360 },
-      { word: 'tranquilidade', rank: 380 },
-      { word: 'confiança', rank: 400 },
-      { word: 'guarita', rank: 430 },
-      { word: 'sirene', rank: 460 },
-      { word: 'farda', rank: 500 }
-    ]
-  },
-  {
-    themeId: 'TECNOLOGIA',
-    themeName: 'Tecnologia & Sistemas',
-    icon: '💻',
-    secretWord: 'computador',
-    description: 'Relacionado à informática, internet, desenvolvimento de software.',
-    words: [
-      { word: 'computador', rank: 1 },
-      { word: 'tecnologia', rank: 2 },
-      { word: 'informatica', rank: 3 },
-      { word: 'notebook', rank: 5 },
-      { word: 'celular', rank: 8 },
-      { word: 'telefone', rank: 10 },
-      { word: 'tablet', rank: 12 },
-      { word: 'internet', rank: 15 },
-      { word: 'rede', rank: 18 },
-      { word: 'wifi', rank: 20 },
-      { word: 'sinal', rank: 22 },
-      { word: 'cabo', rank: 25 },
-      { word: 'tela', rank: 30 },
-      { word: 'monitor', rank: 35 },
-      { word: 'teclado', rank: 40 },
-      { word: 'mouse', rank: 45 },
-      { word: 'sistema', rank: 50 },
-      { word: 'software', rank: 55 },
-      { word: 'aplicativo', rank: 60 },
-      { word: 'programa', rank: 65 },
-      { word: 'site', rank: 70 },
-      { word: 'codigo', rank: 75 },
-      { word: 'programaçao', rank: 80 },
-      { word: 'dados', rank: 90 },
-      { word: 'arquivo', rank: 100 },
-      { word: 'pasta', rank: 110 },
-      { word: 'memoria', rank: 120 },
-      { word: 'disco', rank: 130 },
-      { word: 'nuvem', rank: 140 },
-      { word: 'backup', rank: 150 },
-      { word: 'firewall', rank: 170 },
-      { word: 'antivirus', rank: 190 },
-      { word: 'hacker', rank: 210 },
-      { word: 'criptografia', rank: 230 },
-      { word: 'biometria', rank: 250 },
-      { word: 'token', rank: 280 },
-      { word: 'processador', rank: 310 },
-      { word: 'carregador', rank: 340 },
-      { word: 'servidor', rank: 370 },
-      { word: 'banco de dados', rank: 400 },
-      { word: 'algoritmo', rank: 440 },
-      { word: 'inteligencia artificial', rank: 500 }
-    ]
-  },
-  {
-    themeId: 'TRABALHO',
-    themeName: 'Trabalho & Negócio',
-    icon: '👔',
-    secretWord: 'trabalho',
-    description: 'Relacionado a carreiras, escritório, rotina operacional e metas.',
-    words: [
-      { word: 'trabalho', rank: 1 },
-      { word: 'emprego', rank: 2 },
-      { word: 'profissao', rank: 3 },
-      { word: 'cargo', rank: 5 },
-      { word: 'carreira', rank: 8 },
-      { word: 'salario', rank: 10 },
-      { word: 'escritorio', rank: 12 },
-      { word: 'empresa', rank: 15 },
-      { word: 'corporaçao', rank: 18 },
-      { word: 'chefe', rank: 20 },
-      { word: 'patrao', rank: 22 },
-      { word: 'gerente', rank: 25 },
-      { word: 'supervisor', rank: 30 },
-      { word: 'coordenador', rank: 35 },
-      { word: 'diretor', rank: 40 },
-      { word: 'funcionario', rank: 45 },
-      { word: 'colaborador', rank: 50 },
-      { word: 'colega', rank: 55 },
-      { word: 'equipe', rank: 60 },
-      { word: 'time', rank: 65 },
-      { word: 'serviço', rank: 70 },
-      { word: 'tarefa', rank: 75 },
-      { word: 'atividade', rank: 80 },
-      { word: 'rotina', rank: 90 },
-      { word: 'horario', rank: 100 },
-      { word: 'turno', rank: 110 },
-      { word: 'plantao', rank: 120 },
-      { word: 'folga', rank: 130 },
-      { word: 'ferias', rank: 140 },
-      { word: 'contrato', rank: 150 },
-      { word: 'admissao', rank: 160 },
-      { word: 'demissao', rank: 170 },
-      { word: 'contrataçao', rank: 180 },
-      { word: 'curriculo', rank: 190 },
-      { word: 'entrevista', rank: 200 },
-      { word: 'reuniao', rank: 220 },
-      { word: 'meta', rank: 240 },
-      { word: 'projeto', rank: 260 },
-      { word: 'produtividade', rank: 280 },
-      { word: 'esforço', rank: 300 },
-      { word: 'dedicaçao', rank: 320 },
-      { word: 'competencia', rank: 350 },
-      { word: 'negocio', rank: 380 },
-      { word: 'faturamento', rank: 420 },
-      { word: 'lucro', rank: 460 },
-      { word: 'prejuizo', rank: 500 }
-    ]
-  },
-  {
-    themeId: 'ALIMENTACAO',
-    themeName: 'Alimentação & Saúde',
-    icon: '🍎',
-    secretWord: 'comida',
-    description: 'Relacionado a refeições, ingredientes e bem-estar físico.',
-    words: [
-      { word: 'comida', rank: 1 },
-      { word: 'alimento', rank: 2 },
-      { word: 'refeiçao', rank: 3 },
-      { word: 'prato', rank: 5 },
-      { word: 'ingrediente', rank: 8 },
-      { word: 'lanche', rank: 10 },
-      { word: 'almoço', rank: 12 },
-      { word: 'jantar', rank: 15 },
-      { word: 'cafe', rank: 18 },
-      { word: 'sobremesa', rank: 20 },
-      { word: 'doce', rank: 25 },
-      { word: 'salgado', rank: 30 },
-      { word: 'bebida', rank: 35 },
-      { word: 'agua', rank: 40 },
-      { word: 'suco', rank: 45 },
-      { word: 'refrigerante', rank: 50 },
-      { word: 'carne', rank: 55 },
-      { word: 'frango', rank: 60 },
-      { word: 'peixe', rank: 65 },
-      { word: 'arroz', rank: 70 },
-      { word: 'feijao', rank: 75 },
-      { word: 'massa', rank: 80 },
-      { word: 'pizza', rank: 85 },
-      { word: 'hamburguer', rank: 90 },
-      { word: 'batata', rank: 100 },
-      { word: 'salada', rank: 110 },
-      { word: 'verdura', rank: 120 },
-      { word: 'legume', rank: 130 },
-      { word: 'fruta', rank: 140 },
-      { word: 'pao', rank: 150 },
-      { word: 'bolo', rank: 160 },
-      { word: 'queijo', rank: 170 },
-      { word: 'presunto', rank: 180 },
-      { word: 'ovo', rank: 190 },
-      { word: 'leite', rank: 200 },
-      { word: 'manteiga', rank: 220 },
-      { word: 'iogurte', rank: 240 },
-      { word: 'sopa', rank: 260 },
-      { word: 'tempero', rank: 280 },
-      { word: 'sal', rank: 300 },
-      { word: 'pimenta', rank: 320 },
-      { word: 'azeite', rank: 345 },
-      { word: 'alho', rank: 370 },
-      { word: 'cebola', rank: 400 },
-      { word: 'açucar', rank: 440 },
-      { word: 'cozinhar', rank: 500 }
-    ]
-  },
-  {
-    themeId: 'ESPORTE',
-    themeName: 'Esporte & Lazer',
-    icon: '⚽',
-    secretWord: 'futebol',
-    description: 'Relacionado à campeonatos, preparo físico e jogos coletivos.',
-    words: [
-      { word: 'futebol', rank: 1 },
-      { word: 'esporte', rank: 2 },
-      { word: 'jogo', rank: 3 },
-      { word: 'partida', rank: 5 },
-      { word: 'campeonato', rank: 8 },
-      { word: 'copa', rank: 10 },
-      { word: 'torneio', rank: 12 },
-      { word: 'time', rank: 15 },
-      { word: 'clube', rank: 18 },
-      { word: 'seleçao', rank: 20 },
-      { word: 'jogador', rank: 22 },
-      { word: 'atleta', rank: 25 },
-      { word: 'goleiro', rank: 30 },
-      { word: 'defensor', rank: 35 },
-      { word: 'atacante', rank: 40 },
-      { word: 'treinador', rank: 45 },
-      { word: 'tecnico', rank: 50 },
-      { word: 'arbitro', rank: 55 },
-      { word: 'juiz', rank: 60 },
-      { word: 'bandeirinha', rank: 65 },
-      { word: 'estadio', rank: 70 },
-      { word: 'campo', rank: 75 },
-      { word: 'gramado', rank: 80 },
-      { word: 'trave', rank: 85 },
-      { word: 'rede', rank: 90 },
-      { word: 'bola', rank: 95 },
-      { word: 'chuteira', rank: 100 },
-      { word: 'uniforme', rank: 110 },
-      { word: 'camisa', rank: 120 },
-      { word: 'apito', rank: 130 },
-      { word: 'cartao', rank: 140 },
-      { word: 'falta', rank: 150 },
-      { word: 'penalti', rank: 160 },
-      { word: 'gol', rank: 170 },
-      { word: 'escanteio', rank: 180 },
-      { word: 'impedimento', rank: 195 },
-      { word: 'drible', rank: 215 },
-      { word: 'passe', rank: 235 },
-      { word: 'chute', rank: 260 },
-      { word: 'carrinho', rank: 290 },
-      { word: 'treino', rank: 320 },
-      { word: 'corrida', rank: 350 },
-      { word: 'musculaçao', rank: 390 },
-      { word: 'fisico', rank: 440 },
-      { word: 'torcida', rank: 500 }
-    ]
-  }
+const COMMON_PADDER_WORDS = [
+  'casa', 'tempo', 'vida', 'mundo', 'dia', 'ano', 'vez', 'homem', 'mulher', 'coisa', 'par', 'luz', 'paz', 'som', 'cor', 
+  'fim', 'amor', 'arte', 'livro', 'ponto', 'parte', 'forma', 'fogo', 'ar', 'terra', 'mar', 'sol', 'vento', 'ceu', 'agua', 
+  'rocha', 'pedra', 'planta', 'flor', 'folha', 'fruto', 'semente', 'raiz', 'ramo', 'tronco', 'madeira', 'metal', 'ouro', 
+  'prata', 'ferro', 'bronze', 'cobre', 'aço', 'vidro', 'papel', 'pano', 'couro', 'borracha', 'algodao', 'seda', 
+  'fita', 'fio', 'agulha', 'linha', 'tesoura', 'caixa', 'saco', 'bolsa', 'mala', 'carteira', 'bolso', 'chave', 
+  'cadeado', 'trinco', 'porta', 'janela', 'parede', 'teto', 'chao', 'piso', 'tapete', 'cortina', 'espelho', 'quadro', 'relogio', 
+  'mesa', 'cadeira', 'sofa', 'poltrona', 'cama', 'travesseiro', 'lençol', 'cobertor', 'armario', 'comoda', 'gaveta', 'cabide', 
+  'prato', 'copo', 'garfo', 'faca', 'colher', 'panela', 'frigideira', 'forno', 'fogao', 'geladeira', 'torneira',
+  'esponja', 'sabao', 'balde', 'vassoura', 'rodo', 'lixo', 'lixeira', 'sacola', 'cesta', 'caixote'
 ];
+
+export const compileDynamicTheme = (info: PredefinedThemeInfo, secretWordOverride?: string): PredefinedTheme => {
+  // 1. Choose secret word (either requested override, or random candidate)
+  let secret = secretWordOverride;
+  if (!secret) {
+    const candidates = info.secretWordCandidates;
+    secret = candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  const cleanSecret = secret.trim().toLowerCase();
+
+  // 2. Gather unique words within this theme, filtering out the secret word itself
+  const uniqueWordsMap = new Map<string, string>();
+  info.words.forEach(pw => {
+    const wNormalized = pw.word.trim().toLowerCase();
+    if (wNormalized && wNormalized !== cleanSecret) {
+      uniqueWordsMap.set(wNormalized, pw.category);
+    }
+  });
+
+  // 3. Ensure we have at least 500+ elements (dynamic size guarantee)
+  let wordList = Array.from(uniqueWordsMap.entries()).map(([word, category]) => ({ word, category }));
+  
+  let padIdx = 0;
+  while (wordList.length < 520 && padIdx < COMMON_PADDER_WORDS.length) {
+    const padWord = COMMON_PADDER_WORDS[padIdx].trim().toLowerCase();
+    if (padWord !== cleanSecret && !uniqueWordsMap.has(padWord)) {
+      wordList.push({ word: padWord, category: 'padder' });
+      uniqueWordsMap.set(padWord, 'padder');
+    }
+    padIdx++;
+  }
+
+  // Helper to normalize Portuguese words
+  const normalizeLocal = (str: string): string => {
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  };
+
+  const cleanSecretNorm = normalizeLocal(cleanSecret);
+  const secretObj = info.words.find(w => normalizeLocal(w.word) === cleanSecretNorm);
+  const secretCat = secretObj ? secretObj.category : undefined;
+
+  // 4. Compute similarity for all words relative to the secret word
+  const wordsWithSimilarity = wordList.map(item => {
+    const wNorm = normalizeLocal(item.word);
+    const sNorm = cleanSecretNorm;
+
+    // Get Bigrams
+    const getBigrams = (str: string) => {
+      const bigrams = new Set<string>();
+      for (let i = 0; i < str.length - 1; i++) {
+        bigrams.add(str.substring(i, i + 2));
+      }
+      return bigrams;
+    };
+
+    const b1 = getBigrams(wNorm);
+    const b2 = getBigrams(sNorm);
+    let intersection = 0;
+    b1.forEach(bg => {
+      if (b2.has(bg)) intersection++;
+    });
+    const union = b1.size + b2.size - intersection;
+    const jaccard = union > 0 ? intersection / union : 0;
+
+    // Prefix match
+    let prefix = 0;
+    const minLen = Math.min(wNorm.length, sNorm.length);
+    for (let i = 0; i < minLen; i++) {
+      if (wNorm[i] === sNorm[i]) prefix++;
+      else break;
+    }
+    const prefixRatio = minLen > 0 ? prefix / minLen : 0;
+
+    // Category boost
+    let categoryBoost = 0;
+    if (item.category !== 'padder' && secretCat && item.category === secretCat) {
+      categoryBoost = 0.35;
+    }
+
+    // Deterministic hash based seed for organic rank variation
+    let hashVal = 0;
+    const combined = wNorm + '_' + sNorm;
+    for (let i = 0; i < combined.length; i++) {
+      hashVal = combined.charCodeAt(i) + ((hashVal << 5) - hashVal);
+    }
+    const hashFactor = (Math.abs(hashVal) % 100) / 1000;
+
+    const similarity = (jaccard * 0.45) + (prefixRatio * 0.20) + categoryBoost + hashFactor;
+
+    return {
+      word: item.word,
+      similarity
+    };
+  });
+
+  // 5. Sort words by similarity descending
+  wordsWithSimilarity.sort((a, b) => b.similarity - a.similarity);
+
+  // 6. Map to PredefinedWord structure with sequential ranks (starting from rank 2)
+  const finalPredefinedWords = wordsWithSimilarity.map((item, index) => {
+    return {
+      word: item.word,
+      rank: index + 2
+    };
+  });
+
+  return {
+    themeId: info.themeId,
+    themeName: info.themeName,
+    icon: info.icon,
+    description: info.description,
+    secretWord: cleanSecret,
+    words: finalPredefinedWords
+  };
+};
+
+const CONTEXT_THEMES: PredefinedTheme[] = CONTEXT_DICTIONARY_THEMES.map(info => 
+  compileDynamicTheme(info)
+);
 
 export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: ContextoGameProps) {
   // Navigation states
   const [gameState, setGameState] = useState<'selection' | 'playing' | 'victory'>('selection');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [selectedTheme, setSelectedTheme] = useState<PredefinedTheme>(CONTEXT_THEMES[0]);
+
+  // Track secret word history to avoid repetitions
+  const [usedSecretWords, setUsedSecretWords] = useState<Record<string, string[]>>({});
 
   // Search/Guesses tracking states
   const [guesses, setGuesses] = useState<{ word: string; rank: number; timestamp: number }[]>([]);
@@ -418,6 +223,8 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
   const [activePlayerTurn, setActivePlayerTurn] = useState<'p1' | 'p2'>('p1');
   const [p1Score, setP1Score] = useState<number>(0);
   const [p2Score, setP2Score] = useState<number>(0);
+  const [score, setScore] = useState<number>(0);
+  const [showAbandonModal, setShowAbandonModal] = useState<boolean>(false);
 
   // Focus reference for input field
   const inputRef = useRef<HTMLInputElement>(null);
@@ -557,8 +364,45 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
 
   // Start a fresh new Contexto gameplay session
   const startNewSession = (difficultyLevel: 'easy' | 'medium' | 'hard', themeSelection: PredefinedTheme) => {
+    // 1. Get raw theme definitions
+    const themeInfo = CONTEXT_DICTIONARY_THEMES.find(t => t.themeId === themeSelection.themeId);
+    
+    let freshTheme = themeSelection;
+    if (themeInfo) {
+      // Filter out candidates that were played recently
+      const alreadyUsed = usedSecretWords[themeInfo.themeId] || [];
+      let unusedCandidates = themeInfo.secretWordCandidates.filter(w => !alreadyUsed.includes(w));
+      
+      // Reset tracker if all candidates have been played
+      if (unusedCandidates.length === 0) {
+        unusedCandidates = themeInfo.secretWordCandidates;
+        setUsedSecretWords(prev => ({
+          ...prev,
+          [themeInfo.themeId]: []
+        }));
+      }
+
+      // Select a random secret word
+      const newSecretWord = unusedCandidates[Math.floor(Math.random() * unusedCandidates.length)];
+
+      // Register the secret word as used
+      setUsedSecretWords(prev => {
+        const list = prev[themeInfo.themeId] || [];
+        if (!list.includes(newSecretWord)) {
+          return {
+            ...prev,
+            [themeInfo.themeId]: [...list, newSecretWord]
+          };
+        }
+        return prev;
+      });
+
+      // Compile a fresh theme on-the-fly with exactly 500+ ranked words centered on this secret word!
+      freshTheme = compileDynamicTheme(themeInfo, newSecretWord);
+    }
+
     setDifficulty(difficultyLevel);
-    setSelectedTheme(themeSelection);
+    setSelectedTheme(freshTheme);
     setInputValue('');
     setErrorText('');
     setAttempts(0);
@@ -567,35 +411,12 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
     setStartTime(Date.now());
     setP1Score(0);
     setP2Score(0);
+    setScore(0);
     setActivePlayerTurn('p1');
+    setShowAbandonModal(false);
     
     // Setup initial guess values based on difficulty requirements
     const initialGuesses: { word: string; rank: number; timestamp: number }[] = [];
-    
-    if (difficultyLevel === 'easy') {
-      // Fácil reveals 4 helpful warm starting checkpoints to direct the user
-      const startingKeys = [120, 245, 360, 480];
-      startingKeys.forEach((targetRank, idx) => {
-        const closestWord = themeSelection.words.find(w => w.rank >= targetRank && w.rank <= targetRank + 40);
-        if (closestWord) {
-          initialGuesses.push({
-            word: closestWord.word,
-            rank: closestWord.rank,
-            timestamp: Date.now() - (idx * 1000)
-          });
-        }
-      });
-    } else if (difficultyLevel === 'medium') {
-      // Médio reveals exactly 1 broad warm helper word
-      const closestWord = themeSelection.words.find(w => w.rank >= 380 && w.rank <= 440);
-      if (closestWord) {
-        initialGuesses.push({
-          word: closestWord.word,
-          rank: closestWord.rank,
-          timestamp: Date.now()
-        });
-      }
-    }
     
     setGuesses(initialGuesses);
     setGameState('playing');
@@ -641,10 +462,15 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
     setAttempts(prev => prev + 1);
 
     // Notify sound-like micro-points or visual success feedback
-    if (onScoreUpdate && guessRank < 500) {
+    if (guessRank < 500) {
       // Real-time minor score feedback for cool hot guesses
       const scoreTier = guessRank === 1 ? 500 : Math.max(5, Math.floor(100 / guessRank));
-      onScoreUpdate(scoreTier);
+      if (onScoreUpdate) {
+        onScoreUpdate(scoreTier);
+      }
+      if (multiplayerMode === '1p') {
+        setScore(prev => prev + scoreTier);
+      }
     }
 
     // Check if the game is successfully solved
@@ -656,6 +482,8 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
         } else {
           setP2Score(prev => prev + winReward);
         }
+      } else {
+        setScore(calculatedPoints);
       }
       setGameState('victory');
     } else {
@@ -820,7 +648,7 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
               <div className="grid grid-cols-1 gap-3">
                 {(['easy', 'medium', 'hard'] as const).map(level => {
                   const label = level === 'easy' ? 'Fácil' : level === 'medium' ? 'Médio' : 'Difícil';
-                  const reward = level === 'easy' ? '+300 XP BP • 4 Dicas Iniciais' : level === 'medium' ? '+450 XP BP • 1 Dica Inicial' : '+700 XP BP • Zero Dicas Iniciais';
+                  const reward = level === 'easy' ? '+300 XP BP' : level === 'medium' ? '+455 XP BP' : '+700 XP BP';
                   return (
                     <button
                       id={`btn-contexto-diff-${level}`}
@@ -1085,6 +913,91 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
               </AnimatePresence>
             )}
           </div>
+          
+          {/* Abandonar Patrulha Button */}
+          <div className="w-full flex justify-center mt-6">
+            <button
+              id="contexto-abandon-btn"
+              onClick={() => {
+                // Salva os pontos acumulados até agora e incrementa 1 patrulha de forma imediata antes de abrir o modal
+                onComplete(
+                  multiplayerMode === '2p' ? p1Score + p2Score : score,
+                  1,
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'CONTEXTO',
+                  false,
+                  true // keepInGameSelection = true
+                );
+                setShowAbandonModal(true);
+              }}
+              className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider cursor-pointer flex items-center justify-center font-sans"
+            >
+              ABANDONAR PATRULHA
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Abandon Patrol Modal Popup Overlay */}
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic font-sans animate-fade-in">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center font-sans"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </button>
+              <button 
+                onClick={() => {
+                  setGuesses([]);
+                  setInputValue('');
+                  setAttempts(0);
+                  setHintsUsed(0);
+                  setErrorText('');
+                  setP1Score(0);
+                  setP2Score(0);
+                  setScore(0);
+                  setShowAbandonModal(false);
+                  setGameState('selection');
+                }} 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all cursor-pointer flex items-center justify-center bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
 
@@ -1197,19 +1110,31 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
           </div>
 
           {/* Action trigger buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => setGameState('selection')}
-              className="flex-1 bg-slate-800 hover:bg-slate-750 text-slate-200 border-2 border-slate-700 hover:border-slate-600 font-extrabold uppercase tracking-wide py-3.5 rounded-2xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <RotateCcw size={14} /> Jogar Novamente
-            </button>
-            <button
+          <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
+            <Button
               onClick={triggerGameComplete}
-              className="flex-1 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase tracking-wide py-4 rounded-2xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-[0_5px_15px_rgba(234,179,8,0.2)]"
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
             >
-              Completar Patrulha Semântica ➔
-            </button>
+              VOLTAR À CENTRAL DE JOGOS
+            </Button>
+            <Button
+              onClick={() => {
+                setGuesses([]);
+                setInputValue('');
+                setAttempts(0);
+                setHintsUsed(0);
+                setErrorText('');
+                setP1Score(0);
+                setP2Score(0);
+                setScore(0);
+                setShowAbandonModal(false);
+                setGameState('selection');
+              }}
+              variant="outline"
+              className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+            >
+              TENTAR NOVAMENTE 🔁
+            </Button>
           </div>
         </motion.div>
       )}

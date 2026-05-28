@@ -18,7 +18,9 @@ interface HangmanProps {
     partner?: any,
     p1Score?: number,
     p2Score?: number,
-    gameType?: string
+    gameType?: string,
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -38,6 +40,7 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
   const [totalScore, setTotalScore] = useState(0);
   const [setupComplete, setSetupComplete] = useState(false);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   // Multiplayer State
   const [multiplayerMode, setMultiplayerMode] = useState<'1p' | '2p'>('1p');
@@ -93,16 +96,35 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
       if (isWon) {
         setStatus('won');
         const levelScore = 100 * level - mistakes * 10;
+        let finalScore = totalScore;
+        let finalP1 = p1Score;
+        let finalP2 = p2Score;
         if (multiplayerMode === '2p') {
           if (activePlayerTurn === 'p1') {
-            setP1Score(prev => prev + levelScore);
+            finalP1 = p1Score + levelScore;
+            setP1Score(finalP1);
           } else {
-            setP2Score(prev => prev + levelScore);
+            finalP2 = p2Score + levelScore;
+            setP2Score(finalP2);
           }
         } else {
-          setTotalScore(prev => prev + levelScore);
+          finalScore = totalScore + levelScore;
+          setTotalScore(finalScore);
         }
         if (onScoreUpdate) onScoreUpdate(levelScore);
+
+        // Computa os pontos imediatamente no sistema geral de faturamento de XP e patrulhas
+        onComplete(
+          multiplayerMode === '2p' ? finalP1 : finalScore,
+          1,
+          multiplayerMode === '2p',
+          selectedPartner,
+          finalP1,
+          finalP2,
+          'HANGMAN',
+          false,
+          true
+        );
       }
     }
   };
@@ -307,48 +329,194 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center p-8 text-center z-50"
+            className="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center p-8 text-center z-50 overflow-y-auto"
           >
             {status === 'won' ? (
-              <>
-                <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center text-4xl mb-6 shadow-glow shadow-emerald-500/40">🏆</div>
-                <h2 className="text-4xl font-black text-white mb-2 uppercase italic">Excelente!</h2>
-                <p className="text-slate-400 mb-8 font-bold uppercase tracking-widest text-sm">Você salvou o operador!</p>
+              <div className="w-full max-w-sm flex flex-col items-center text-center space-y-5">
+                <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center text-4xl shadow-glow shadow-emerald-500/40">🏆</div>
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Excelente!</h2>
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Você salvou o operador!</p>
+                </div>
+
+                <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1 font-sans">Pontos Ganhos</span>
+                  <span className="text-3xl font-black text-emerald-400 font-mono block">+{100 * level - mistakes * 10} XP</span>
+                </div>
+
                 <div className="flex flex-col w-full gap-3">
-                  <Button onClick={handleNextLevel} className="w-full h-14 bg-yellow-400 text-slate-900 font-black text-lg rounded-2xl uppercase italic">
-                    PRÓXIMO NÍVEL ⚡
+                  <Button 
+                    onClick={handleNextLevel} 
+                    className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all font-sans"
+                  >
+                    PRÓXIMO NÍVEL 🚀
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score : totalScore,
+                        1,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'HANGMAN'
+                      );
+                    }} 
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+                  >
+                    VOLTAR À CENTRAL DE JOGOS
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setSetupComplete(false);
+                      setTotalScore(0);
+                      setP1Score(0);
+                      setP2Score(0);
+                      setLevel(1);
+                      setGuessedLetters([]);
+                      setMistakes(0);
+                      setStatus('playing');
+                    }}
+                    variant="outline" 
+                    className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                  >
+                    TENTAR NOVAMENTE 🔁
                   </Button>
                 </div>
-              </>
+              </div>
             ) : (
-              <>
-                <div className="w-20 h-20 bg-red-500 rounded-3xl flex items-center justify-center text-4xl mb-6 shadow-glow shadow-red-500/40">🚨</div>
-                <h2 className="text-4xl font-black text-white mb-2 uppercase italic">Fim de Jogo</h2>
-                <p className="text-slate-400 mb-2 font-bold uppercase tracking-widest text-sm text-center">A palavra era:</p>
-                <p className="text-2xl font-black text-yellow-400 mb-8 uppercase tracking-tighter">{word}</p>
-                <div className="flex flex-col w-full gap-3">
-                   <Button onClick={onCancel} variant="outline" className="w-full h-14 border-slate-700 text-slate-400 font-black text-lg rounded-2xl uppercase italic">
-                     SAIR
-                   </Button>
-                   <Button onClick={startNewLevel} className="w-full h-14 bg-slate-100 text-slate-900 font-black text-lg rounded-2xl uppercase italic">
-                     TENTAR NOVAMENTE
-                   </Button>
+              <div className="w-full max-w-sm flex flex-col items-center text-center space-y-5">
+                <div className="w-20 h-20 bg-red-500 rounded-3xl flex items-center justify-center text-4xl shadow-glow shadow-red-500/40">🚨</div>
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Fim de Jogo</h2>
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">A palavra secreta era:</p>
+                  <p className="text-2xl font-black text-yellow-400 uppercase tracking-tighter">{word}</p>
                 </div>
-              </>
+
+                <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1 font-sans">Pontos Ganhos</span>
+                  <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
+                </div>
+
+                <div className="flex flex-col w-full gap-3">
+                  <Button 
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score : totalScore,
+                        1,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'HANGMAN'
+                      );
+                    }} 
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+                  >
+                    VOLTAR À CENTRAL DE JOGOS
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      setSetupComplete(false);
+                      setTotalScore(0);
+                      setP1Score(0);
+                      setP2Score(0);
+                      setLevel(1);
+                      setGuessedLetters([]);
+                      setMistakes(0);
+                      setStatus('playing');
+                    }}
+                    variant="outline" 
+                    className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                  >
+                    TENTAR NOVAMENTE 🔁
+                  </Button>
+                </div>
+              </div>
             )}
           </motion.div>
         )}
       </AnimatePresence>
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : totalScore} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSetupComplete(false);
+                  setTotalScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setLevel(1);
+                  setGuessedLetters([]);
+                  setMistakes(0);
+                  setStatus('playing');
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <div className="w-full flex justify-center mt-6">
         <Button 
           onClick={() => {
-            setSetupComplete(false);
-            setTotalScore(0);
-            setLevel(1);
+            // Salva os pontos acumulados até o momento e registra a patrulha
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : totalScore,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'HANGMAN',
+              false,
+              true // keepInGameSelection
+            );
+            setShowAbandonModal(true);
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
-          Abandonar Patrulha
+          ABANDONAR PATRULHA
         </Button>
       </div>
     </div>

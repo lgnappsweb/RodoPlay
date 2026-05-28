@@ -18,7 +18,9 @@ interface WordSearchProps {
     partner?: any,
     p1Score?: number,
     p2Score?: number,
-    gameType?: string
+    gameType?: string,
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -49,6 +51,7 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
   const [gridSize, setGridSize] = useState(10);
   const [setupComplete, setSetupComplete] = useState(false);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   // Multiplayer State
   const [multiplayerMode, setMultiplayerMode] = useState<'1p' | '2p'>('1p');
@@ -63,16 +66,13 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
 
   const generateGrid = () => {
     let baseSize = 10;
-    let wordCount = 6;
+    let wordCount = 8;
     if (difficulty === 'easy') {
-      baseSize = 8;
-      wordCount = 4;
+      baseSize = 9;
     } else if (difficulty === 'medium') {
-      baseSize = 10;
-      wordCount = 6;
+      baseSize = 11;
     } else if (difficulty === 'hard') {
-      baseSize = 12;
-      wordCount = 8;
+      baseSize = 13;
     }
     const size = Math.min(baseSize + Math.floor(level / 2), 14);
     setGridSize(size);
@@ -175,22 +175,44 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     const matchedWord = targetWords.find(w => (w === selectedString || w === revSelectedString) && !foundWords.includes(w));
 
     if (matchedWord) {
-      setFoundWords(prev => [...prev, matchedWord]);
+      const nextFoundWords = [...foundWords, matchedWord];
+      setFoundWords(nextFoundWords);
       setFoundCells(prev => [...prev, ...nextSelected.map(cell => ({ ...cell, word: matchedWord }))]);
       setSelectedCells([]);
       const points = 100 + matchedWord.length * 10;
+      let finalScore = score;
+      let finalP1 = p1Score;
+      let finalP2 = p2Score;
       if (multiplayerMode === '2p') {
         if (activePlayerTurn === 'p1') {
-          setP1Score(prev => prev + points);
+          finalP1 = p1Score + points;
+          setP1Score(finalP1);
         } else {
-          setP2Score(prev => prev + points);
+          finalP2 = p2Score + points;
+          setP2Score(finalP2);
         }
         // Alternate player turns after a word is found
         setActivePlayerTurn(prev => prev === 'p1' ? 'p2' : 'p1');
       } else {
-        setScore(prev => prev + points);
+        finalScore = score + points;
+        setScore(finalScore);
       }
       if (onScoreUpdate) onScoreUpdate(points);
+
+      // Se todas as palavras foram localizadas, computa e salva a patrulha e pontos imediatamente
+      if (nextFoundWords.length === targetWords.length && targetWords.length > 0) {
+        onComplete(
+          multiplayerMode === '2p' ? finalP1 : finalScore,
+          1,
+          multiplayerMode === '2p',
+          selectedPartner,
+          finalP1,
+          finalP2,
+          'WORD_SEARCH',
+          false,
+          true
+        );
+      }
     }
   };
 
@@ -244,7 +266,7 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
                   <div className="flex flex-col text-left">
                     <span className="font-black uppercase text-sm italic">{level === 'easy' ? 'Fácil' : level === 'medium' ? 'Médio' : 'Difícil'}</span>
                     <span className={`text-[8px] font-bold uppercase tracking-tighter mt-0.5 ${difficulty === level ? 'text-slate-900/60' : 'text-slate-600'}`}>
-                      {level === 'easy' ? 'Grelha Menor (8x8 | 4 Palavras)' : level === 'medium' ? 'Grelha Normal (10x10 | 6 Palavras)' : 'Grelha Ampla (12x12 | 8 Palavras)'}
+                      {level === 'easy' ? 'Grelha Menor (9x9 | 8 Alvos)' : level === 'medium' ? 'Grelha Normal (11x11 | 8 Alvos)' : 'Grelha Ampla (13x13 | 8 Alvos)'}
                     </span>
                   </div>
                   {difficulty === level && (
@@ -373,14 +395,14 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       </div>
 
       <div className="w-full max-w-sm bg-slate-900/50 p-4 rounded-3xl border border-slate-800">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 px-2">Encontrar (6 alvos):</p>
-        <div className="flex flex-wrap gap-2">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 px-2">Encontrar ({targetWords.length} alvos):</p>
+        <div className="grid grid-cols-4 gap-2">
           {targetWords.map((word, idx) => (
             <div 
               id={`ws-target-${idx}`}
               key={word} 
-              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all ${
-              foundWords.includes(word) ? 'bg-emerald-500/20 text-emerald-400 line-through' : 'bg-slate-800 text-slate-400 border border-slate-700'
+              className={`px-1 py-2.5 rounded-xl text-[11px] sm:text-xs md:text-sm font-black uppercase tracking-tighter sm:tracking-tight transition-all shadow-sm text-center flex items-center justify-center truncate ${
+              foundWords.includes(word) ? 'bg-emerald-500/25 text-emerald-400 line-through scale-95 opacity-80' : 'bg-slate-800 text-slate-200 border border-slate-700'
             }`}>
               {word}
             </div>
@@ -431,20 +453,86 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           </motion.div>
         )}
       </AnimatePresence>
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                   setSetupComplete(false);
+                   setScore(0);
+                   setP1Score(0);
+                   setP2Score(0);
+                   setLevel(1);
+                   setFoundWords([]);
+                   setFoundCells([]);
+                   setSelectedCells([]);
+                   setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <div className="w-full flex justify-center mt-6">
         <Button 
           id="ws-abandon-btn"
           onClick={() => {
-            setSetupComplete(false);
-            setScore(0);
-            setP1Score(0);
-            setP2Score(0);
-            setActivePlayerTurn('p1');
-            setLevel(1);
+            // Salva os pontos acumulados até agora e incrementa 1 patrulha de forma imediata antes de abrir o modal
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'WORD_SEARCH',
+              false,
+              true // keepInGameSelection = true
+            );
+            setShowAbandonModal(true);
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
-          Abandonar Patrulha
+          ABANDONAR PATRULHA
         </Button>
       </div>
     </div>

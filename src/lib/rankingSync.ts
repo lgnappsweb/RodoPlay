@@ -171,6 +171,8 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
     const completedGames = data.completedGames !== undefined ? data.completedGames : (existingProfile?.completedGames || existingProfile?.partidas || 0);
     const victories = data.victories !== undefined ? data.victories : (existingProfile?.victories || existingProfile?.vitorias || 0);
     const defeats = data.defeats !== undefined ? data.defeats : (existingProfile?.defeats || existingProfile?.derrotas || 0);
+    const rawTimedOutGames = data.timedOutGames !== undefined ? data.timedOutGames : (existingProfile?.timedOutGames || existingProfile?.excedidas || 0);
+    const timedOutGames = isNaN(Number(rawTimedOutGames)) ? 0 : Number(rawTimedOutGames);
     
     const online = (data as any).online !== undefined ? (data as any).online : (data.status === 'online' || existingProfile?.status === 'online' || existingProfile?.online || false);
     const status = online ? 'online' : 'offline';
@@ -233,6 +235,8 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
       vitorias: victories, // exact alias
       defeats,
       derrotas: defeats, // exact alias
+      timedOutGames,
+      excedidas: timedOutGames, // exact alias
       gameStats, // explicit key
       online,
       status, // exact alias
@@ -265,6 +269,8 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
       partidas: completedGames,
       vitorias: victories,
       derrotas: defeats,
+      timedOutGames,
+      excedidas: timedOutGames, // exact alias
       nivel: level,
       scoreTotal: totalScore,
       gameStats,

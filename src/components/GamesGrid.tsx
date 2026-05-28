@@ -4,7 +4,7 @@
  */
 
 import { GameType } from '../types';
-import { HelpCircle, Shield, Search, Type, Gamepad2, Brain, Zap, Calculator, Info, Map, Hash, Car, Compass, Grid, Trophy, Sparkles, Crown, Flame, ArrowLeft, Construction } from 'lucide-react';
+import { HelpCircle, Shield, Search, Type, Gamepad2, Brain, Zap, Calculator, Info, Map, Hash, Car, Compass, Grid, Trophy, Sparkles, Crown, Flame, ArrowLeft, Construction, Skull, Radio } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface GamesGridProps {
@@ -27,30 +27,6 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
     isPromotedText?: string;
   }> = [
     {
-      type: GameType.QUIZ,
-      friendlyName: 'Super Quiz',
-      title: 'QUIZ',
-      desc: 'Conhecimento',
-      bgIcon: HelpCircle,
-      mainIcon: HelpCircle,
-      iconClass: 'bg-yellow-400 text-slate-900',
-      borderClass: 'border-slate-705',
-      rotateClass: 'rotate-3 group-hover:rotate-12',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.HANGMAN,
-      friendlyName: 'Forca',
-      title: 'FORCA',
-      desc: 'Sobrevivência',
-      bgIcon: Shield,
-      mainIcon: Gamepad2,
-      iconClass: 'bg-blue-500 text-white',
-      borderClass: 'border-slate-705',
-      rotateClass: '-rotate-3 group-hover:rotate-0',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
       type: GameType.WORD_SEARCH,
       friendlyName: 'Caça-Palavras',
       title: 'BUSCA',
@@ -60,42 +36,6 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
       iconClass: 'bg-emerald-500 text-white',
       borderClass: 'border-slate-705',
       rotateClass: 'rotate-6 group-hover:rotate-0',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.WORD_GUESS,
-      friendlyName: 'Código Secreto',
-      title: 'CÓDIGO',
-      desc: 'Lógica',
-      bgIcon: Type,
-      mainIcon: Type,
-      iconClass: 'bg-orange-500 text-white',
-      borderClass: 'border-slate-705',
-      rotateClass: '-rotate-6 group-hover:rotate-0',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.MEMORY,
-      friendlyName: 'Memória',
-      title: 'MEMÓRIA',
-      desc: 'Foco',
-      bgIcon: Brain,
-      mainIcon: Brain,
-      iconClass: 'bg-pink-500 text-white',
-      borderClass: 'border-slate-705',
-      rotateClass: 'rotate-12 group-hover:rotate-0',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.REACTION,
-      friendlyName: 'Reflexo Rápido',
-      title: 'REFLEXO',
-      desc: 'Agilidade',
-      bgIcon: Zap,
-      mainIcon: Zap,
-      iconClass: 'bg-cyan-500 text-white',
-      borderClass: 'border-slate-705',
-      rotateClass: '-rotate-12 group-hover:rotate-0',
       bgIconSize: 'w-12 h-12',
     },
     {
@@ -111,15 +51,135 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
       bgIconSize: 'w-12 h-12',
     },
     {
+      type: GameType.WORD_GUESS,
+      friendlyName: 'Código Secreto',
+      title: 'CÓDIGO',
+      desc: 'Lógica',
+      bgIcon: Type,
+      mainIcon: Type,
+      iconClass: 'bg-orange-500 text-white',
+      borderClass: 'border-slate-705',
+      rotateClass: '-rotate-6 group-hover:rotate-0',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.CONTEXTO,
+      friendlyName: 'Contexto',
+      title: 'CONTEXTO',
+      desc: 'Associação Semântica',
+      bgIcon: Brain,
+      mainIcon: Brain,
+      iconClass: 'bg-teal-400 text-slate-950',
+      borderClass: 'border-slate-705',
+      rotateClass: 'group-hover:scale-115',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.DAMA,
+      friendlyName: 'Jogo de Dama',
+      title: 'DAMA',
+      desc: 'Conquista de Território',
+      bgIcon: Grid,
+      mainIcon: Gamepad2,
+      iconClass: 'bg-red-600 text-white',
+      borderClass: 'border-slate-705',
+      rotateClass: 'group-hover:scale-110 -rotate-6',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.PARKING_ESCAPE,
+      friendlyName: 'Escape de Pátio',
+      title: 'ESCAPE',
+      desc: 'Operações',
+      bgIcon: Car,
+      mainIcon: Car,
+      iconClass: 'bg-rose-500 text-white',
+      borderClass: 'border-slate-705',
+      rotateClass: 'rotate-12 group-hover:rotate-0',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.HANGMAN,
+      friendlyName: 'Forca',
+      title: 'FORCA',
+      desc: 'Sobrevivência',
+      bgIcon: Skull,
+      mainIcon: Skull,
+      iconClass: 'bg-blue-500 text-white',
+      borderClass: 'border-slate-705',
+      rotateClass: '-rotate-3 group-hover:rotate-0',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.MEMORY,
+      friendlyName: 'Memória',
+      title: 'MEMÓRIA',
+      desc: 'Foco',
+      bgIcon: Brain,
+      mainIcon: Brain,
+      iconClass: 'bg-pink-500 text-white',
+      borderClass: 'border-slate-705',
+      rotateClass: 'rotate-12 group-hover:rotate-0',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.PALAVRAS_500,
+      friendlyName: 'Palavras 500',
+      title: 'PALAVRAS 500',
+      desc: 'Vocabulário Ativo',
+      bgIcon: Flame,
+      mainIcon: Flame,
+      iconClass: 'bg-lime-500 text-slate-900',
+      borderClass: 'border-slate-705',
+      rotateClass: 'group-hover:scale-110',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
       type: GameType.SIGN_MATCH,
       friendlyName: 'Placas de Sinalização',
       title: 'PLACAS',
       desc: 'Sinalização',
       bgIcon: Info,
       mainIcon: Info,
-      iconClass: 'bg-amber-600 text-white',
+      iconClass: 'bg-amber-500 text-white',
       borderClass: 'border-slate-705',
       rotateClass: 'group-hover:skew-x-6',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.QUEENS,
+      friendlyName: 'Queens',
+      title: 'QUEENS',
+      desc: 'Estratégia Lógica',
+      bgIcon: Crown,
+      mainIcon: Crown,
+      iconClass: 'bg-violet-600 text-white',
+      borderClass: 'border-slate-705',
+      rotateClass: 'rotate-6 group-hover:-rotate-6',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.QUIZ,
+      friendlyName: 'Super Quiz',
+      title: 'QUIZ',
+      desc: 'Conhecimento',
+      bgIcon: HelpCircle,
+      mainIcon: HelpCircle,
+      iconClass: 'bg-yellow-400 text-slate-950',
+      borderClass: 'border-slate-705',
+      rotateClass: 'rotate-3 group-hover:rotate-12',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.REACTION,
+      friendlyName: 'Reflexo Rápido',
+      title: 'REFLEXO',
+      desc: 'Agilidade',
+      bgIcon: Zap,
+      mainIcon: Zap,
+      iconClass: 'bg-cyan-400 text-slate-950',
+      borderClass: 'border-slate-705',
+      rotateClass: '-rotate-12 group-hover:rotate-0',
       bgIconSize: 'w-12 h-12',
     },
     {
@@ -139,71 +199,11 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
       friendlyName: 'Sinais',
       title: 'SINAIS',
       desc: 'Memória',
-      bgIcon: Hash,
-      mainIcon: Hash,
+      bgIcon: Radio,
+      mainIcon: Radio,
       iconClass: 'bg-indigo-500 text-white',
       borderClass: 'border-slate-705',
       rotateClass: 'group-hover:scale-110',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.PARKING_ESCAPE,
-      friendlyName: 'Escape de Pátio',
-      title: 'ESCAPE',
-      desc: 'Operações',
-      bgIcon: Car,
-      mainIcon: Car,
-      iconClass: 'bg-red-500 text-white',
-      borderClass: 'border-slate-705',
-      rotateClass: 'rotate-12 group-hover:rotate-0',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.QUEENS,
-      friendlyName: 'Queens',
-      title: 'QUEENS',
-      desc: 'Estratégia Lógica',
-      bgIcon: Crown,
-      mainIcon: Crown,
-      iconClass: 'bg-yellow-400 text-slate-900',
-      borderClass: 'border-slate-705',
-      rotateClass: 'rotate-6 group-hover:-rotate-6',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.PALAVRAS_500,
-      friendlyName: 'Palavras 500',
-      title: 'PALAVRAS 500',
-      desc: 'Vocabulário Ativo',
-      bgIcon: Flame,
-      mainIcon: Flame,
-      iconClass: 'bg-orange-500 text-white',
-      borderClass: 'border-slate-705',
-      rotateClass: 'group-hover:scale-110',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.CONTEXTO,
-      friendlyName: 'Contexto',
-      title: 'CONTEXTO',
-      desc: 'Associação Semântica',
-      bgIcon: Brain,
-      mainIcon: Brain,
-      iconClass: 'bg-emerald-500 text-slate-950',
-      borderClass: 'border-slate-705',
-      rotateClass: 'group-hover:scale-115',
-      bgIconSize: 'w-12 h-12',
-    },
-    {
-      type: GameType.TIC_TAC_TOE,
-      friendlyName: 'Jogo da Velha',
-      title: 'VELHA',
-      desc: 'Estratégia',
-      bgIcon: Grid,
-      mainIcon: Grid,
-      iconClass: 'bg-indigo-600 text-white',
-      borderClass: 'border-slate-705',
-      rotateClass: '-rotate-12 group-hover:rotate-0',
       bgIconSize: 'w-12 h-12',
     },
     {
@@ -213,9 +213,21 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
       desc: 'Lógica Numérica',
       bgIcon: Grid,
       mainIcon: Grid,
-      iconClass: 'bg-yellow-400 text-slate-950',
+      iconClass: 'bg-sky-400 text-slate-950',
       borderClass: 'border-slate-705',
       rotateClass: 'group-hover:scale-110 rotate-6',
+      bgIconSize: 'w-12 h-12',
+    },
+    {
+      type: GameType.TIC_TAC_TOE,
+      friendlyName: 'Jogo da Velha',
+      title: 'VELHA',
+      desc: 'Estratégia',
+      bgIcon: Hash,
+      mainIcon: Hash,
+      iconClass: 'bg-fuchsia-500 text-white',
+      borderClass: 'border-slate-705',
+      rotateClass: '-rotate-12 group-hover:rotate-0',
       bgIconSize: 'w-12 h-12',
     }
   ];
@@ -250,7 +262,7 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
 
       <div className="grid grid-cols-2 gap-4 w-full">
         {games
-          .sort((a, b) => a.friendlyName.localeCompare(b.friendlyName, 'pt-BR'))
+          .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'))
           .map((g) => {
             const BgIcon = g.bgIcon;
             const MainIcon = g.mainIcon;
@@ -281,14 +293,14 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
                 </motion.div>
                 <div className="text-center">
                   {g.isPromotedText && (
-                    <span className="text-[7px] font-black uppercase text-yellow-400 tracking-[0.2em] bg-yellow-400/10 px-2.5 py-0.5 rounded-full border border-yellow-500/20 block w-max mx-auto mb-1">
+                    <span className="text-[9px] font-black uppercase text-yellow-400 tracking-[0.2em] bg-yellow-400/10 px-2.5 py-0.5 rounded-full border border-yellow-500/20 block w-max mx-auto mb-1">
                       {g.isPromotedText}
                     </span>
                   )}
-                  <p className={g.isPromotedText ? "text-sm font-black uppercase text-white italic tracking-tight mt-1" : "text-xs font-black uppercase text-white italic"}>
+                  <p className={g.isPromotedText ? "text-base sm:text-lg font-black uppercase text-white italic tracking-wide mt-1.5" : "text-sm sm:text-base font-black uppercase text-white italic tracking-wide"}>
                     {g.title}
                   </p>
-                  <p className={g.isPromotedText ? "text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1" : "text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-tight mt-1"}>
+                  <p className={g.isPromotedText ? "text-[10px] sm:text-xs font-bold text-slate-300 uppercase tracking-widest mt-1.5" : "text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest leading-tight mt-1.5"}>
                     {g.desc}
                   </p>
                 </div>

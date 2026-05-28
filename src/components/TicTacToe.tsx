@@ -20,7 +20,9 @@ interface TicTacToeProps {
     partner?: Player | null,
     p1Score?: number,
     p2Score?: number,
-    gameType?: string
+    gameType?: string,
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -65,6 +67,7 @@ export function TicTacToe({
   const [timeLeft, setTimeLeft] = useState(35);
   const [maxTime, setMaxTime] = useState(35);
   const [isTimeOut, setIsTimeOut] = useState(false);
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   // Synchronize Firestore Room for Online Multiplayer
   useEffect(() => {
@@ -122,24 +125,10 @@ export function TicTacToe({
     return 55;                        // 55s
   };
 
-  // Setup the game timer
+  // Setup the game timer - disabled per user request
   useEffect(() => {
-    if (!setupComplete || gameState !== 'playing') return;
-
-    if (timeLeft <= 0) {
-      setIsTimeOut(true);
-      setGameState('draw'); // Timeout results in round draw/lost
-      awardPoints('draw');
-      setCompletedRounds(prev => prev + 1);
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft, setupComplete, gameState]);
+    // No timer running
+  }, []);
 
   // Handle AI turn triggers
   useEffect(() => {
@@ -404,7 +393,7 @@ export function TicTacToe({
   const awardPoints = (winnerToken: 'X' | 'O' | 'draw') => {
     // Determine points baseline
     const baseWin = difficulty === 'facil' ? 100 : difficulty === 'medio' ? 150 : 250;
-    const timeBonus = timeLeft * 3;
+    const timeBonus = 0;
     const pointsGained = baseWin + timeBonus;
 
     if (multiplayerMode === '2p') {
@@ -487,7 +476,7 @@ export function TicTacToe({
                       {level === 'facil' ? 'Fácil' : level === 'medio' ? 'Médio' : 'Difícil'}
                     </span>
                     <span className={`text-[8px] font-bold uppercase tracking-tighter mt-0.5 ${difficulty === level ? 'text-slate-900/60' : 'text-slate-600'}`}>
-                      {level === 'facil' ? 'AI Amigável | Tempo: 35s' : level === 'medio' ? 'AI Tática | Tempo: 45s' : 'AI Avançada Impiedosa | Tempo: 55s'}
+                      {level === 'facil' ? 'Oponente Aprendiz / IA Básica' : level === 'medio' ? 'Oponente Estratégico / IA Avançada' : 'Oponente Mestre / IA Especialista'}
                     </span>
                   </div>
                   {difficulty === level && (
@@ -653,22 +642,7 @@ export function TicTacToe({
         </div>
       )}
 
-      {/* Timer display */}
-      <div className="w-full max-w-sm flex flex-col items-center bg-slate-900/40 p-3 rounded-2xl border border-slate-800">
-        <div className="flex justify-between items-center w-full mb-1">
-          <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest">Cronômetro de Missão</span>
-          <span className={`text-[10px] font-mono font-black ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-slate-300'}`}>
-            {timeLeft}s
-          </span>
-        </div>
-        <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
-          <motion.div 
-            className={`h-full ${timeLeft <= 10 ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-yellow-400'}`}
-            animate={{ width: `${(timeLeft / maxTime) * 100}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-      </div>
+      {/* Timer display section hidden per user request */}
 
       <div className="text-center mt-2">
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
@@ -727,7 +701,7 @@ export function TicTacToe({
 
       {/* Standard Results Overlay when completed */}
       <AnimatePresence>
-        {gameState !== 'playing' && (
+        {gameState !== 'playing' && !isTimeOut && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -764,12 +738,6 @@ export function TicTacToe({
 
             <div className="flex flex-col w-full max-w-xs gap-3">
               <Button 
-                onClick={initGame} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-900 font-black text-lg rounded-2xl uppercase italic shadow-xl"
-              >
-                JOGAR NOVAMENTE 🔁
-              </Button>
-              <Button 
                 onClick={() => onComplete(
                   multiplayerMode === '2p' ? p1Score : score, 
                   completedRounds, 
@@ -779,32 +747,168 @@ export function TicTacToe({
                   p2Score, 
                   'TIC_TAC_TOE'
                 )} 
-                variant="outline" 
-                className="w-full h-14 border-slate-750 hover:bg-slate-900 text-slate-400 hover:text-white font-black text-lg rounded-2xl uppercase italic"
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
               >
                 VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={initGame} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {isTimeOut && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="absolute inset-0 bg-slate-950/95 flex flex-col justify-center items-center p-6 text-center z-50 border border-red-500/20"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20 animate-pulse">
+                <span className="text-4xl">⏱️</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+            
+            <h3 className="text-xl font-black text-red-500 uppercase italic tracking-tighter mt-4">
+              FALHA NA INSPEÇÃO
+            </h3>
+            
+            <p className="text-slate-400 text-xs leading-relaxed max-w-xs mt-2 italic">
+              O tempo regulamentar para concluir esta inspeção expirou. Nenhum ponto de vistoria foi faturado nesta jogada.
+            </p>
+
+            {/* Score box */}
+            <div className="w-full max-w-xs bg-slate-950/60 p-4 rounded-2xl border border-slate-850 mt-4 mb-4">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
+            </div>
+
+            <div className="flex flex-col gap-2 w-full max-w-xs font-sans">
+              <Button 
+                onClick={() => onComplete(
+                  0,
+                  completedRounds || 1,
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  0,
+                  0,
+                  'TIC_TAC_TOE',
+                  true,
+                  false
+                )}
+                className="w-full bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase text-xs h-14 rounded-2xl shadow-md active:scale-95 transition-all font-sans"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSetupComplete(false);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setCompletedRounds(0);
+                  setIsTimeOut(false);
+                  initGame();
+                }}
+                variant="outline"
+                className="w-full border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 font-bold uppercase text-xs h-14 rounded-2xl transition-all active:scale-95 bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
               </Button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="w-full flex justify-center mt-6">
-        <Button 
-          id="ttt-abandon-btn"
-          onClick={() => {
-            setSetupComplete(false);
-            setScore(0);
-            setP1Score(0);
-            setP2Score(0);
-            setCompletedRounds(0);
-            setActivePlayerTurn('p1');
-          }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
-        >
-          Abandonar Confronto
-        </Button>
-      </div>
+      {setupComplete && gameState === 'playing' && (
+        <div className="w-full flex justify-center mt-6">
+          <Button 
+            id="ttt-abandon-btn"
+            onClick={() => {
+              onComplete(
+                multiplayerMode === '2p' ? p1Score : score,
+                completedRounds || 1,
+                multiplayerMode === '2p',
+                selectedPartner,
+                p1Score,
+                p2Score,
+                'TIC_TAC_TOE',
+                false,
+                true // keepInGameSelection
+              );
+              setShowAbandonModal(true);
+            }}
+            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider animate-pulse"
+          >
+            ABANDONAR PATRULHA
+          </Button>
+        </div>
+      )}
+
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSetupComplete(false);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setCompletedRounds(0);
+                  setGameState('playing');
+                  setShowAbandonModal(false);
+                  initGame();
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

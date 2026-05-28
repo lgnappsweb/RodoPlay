@@ -19,7 +19,8 @@ interface RouteOrderProps {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout?: boolean
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -79,6 +80,7 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
   const [gameState, setGameState] = useState<'selection' | 'playing'>('selection');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [isTimeOut, setIsTimeOut] = useState(false);
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
   const [gameType, setGameType] = useState<'numeros' | 'letras' | 'cores'>('numeros');
   const [numColors, setNumColors] = useState<number>(5);
   const [colorPhase, setColorPhase] = useState<'memorize' | 'playing'>('memorize');
@@ -109,17 +111,8 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
   }, [gameState, currentRound]);
 
   useEffect(() => {
-    if (gameState !== 'playing') return;
-    if (gameType === 'cores' && colorPhase === 'memorize') return;
-    if (isTimeOut) return;
-    
-    if (timeLeft <= 0) {
-      setIsTimeOut(true);
-      return;
-    }
-    const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft, gameState, gameType, colorPhase, isTimeOut]);
+    // Timer is completely disabled per user request
+  }, []);
 
   const generateRoute = () => {
     const numPoints = getPointsCount(gameType, difficulty, numColors);
@@ -262,7 +255,7 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     const newPoints = points.map(p => p.id === id ? { ...p, clicked: true } : p);
     setPoints(newPoints);
     
-    const award = 50 + (timeLeft * 2);
+    const award = 100;
     if (multiplayerMode === '2p') {
       if (activePlayerTurn === 'p1') {
         setP1Score(prev => prev + award);
@@ -336,7 +329,7 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         {/* New Layout starting with Difficulty first */}
         <div className="w-full max-w-sm space-y-6 pt-2">
           <div id="difficulty-selector">
-            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-3 text-center">Nível de Dificuldade (Tempo)</p>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-3 text-center">Nível de Dificuldade (Elementos)</p>
             <div className="grid grid-cols-1 gap-3">
               {(['easy', 'medium', 'hard'] as const).map(level => (
                 <button
@@ -352,10 +345,10 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
                     <span className="font-black uppercase text-sm italic">{level === 'easy' ? 'Fácil' : level === 'medium' ? 'Médio' : 'Difícil'}</span>
                     <span className={`text-[8px] font-bold uppercase tracking-tighter mt-0.5 ${difficulty === level ? 'text-slate-900/60' : 'text-slate-600'}`}>
                       {gameType === 'cores'
-                        ? `${level === 'easy' ? 'Tempo Generoso (25s)' : level === 'medium' ? 'Tempo Moderado (15s)' : 'Tempo Extremo (10s)'}`
+                        ? `${level === 'easy' ? 'Sequência de Cores Básica' : level === 'medium' ? 'Sequência de Cores Intermediária' : 'Sequência de Cores Especialista'}`
                         : gameType === 'letras'
-                          ? `${level === 'easy' ? '9 Letras | 25s' : level === 'medium' ? '18 Letras | 15s' : '27 Letras | 10s'}`
-                          : `${level === 'easy' ? '9 Números | 25s' : level === 'medium' ? '18 Números | 15s' : '27 Números | 10s'}`
+                          ? `${level === 'easy' ? 'Grade de 9 Letras' : level === 'medium' ? 'Grade de 18 Letras' : 'Grade de 27 Letras'}`
+                          : `${level === 'easy' ? 'Grade de 9 Números' : level === 'medium' ? 'Grade de 18 Números' : 'Grade de 27 Números'}`
                       }
                     </span>
                   </div>
@@ -515,8 +508,7 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               <span className="text-xs font-extrabold text-slate-300 block mt-0.5">{currentRound}/{totalRounds}</span>
             </div>
             <div className="text-center font-mono bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-full flex items-center space-x-1.5 shadow-inner">
-              <Timer className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
-              <span className="text-sm font-black text-white leading-none">{timeLeft}s</span>
+              <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">{difficulty === 'easy' ? 'Fácil' : difficulty === 'medium' ? 'Médio' : 'Difícil'}</span>
             </div>
           </div>
         </div>
@@ -702,14 +694,87 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       )}
 
       {/* Persistent Cancel Button */}
-      <div className="w-full flex justify-center mt-3">
-        <Button 
-          onClick={() => setGameState('selection')}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
-        >
-          Abandonar Trajeto
-        </Button>
-      </div>
+      {gameState === 'playing' && (
+        <div className="w-full flex justify-center mt-3">
+          <Button 
+            onClick={() => {
+              onComplete(
+                multiplayerMode === '2p' ? p1Score : score,
+                1,
+                multiplayerMode === '2p',
+                selectedPartner,
+                p1Score,
+                p2Score,
+                'ROUTE_ORDER',
+                false,
+                true // keepInGameSelection
+              );
+              setShowAbandonModal(true);
+            }}
+            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          >
+            ABANDONAR PATRULHA
+          </Button>
+        </div>
+      )}
+
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setTimeLeft(25);
+                  setIsTimeOut(false);
+                  setCurrentRound(1);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setGameState('selection');
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {isTimeOut && (
         <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
@@ -722,45 +787,52 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20">
                 <span className="text-4xl animate-pulse">⏱️</span>
               </div>
-              <span className="absolute -top-1 -right-1 text-xl">⚠️</span>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
             </div>
 
             <div className="space-y-2">
-              <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FIM DO TEMPO</span>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Tempo Esgotado!</h3>
+              <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FALHA NA INSPEÇÃO</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Inspeção Interrompida</h3>
               <p className="text-slate-400 text-xs leading-relaxed italic">
-                O cronômetro encerrou antes que você pudesse completar o trajeto. Não se preocupe! Você não perde seus pontos.
+                O cronômetro encerrou antes que você pudesse completar o trajeto.
               </p>
             </div>
 
             {/* Score box */}
             <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontuação Conquistada</span>
-              <span className="text-3xl font-black text-yellow-400 font-mono block">{multiplayerMode === '2p' ? p1Score + p2Score : score} XP</span>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
             </div>
 
             <div className="w-full flex flex-col gap-3">
               <Button 
                 onClick={() => onComplete(
-                  multiplayerMode === '2p' ? p1Score : score,
+                  0,
                   1,
                   multiplayerMode === '2p',
                   selectedPartner,
-                  p1Score,
-                  p2Score,
+                  0,
+                  0,
                   'ROUTE_ORDER',
-                  isTimeOut
+                  true,
+                  false
                 )} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
               >
                 VOLTAR À CENTRAL DE JOGOS
               </Button>
               <Button 
                 onClick={() => {
-                  startGame(difficulty);
+                  setTimeLeft(25);
+                  setIsTimeOut(false);
+                  setCurrentRound(1);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setGameState('selection');
                 }} 
                 variant="outline" 
-                className="w-full h-14 border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all"
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
               >
                 TENTAR NOVAMENTE 🔁
               </Button>

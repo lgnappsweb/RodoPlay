@@ -756,9 +756,9 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
           </span>
         </div>
 
-        {/* Top 5 list */}
-        <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
-          {filteredPlayers.slice(0, 5).map((p, idx) => {
+        {/* Top 10 list */}
+        <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+          {filteredPlayers.slice(0, 10).map((p, idx) => {
             const numPosition = idx + 1;
             const styling = getPodiumRankStyles(numPosition);
             const isMe = p.uid === currentPlayer?.uid;

@@ -19,7 +19,8 @@ interface QueensGameProps {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout?: boolean
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -60,6 +61,7 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
   const [timeLeft, setTimeLeft] = useState(90);
   const [maxTime, setMaxTime] = useState(90);
   const [gameState, setGameState] = useState<'playing' | 'paused' | 'victory' | 'failed'>('playing');
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
   
   // Checklists
   const [rowStatus, setRowStatus] = useState<boolean>(true);
@@ -182,23 +184,10 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     }
   }, [setupComplete, difficulty]);
 
-  // Timer loop
+  // Timer loop - disabled per user request
   useEffect(() => {
-    if (gameState !== 'playing' || !setupComplete) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setGameState('failed');
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [gameState, setupComplete]);
+    // No timer countdown
+  }, []);
 
   // Run Constraint Checks whenever Grid or Queens change
   useEffect(() => {
@@ -273,7 +262,7 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     if (queens.length === size && violations.size === 0) {
       // Calculate final score
       const basePoints = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
-      const speedBonus = timeLeft * 4;
+      const speedBonus = 0;
       const finalAward = basePoints + speedBonus;
       
       setGameState('victory');
@@ -291,33 +280,35 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           setP2Score(p2Award);
         }
         
-        setTimeout(() => {
-          onComplete(
-            p1Award,
-            1,
-            true,
-            selectedPartner,
-            p1Award,
-            p2Award,
-            'QUEENS'
-          );
-        }, 3000);
+        // Computa os pontos imediatamente em background para salvar o estado
+        onComplete(
+          p1Award,
+          1,
+          true,
+          selectedPartner,
+          p1Award,
+          p2Award,
+          'QUEENS',
+          false,
+          true // keepInGameSelection = true
+        );
       } else {
         const singleScore = score + finalAward;
         setScore(singleScore);
         if (onScoreUpdate) onScoreUpdate(finalAward);
         
-        setTimeout(() => {
-          onComplete(
-            singleScore,
-            1,
-            false,
-            null,
-            0,
-            0,
-            'QUEENS'
-          );
-        }, 3000);
+        // Computa os pontos imediatamente em background para salvar o estado
+        onComplete(
+          singleScore,
+          1,
+          false,
+          null,
+          0,
+          0,
+          'QUEENS',
+          false,
+          true // keepInGameSelection = true
+        );
       }
     }
 
@@ -396,20 +387,24 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     }
     
     setGrid(solGrid);
+    setScore(0);
+    setP1Score(0);
+    setP2Score(0);
     setGameState('victory');
     setShowVictoryCard(true);
     
-    setTimeout(() => {
-      onComplete(
-        0, // Revealed solution awards 0 XP to keep leaderboard fair
-        1,
-        multiplayerMode === '2p',
-        selectedPartner,
-        0,
-        0,
-        'QUEENS'
-      );
-    }, 4500);
+    // Computa 0 pontos imediatamente e mantém em jogo
+    onComplete(
+      0, // Revealed solution awards 0 XP to keep leaderboard fair
+      1,
+      multiplayerMode === '2p',
+      selectedPartner,
+      0,
+      0,
+      'QUEENS',
+      false,
+      true // keepInGameSelection = true
+    );
   };
 
   const getCellBorders = (r: number, c: number) => {
@@ -601,11 +596,11 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           <p className="text-xl font-black text-yellow-400">PTS: {multiplayerMode === '2p' ? p1Score + p2Score : score}</p>
         </div>
 
-        {/* Timer countdown bar */}
+        {/* Difficulty display */}
         <div className="flex flex-col items-center bg-slate-900 border border-slate-800 rounded-xl px-4 py-1.5 min-w-[70px]">
-          <p className="text-[7px] font-black uppercase text-slate-500 tracking-wider">Patrulha</p>
-          <p className={`text-sm font-black font-mono transition-colors leading-none mt-0.5 ${timeLeft <= 20 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
-            {timeLeft}s
+          <p className="text-[7px] font-black uppercase text-slate-500 tracking-wider">Grau</p>
+          <p className="text-sm font-black text-white transition-colors leading-none mt-0.5 uppercase">
+            {difficulty}
           </p>
         </div>
 
@@ -615,15 +610,7 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         </div>
       </div>
 
-      {/* Visual Progress Timer Bar */}
-      <div className="w-full max-w-lg bg-slate-900 h-1.5 rounded-full overflow-hidden border border-white/5">
-        <motion.div 
-          className={`h-full ${timeLeft <= 20 ? 'bg-red-500' : 'bg-gradient-to-r from-yellow-400 to-amber-500'}`}
-          initial={{ width: '100%' }}
-          animate={{ width: `${(timeLeft / maxTime) * 100}%` }}
-          transition={{ duration: 1, ease: 'linear' }}
-        />
-      </div>
+      {/* Visual Timer Bar - Hidden per user request */}
 
       {/* Main Board Area */}
       <div className="relative w-full max-w-lg aspect-square flex items-center justify-center select-none pt-2">
@@ -706,94 +693,6 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
             })}
           </div>
         )}
-
-        {/* Victory Screen Modal overlay inside Board */}
-        <AnimatePresence>
-          {showVictoryCard && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="absolute inset-0 bg-slate-950/95 rounded-3xl flex flex-col justify-center items-center p-6 text-center z-30"
-            >
-              <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full flex items-center justify-center text-4xl mb-4 animate-bounce">
-                🎉👑
-              </div>
-              
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">
-                Estratégia Homologada!
-              </h3>
-              
-              <p className="text-slate-400 text-xs font-bold leading-relaxed max-w-xs mt-2">
-                Todas as rainhas foram posicionadas com sucesso sem infringir as diretrizes municipais de segurança lógica!
-              </p>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-3 mt-6">
-                <span className="text-[8px] font-black tracking-wider text-slate-500 block uppercase">XP Consolidado</span>
-                <span className="text-2xl font-black text-yellow-400 font-mono block">
-                  +{difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700} XP
-                </span>
-              </div>
-              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-4">Salvando patrulha no diário oficial...</p>
-            </motion.div>
-          )}
-
-          {gameState === 'failed' && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="absolute inset-0 bg-slate-950/95 rounded-3xl flex flex-col justify-center items-center p-6 text-center z-30 border border-red-500/20"
-            >
-              <div className="w-16 h-16 bg-red-500/10 border-2 border-red-500 rounded-full flex items-center justify-center text-3xl mb-4 text-red-500">
-                🛑
-              </div>
-              
-              <h3 className="text-xl font-black text-red-500 uppercase italic tracking-tighter">
-                Tempo Excedido! (Reprovado)
-              </h3>
-              
-              <p className="text-slate-400 text-xs leading-relaxed max-w-xs mt-2">
-                Você estourou o limite de vistoria. Estude o design das regiões e tente novamente para acumular pontos na ativação!
-              </p>
-
-              <div className="flex gap-3 mt-6 w-full max-w-xs">
-                <Button 
-                  onClick={() => {
-                    setSetupComplete(false);
-                    setGameState('playing');
-                  }}
-                  className="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-300 font-bold uppercase tracking-wider text-[10px] border border-slate-700 h-12"
-                >
-                  Voltar Menu
-                </Button>
-                <Button 
-                  onClick={startNewGame}
-                  className="flex-1 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase tracking-wider text-[10px] h-12"
-                >
-                  Tentar De Novo
-                </Button>
-              </div>
-
-              <Button 
-                onClick={() => onComplete(
-                  multiplayerMode === '2p' ? p1Score : score,
-                  1,
-                  multiplayerMode === '2p',
-                  selectedPartner,
-                  p1Score,
-                  p2Score,
-                  'QUEENS',
-                  true
-                )}
-                variant="outline"
-                className="w-full max-w-xs h-12 mt-3 rounded-2xl border-slate-850 bg-slate-900/40 hover:bg-slate-800 text-slate-400 hover:text-white font-bold uppercase text-[10px] tracking-wider transition-all active:scale-95"
-              >
-                VOLTAR À CENTRAL DE JOGOS
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Constraints Guidelines / Rule Checking */}
@@ -826,7 +725,7 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       </div>
 
       {/* Action panel */}
-      <div className="w-full max-w-lg grid grid-cols-4 gap-2 pt-1 font-sans">
+      <div className="w-full max-w-lg grid grid-cols-3 gap-2 pt-1 font-sans">
         <button
           id="queens-reset-btn"
           onClick={startNewGame}
@@ -854,17 +753,222 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           <Sparkles size={14} className="mb-1" />
           Dica Sábia
         </button>
-
-        <button
-          id="queens-solution-btn"
-          onClick={handleRevealSolution}
-          disabled={gameState !== 'playing'}
-          className="bg-slate-900 border border-slate-800 hover:border-slate-750 transition-colors disabled:opacity-40 py-2.5 rounded-xl flex flex-col justify-center items-center text-[8px] font-black uppercase text-indigo-400 hover:text-indigo-300"
-        >
-          <HelpCircle size={14} className="mb-1" />
-          Solucionar
-        </button>
       </div>
+
+      {gameState === 'playing' && (
+        <div className="w-full flex justify-center mt-4">
+          <Button 
+            onClick={() => {
+              // Save current score immediately
+              onComplete(
+                multiplayerMode === '2p' ? p1Score : score,
+                1,
+                multiplayerMode === '2p',
+                selectedPartner,
+                p1Score,
+                p2Score,
+                'QUEENS',
+                false,
+                true // keepInGameSelection = true
+              );
+              setShowAbandonModal(true);
+            }}
+            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider font-sans"
+          >
+            ABANDONAR PATRULHA
+          </Button>
+        </div>
+      )}
+
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSetupComplete(false);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setGameState('playing');
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Victory and Timeout overlays at top-level container to avoid grid restrictions & transparency */}
+      <AnimatePresence>
+        {showVictoryCard && (
+          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+            >
+              <div className="relative">
+                <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                  <span className="text-4xl animate-pulse">👑</span>
+                </div>
+                <span className="absolute -top-1 -right-1 text-xl">🎉</span>
+              </div>
+              
+              <div className="space-y-2">
+                <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase font-mono">ESTRATÉGIA HOMOLOGADA</span>
+                <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Patrulha Concluída!</h3>
+                <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto italic">
+                  Todas as rainhas foram posicionadas com sucesso sem infringir as diretrizes municipais de segurança lógica!
+                </p>
+              </div>
+
+              {/* Score box */}
+              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+                <span className="text-3xl font-black text-yellow-400 font-mono block">
+                  {multiplayerMode === '2p' ? p1Score : score} XP
+                </span>
+              </div>
+
+              <div className="w-full flex flex-col gap-3">
+                <Button 
+                  onClick={() => onComplete(
+                    multiplayerMode === '2p' ? p1Score : score,
+                    1,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    p1Score,
+                    p2Score,
+                    'QUEENS',
+                    false,
+                    false
+                  )}
+                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans"
+                >
+                  VOLTAR À CENTRAL DE JOGOS
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setSetupComplete(false);
+                    setGameState('playing');
+                    setScore(0);
+                    setP1Score(0);
+                    setP2Score(0);
+                    setShowVictoryCard(false);
+                  }}
+                  variant="outline"
+                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                >
+                  TENTAR NOVAMENTE 🔁
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {gameState === 'failed' && (
+          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+            >
+              <div className="relative">
+                <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20 animate-pulse">
+                  <span className="text-4xl">⏱️</span>
+                </div>
+                <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+              </div>
+              
+              <div className="space-y-2">
+                <span className="text-[10px] font-black tracking-widest text-red-500 uppercase font-mono">FALHA NA INSPEÇÃO</span>
+                <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Tempo Esgotado</h3>
+                <p className="text-slate-400 text-xs leading-relaxed max-w-xs mx-auto italic">
+                  O tempo regulamentar para concluir esta inspeção expirou. Nenhum ponto de vistoria foi faturado nesta jogada.
+                </p>
+              </div>
+
+              {/* Score box */}
+              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+                <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
+              </div>
+
+              <div className="w-full flex flex-col gap-3">
+                <Button 
+                  onClick={() => onComplete(
+                    0,
+                    1,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    0,
+                    0,
+                    'QUEENS',
+                    true,
+                    false
+                  )}
+                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans"
+                >
+                  VOLTAR À CENTRAL DE JOGOS
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setSetupComplete(false);
+                    setGameState('playing');
+                    setScore(0);
+                    setP1Score(0);
+                    setP2Score(0);
+                  }}
+                  variant="outline"
+                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                >
+                  TENTAR NOVAMENTE 🔁
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

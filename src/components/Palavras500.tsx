@@ -19,7 +19,8 @@ interface Palavras500Props {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout?: boolean
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -32,38 +33,81 @@ interface LevelSet {
 }
 
 const EASY_LEVELS: LevelSet[] = [
-  { letters: ['A', 'R', 'T', 'O'], targets: ['ROTA', 'RATO', 'ATOR', 'AMOR', 'TETA'] }, // wait, targets need to be possible with spelling
-  { letters: ['A', 'M', 'O', 'R'], targets: ['AMOR', 'ROMA', 'RAMO', 'MORA', 'ORA', 'MAR'] },
-  { letters: ['P', 'A', 'T', 'O'], targets: ['PATO', 'APTO', 'ATO', 'PAO', 'TAO'] },
-  { letters: ['C', 'A', 'R', 'O'], targets: ['CARO', 'ARCO', 'ROCA', 'ORCA', 'CORA', 'ORA'] },
-  { letters: ['G', 'A', 'T', 'O'], targets: ['GATO', 'TOGA', 'ATO', 'GOTA', 'TAO'] }
+  { letters: ['A', 'R', 'T', 'O'], targets: [] },
+  { letters: ['A', 'M', 'O', 'R'], targets: [] },
+  { letters: ['P', 'A', 'T', 'O'], targets: [] },
+  { letters: ['C', 'A', 'R', 'O'], targets: [] },
+  { letters: ['G', 'A', 'T', 'O'], targets: [] }
 ];
 
 const MEDIUM_LEVELS: LevelSet[] = [
-  { letters: ['P', 'O', 'S', 'T', 'A'], targets: ['POSTA', 'PASTO', 'PATOS', 'SAPO', 'SOPA', 'APTO', 'ATO', 'POSA'] },
-  { letters: ['C', 'L', 'A', 'R', 'O'], targets: ['CLARO', 'CALOR', 'CORAL', 'ROCA', 'ORCA', 'ARCO', 'COLA', 'FALÓ'] },
-  { letters: ['F', 'A', 'R', 'O', 'L'], targets: ['FAROL', 'FORAL', 'FALO', 'ORAL', 'FLOR', 'OLA', 'AFO'] },
-  { letters: ['V', 'E', 'L', 'O', 'Z'], targets: ['VELOZ', 'LEVE', 'ZELO', 'VOZ', 'VÉU', 'ELE'] },
-  { letters: ['P', 'L', 'A', 'N', 'O'], targets: ['PLANO', 'LONA', 'POLO', 'PANO', 'ANO', 'ALPO'] }
+  { letters: ['P', 'O', 'S', 'T', 'A'], targets: [] },
+  { letters: ['C', 'L', 'A', 'R', 'O'], targets: [] },
+  { letters: ['F', 'A', 'R', 'O', 'L'], targets: [] },
+  { letters: ['V', 'E', 'L', 'O', 'Z'], targets: [] },
+  { letters: ['P', 'L', 'A', 'N', 'O'], targets: [] }
 ];
 
 const HARD_LEVELS: LevelSet[] = [
-  { letters: ['A', 'M', 'O', 'R', 'E', 'S'], targets: ['AMORES', 'MORSE', 'SOMER', 'RAMOS', 'ROMA', 'AMOR', 'RAMO', 'MORA', 'MARE', 'SERA'] },
-  { letters: ['E', 'N', 'T', 'R', 'A', 'R'], targets: ['ENTRAR', 'ENTRA', 'TENRA', 'RETER', 'ANTE', 'TERRA', 'NETAS', 'RENAS', 'NATA'] },
-  { letters: ['P', 'A', 'S', 'T', 'E', 'L'], targets: ['PASTEL', 'PESTAL', 'PASSE', 'PESTAS', 'TELES', 'PATA', 'LEST', 'SETA', 'TELA', 'PALA'] },
-  { letters: ['C', 'O', 'R', 'T', 'A', 'R'], targets: ['CORTAR', 'TRATOR', 'CORTA', 'TROCA', 'ATOR', 'ROTA', 'RATO', 'COTA', 'ORCA', 'ARCO'] },
-  { letters: ['S', 'E', 'N', 'T', 'I', 'R'], targets: ['SENTIR', 'REIS', 'TESE', 'NIRS', 'RENI', 'SINE', 'ISTO', 'SINO', 'RETE', 'SENTI'] }
+  { letters: ['A', 'M', 'O', 'R', 'E', 'S'], targets: [] },
+  { letters: ['E', 'N', 'T', 'R', 'A', 'R'], targets: [] },
+  { letters: ['P', 'A', 'S', 'T', 'E', 'L'], targets: [] },
+  { letters: ['C', 'O', 'R', 'T', 'A', 'R'], targets: [] },
+  { letters: ['S', 'E', 'N', 'T', 'I', 'R'], targets: [] }
 ];
 
-// Rich fallback set of Portuguese words for bonus calculations
-const DICT = new Set([
-  'AMOR', 'ROMA', 'RAMO', 'MORA', 'ORA', 'MAR', 'ARO', 'AMO', 'MAO', 'ROTA', 'RATO', 'ATOR', 'TOAR', 'RETA', 'TETO', 'TEO',
-  'PATO', 'APTO', 'ATO', 'PAO', 'TAO', 'APO', 'PATOS', 'PASTO', 'SAPO', 'SOPA', 'OPAS', 'APTOS', 'ATOS', 'POSTA', 'POSA',
-  'CARO', 'ARCO', 'ROCA', 'ORCA', 'CORA', 'GATO', 'TOGA', 'GOTA', 'CLARO', 'CALOR', 'CORAL', 'COLA', 'CORA', 'RALO', 'ALTO', 'LAR', 'CAL',
-  'FAROL', 'FORAL', 'FALO', 'ORAL', 'FLOR', 'OLA', 'VELOZ', 'LEVE', 'ZELO', 'VOZ', 'VEU', 'ELE', 'ELO', 'PLANO', 'LONA', 'POLO', 'PANO', 'ANO',
-  'AMORES', 'MORSE', 'SOMER', 'RAMOS', 'SERA', 'MARE', 'ERAS', 'RESA', 'SEMA', 'SOM', 'ENTRAR', 'ENTRA', 'TENRA', 'RETER', 'ANTE', 'TERRA', 'NETAS', 'RENAS', 'NATA', 'ATE', 'ERA',
-  'PASTEL', 'PATA', 'LEST', 'SETA', 'TELA', 'PALA', 'SAL', 'TAL', 'CORTAR', 'CORTA', 'TROCA', 'COTA', 'SENTIR', 'SENTI', 'SINO', 'REIS', 'TESE', 'ISTO'
-]);
+const PORTUGUESE_WORDS = [
+  // 3-letter words
+  'MAR', 'ARO', 'AMO', 'MAO', 'ATO', 'PAO', 'TAO', 'APO', 'ORA', 'OLA', 'VOZ', 'VEU', 'ELE', 'ELO', 'SOM', 'ATE', 'ERA', 'SAL', 'TAL', 'REI', 'DEU', 'PAI', 'MAE', 'BOI', 'GOL', 'SOL', 'LUA', 'REU', 'TEU', 'SEU', 'COR', 'VER', 'VIR', 'SER', 'SIM', 'NAO', 'BEM', 'MAL', 'ANO', 'LAR', 'CAL', 'FAL', 'AFO', 'TEO', 'RES', 'SEM', 'NET', 'SEN', 'TIS', 'SOU', 'POR', 'DAU', 'MEU', 'BOA', 'DIA', 'RIO', 'FIM', 'DAR', 'TER', 'FAZ', 'LEI', 'LUZ', 'MIL', 'MEL', 'PAZ', 'RUA', 'TOM', 'UVA', 'VAI', 'VEM', 'VIA', 'GIL', 'NEO', 'GAS',
+  
+  // 4-letter words
+  'AMOR', 'ROMA', 'RAMO', 'MORA', 'ROTA', 'RATO', 'ATOR', 'TOAR', 'RETA', 'TETO', 'PATO', 'APTO', 'SAPO', 'SOPA', 'OPAS', 'ATOS', 'POSA', 'CARO', 'ARCO', 'ROCA', 'ORCA', 'CORA', 'GATO', 'TOGA', 'GOTA', 'COLA', 'RALO', 'ALTO', 'LONA', 'POLO', 'PANO', 'ALPO', 'LEVE', 'ZELO', 'MARE', 'ERAS', 'RESA', 'SEMA', 'ANTE', 'NATA', 'PATA', 'LEST', 'SETA', 'TELA', 'PALA', 'COTA', 'SINO', 'REIS', 'TESE', 'ISTO', 'CADA', 'VIDA', 'CASA', 'FASE', 'ROSA', 'MESA', 'PESA', 'NOVO', 'BOLO', 'BOLA', 'MALA', 'MAPA', 'VOTO', 'LUTA', 'VALE', 'REDE', 'DOCE', 'SUCO', 'TAPA', 'LAMA', 'TIMA', 'RICO', 'SECO', 'PELO', 'PENA', 'MENA', 'MINA', 'LINO', 'RISO', 'MINO', 'VACA', 'VILA', 'VELA', 'PULO', 'SALA', 'NADO', 'FADO', 'RITO', 'MITO', 'FOTO', 'MOTO', 'NUTO', 'VETO', 'SETE', 'NOVE', 'ZERO', 'FLOR', 'FALO', 'NETA', 'RENI', 'SINE', 'RETE', 'RENA', 'PEST', 'COAS', 'COCE', 'CENT', 'SOMO', 'TAPA', 'PASO', 'MARE', 'SERA', 'TERR',
+  
+  // 5-letter words
+  'POSTA', 'PASTO', 'PATOS', 'APTOS', 'CLARO', 'CALOR', 'CORAL', 'FAROL', 'FORAL', 'FALO', 'ORAL', 'FLOR', 'VELOZ', 'PLANO', 'POLOS', 'MORSE', 'SOMER', 'RAMOS', 'SERAS', 'MARES', 'TENRA', 'RETER', 'TERRA', 'NETAS', 'RENAS', 'NATAS', 'DICAS', 'JOGOS', 'PRATO', 'PORTA', 'PONTO', 'PONTE', 'VENTO', 'TEMPO', 'MENTE', 'GENTE', 'FORTE', 'FRITO', 'FEITO', 'SABOR', 'SAUDE', 'VIGOR', 'RIGOR', 'FAVOR', 'VALOR', 'COSER', 'SABER', 'PODER', 'QUERER', 'FONTE', 'SORTE', 'CORTE', 'CRUEL', 'LIVRE', 'FOCAL', 'LOCAL', 'METAL', 'VOCAL', 'PAPEL', 'LESTE', 'NOTAS', 'ROTAS', 'RATOS', 'ATORES', 'MOTAS', 'GOLES', 'BOSSA', 'VITAL', 'TOTAL', 'FALAS', 'SORTO', 'MORTO', 'NORTE', 'FORCA', 'TERCA', 'POLAS', 'VELAS', 'LOURO', 'ROUPA', 'AMIGA', 'SABIO', 'FESTA', 'SANTO', 'LIVRO', 'CARRO', 'CARTA', 'CHAVE', 'CHAPA', 'PORTA', 'VISTA', 'REVER', 'TENER', 'RETEI', 'ENTRA', 'SETAI', 'TELAS', 'PATAS', 'PESTA', 'ROCAS', 'CORAS', 'ARCOS', 'CAROS', 'COTAI', 'TROCA', 'CORTA', 'TRACT', 'SENTI', 'SINOI', 'ISTOS', 'SINO', 'RETE', 'SENTI',
+  
+  // 6-letter words
+  'AMORES', 'ENTRAR', 'ENTRA', 'PASTEL', 'PESTAL', 'PASSE', 'PESTAS', 'TELES', 'CORTAR', 'TRATOR', 'CORTA', 'TROCA', 'SENTIR', 'SENTI', 'ROTINA', 'TREINO', 'CIDADE', 'ESTADO', 'BRASIL', 'PLANOS', 'LONAS', 'PASTOS', 'SOPAS', 'SAPOS', 'POSTAS', 'CLAROS', 'CORAIS', 'CALORES', 'FAROIS', 'VELOZES', 'CARTAS', 'PONTOS', 'PRATOS', 'PORTAS', 'COCOAS', 'COCEAR', 'DENTES', 'GENTES', 'MENTES', 'PONTES', 'VERDES', 'CURVAS'
+];
+
+function normalizeWord(word: string): string {
+  if (!word) return '';
+  return word
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove diacritics / accents
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '') // keep only ASCII letters
+    .trim();
+}
+
+const UNIQUE_PORTUGUESE_WORDS = Array.from(new Set(
+  PORTUGUESE_WORDS
+    .map(w => normalizeWord(w))
+    .filter(w => w.length >= 3)
+));
+
+function canFormWord(word: string, pool: string[]): boolean {
+  const poolCounts: Record<string, number> = {};
+  for (const letter of pool) {
+    const l = normalizeWord(letter);
+    poolCounts[l] = (poolCounts[l] || 0) + 1;
+  }
+  
+  const wordUpper = normalizeWord(word);
+  const wordCounts: Record<string, number> = {};
+  for (const char of wordUpper) {
+    wordCounts[char] = (wordCounts[char] || 0) + 1;
+  }
+  
+  for (const [char, count] of Object.entries(wordCounts)) {
+    if (!poolCounts[char] || poolCounts[char] < count) {
+      return false;
+    }
+  }
+  return true;
+}
+
+const DICT = new Set(UNIQUE_PORTUGUESE_WORDS);
 
 export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Palavras500Props) {
   const [setupComplete, setSetupComplete] = useState(false);
@@ -75,6 +119,7 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
   const [targetWords, setTargetWords] = useState<string[]>([]);
   const [discoveredWords, setDiscoveredWords] = useState<Set<string>>(new Set());
   const [bonusWords, setBonusWords] = useState<Set<string>>(new Set());
+  const [revealedChars, setRevealedChars] = useState<Record<number, boolean[]>>({});
   
   // Scramble visual layout variables
   const [shuffledPool, setShuffledPool] = useState<string[]>([]);
@@ -86,6 +131,7 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
   const [timeLeft, setTimeLeft] = useState(120);
   const [maxTime, setMaxTime] = useState(120);
   const [gameState, setGameState] = useState<'playing' | 'paused' | 'victory' | 'failed'>('playing');
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   // Multiplayer State
@@ -95,31 +141,103 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
 
-  // Load the selected level definition
+  // Load the selected level definition dynamically from UNIQUE_PORTUGUESE_WORDS dictionary so it's always different!
   const initLevel = () => {
-    let pool: LevelSet[] = EASY_LEVELS;
     let limit = 150;
+    const minLen = 3;
     if (difficulty === 'Médio') {
-      pool = MEDIUM_LEVELS;
       limit = 120;
     } else if (difficulty === 'Difícil') {
-      pool = HARD_LEVELS;
       limit = 95;
     }
 
-    const levelIdx = Math.floor(Math.random() * pool.length);
-    setLevelIndex(levelIdx);
+    const len = difficulty === 'Fácil' ? 4 : difficulty === 'Médio' ? 5 : 6;
+    const candidates = UNIQUE_PORTUGUESE_WORDS.filter(w => w.length === len);
     
-    const activeLevel = pool[levelIdx];
-    setLetterPool(activeLevel.letters);
-    setShuffledPool([...activeLevel.letters]);
-    setTargetWords(activeLevel.targets);
+    let poolLetters: string[] = [];
+    let sortedTargets: string[] = [];
+    
+    // Attempt to pick a dictionary candidate of the matching length 
+    // that yields an appropriate amount of formable words (between 3 and 10) for elegant layout
+    let attempts = 0;
+    while (attempts < 120) {
+      const candidate = candidates[Math.floor(Math.random() * candidates.length)];
+      if (candidate) {
+        const letters = candidate.split('').map(l => normalizeWord(l));
+        const formable = UNIQUE_PORTUGUESE_WORDS.filter(word => 
+          word.length >= minLen && canFormWord(word, letters)
+        );
+        
+        if (formable.length >= 3 && formable.length <= 10) {
+          poolLetters = letters;
+          sortedTargets = Array.from(new Set(formable)).sort((a, b) => {
+            if (a.length !== b.length) return a.length - b.length;
+            return a.localeCompare(b);
+          });
+          break;
+        }
+      }
+      attempts++;
+    }
+    
+    // Relaxed loop fallback
+    if (poolLetters.length === 0) {
+      let fallbackAttempts = 0;
+      while (fallbackAttempts < 100) {
+        const candidate = candidates[Math.floor(Math.random() * candidates.length)];
+        if (candidate) {
+          const letters = candidate.split('').map(l => normalizeWord(l));
+          const formable = UNIQUE_PORTUGUESE_WORDS.filter(word => 
+            word.length >= minLen && canFormWord(word, letters)
+          );
+          
+          if (formable.length >= 2) {
+            poolLetters = letters;
+            sortedTargets = Array.from(new Set(formable)).sort((a, b) => {
+              if (a.length !== b.length) return a.length - b.length;
+              return a.localeCompare(b);
+            });
+            break;
+          }
+        }
+        fallbackAttempts++;
+      }
+    }
+    
+    // Absolute safe fallback
+    if (poolLetters.length === 0) {
+      const candidate = candidates.length > 0 
+        ? candidates[Math.floor(Math.random() * candidates.length)]
+        : len === 4 ? 'AMOR' : len === 5 ? 'CLARO' : 'AMORES';
+      poolLetters = candidate.split('').map(l => normalizeWord(l));
+      const formable = UNIQUE_PORTUGUESE_WORDS.filter(word => 
+        word.length >= minLen && canFormWord(word, poolLetters)
+      );
+      sortedTargets = Array.from(new Set(formable)).sort((a, b) => {
+        if (a.length !== b.length) return a.length - b.length;
+        return a.localeCompare(b);
+      });
+    }
+
+    // Set level index as static or derived
+    setLevelIndex(Math.floor(Math.random() * 1000));
+    setLetterPool(poolLetters);
+    
+    // Scramble the letters inside shuffledPool initially so it's fresh and mixed up on startup!
+    const scrambled = [...poolLetters];
+    for (let i = scrambled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [scrambled[i], scrambled[j]] = [scrambled[j], scrambled[i]];
+    }
+    setShuffledPool(scrambled);
+    setTargetWords(sortedTargets);
     
     setDiscoveredWords(new Set());
     setBonusWords(new Set());
     setCurrentWord('');
     setSelectedIndices([]);
     setErrorMessage('');
+    setRevealedChars({});
     
     setTimeLeft(limit);
     setMaxTime(limit);
@@ -132,23 +250,10 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
     }
   }, [setupComplete, difficulty]);
 
-  // Timer simulation
+  // Timer simulation - disabled per user request
   useEffect(() => {
-    if (gameState !== 'playing' || !setupComplete) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setGameState('failed');
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [gameState, setupComplete]);
+    // No timer countdown
+  }, []);
 
   // Letters wheel angle coordinates
   const radius = 68; // wheel operational radius from center in px
@@ -268,7 +373,7 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
       setGameState('victory');
 
       const baseAward = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
-      const speedBonus = timeLeft * 3;
+      const speedBonus = 0;
       const finalAward = baseAward + speedBonus;
 
       if (multiplayerMode === '2p') {
@@ -280,34 +385,10 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
         } else {
           setP2Score(p2Final);
         }
-
-        setTimeout(() => {
-          onComplete(
-            p1Final,
-            1,
-            true,
-            selectedPartner,
-            p1Final,
-            p2Final,
-            'PALAVRAS_500'
-          );
-        }, 3500);
       } else {
         const finalScore = score + finalAward;
         setScore(finalScore);
         if (onScoreUpdate) onScoreUpdate(finalAward);
-
-        setTimeout(() => {
-          onComplete(
-            finalScore,
-            1,
-            false,
-            null,
-            0,
-            0,
-            'PALAVRAS_500'
-          );
-        }, 3500);
       }
     }
   };
@@ -316,13 +397,47 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
   const handleGetHint = () => {
     if (gameState !== 'playing') return;
     
-    // Find first target word that wasn't discovered
-    const unsolved = targetWords.find(w => !discoveredWords.has(w));
-    if (unsolved) {
-      // Find a letter that has not been put in currentWord
-      // For simplicity, let's just reveal the unsolved word in current word builder!
-      setCurrentWord(unsolved);
-      setSelectedIndices([]); // clear layout selection
+    // Find target words that are not fully discovered
+    const unsolvedIndices = targetWords
+      .map((word, index) => ({ word, index }))
+      .filter(({ word }) => !discoveredWords.has(word));
+      
+    if (unsolvedIndices.length === 0) return;
+    
+    // Gather all unrevealed char positions among unsolved words
+    const unrevealedPositions: { wordIdx: number; charIdx: number }[] = [];
+    
+    unsolvedIndices.forEach(({ word, index }) => {
+      const revealed = revealedChars[index] || [];
+      for (let i = 0; i < word.length; i++) {
+        if (!revealed[i]) {
+          unrevealedPositions.push({ wordIdx: index, charIdx: i });
+        }
+      }
+    });
+    
+    if (unrevealedPositions.length > 0) {
+      // Pick a random unrevealed position
+      const randPos = unrevealedPositions[Math.floor(Math.random() * unrevealedPositions.length)];
+      
+      setRevealedChars(prev => {
+        const nextWordRevealed = [ ...(prev[randPos.wordIdx] || []) ];
+        const wordLen = targetWords[randPos.wordIdx].length;
+        while (nextWordRevealed.length < wordLen) {
+          nextWordRevealed.push(false);
+        }
+        nextWordRevealed[randPos.charIdx] = true;
+        return {
+          ...prev,
+          [randPos.wordIdx]: nextWordRevealed
+        };
+      });
+      setErrorMessage('LETRA REVELADA NO PAINEL! 💡');
+    } else {
+      // Fallback
+      const firstUnsolved = unsolvedIndices[0].word;
+      setCurrentWord(firstUnsolved);
+      setSelectedIndices([]);
     }
   };
 
@@ -331,18 +446,6 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
     if (gameState !== 'playing') return;
     setDiscoveredWords(new Set(targetWords));
     setGameState('victory');
-
-    setTimeout(() => {
-      onComplete(
-        0, // Revealed solution awards 0 XP to prevent leaderboard exploit
-        1,
-        multiplayerMode === '2p',
-        selectedPartner,
-        0,
-        0,
-        'PALAVRAS_500'
-      );
-    }, 4500);
   };
 
   if (!setupComplete) {
@@ -484,9 +587,9 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
         </div>
 
         <div className="flex flex-col items-center bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-xl min-w-[75px]">
-          <p className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Cronômetro</p>
-          <p className={`text-sm font-black font-mono transition-colors leading-none mt-1 ${timeLeft <= 20 ? 'text-red-500 animate-pulse animate-duration-500' : 'text-white'}`}>
-            {timeLeft}s
+          <p className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Grau</p>
+          <p className="text-sm font-black text-indigo-400 leading-none mt-1 uppercase">
+            {difficulty}
           </p>
         </div>
 
@@ -496,13 +599,13 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
         </div>
       </div>
 
-      {/* Visual Progress Timer Bar */}
+      {/* Visual Progress Bar for Target Score Meta 500 Pts - modified from remaining time per user request */}
       <div className="w-full max-w-lg bg-slate-900 h-2 rounded-full overflow-hidden border border-white/5 relative">
         <motion.div 
-          className={`h-full ${timeLeft <= 20 ? 'bg-red-500' : 'bg-gradient-to-r from-yellow-400 to-amber-500'}`}
-          initial={{ width: '100%' }}
-          animate={{ width: `${(timeLeft / maxTime) * 100}%` }}
-          transition={{ duration: 1, ease: 'linear' }}
+          className="h-full bg-gradient-to-r from-yellow-400 to-amber-500"
+          initial={{ width: '0%' }}
+          animate={{ width: `${Math.min(100, (((multiplayerMode === '2p' ? p1Score + p2Score : score) / 500) * 100))}%` }}
+          transition={{ duration: 0.5 }}
         />
         {/* target 500 pts visual milestone marker */}
         <div className="absolute right-0 top-0 bottom-0 w-1 bg-yellow-500/80 animate-pulse" title="Meta 500 Pts" />
@@ -521,11 +624,14 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
                   : 'bg-slate-950/80 border-slate-800 text-slate-500'
               }`}
             >
-              {word.split('').map((char, charIdx) => (
-                <span key={charIdx} className="w-3 text-center block">
-                  {isDiscovered ? char : '_'}
-                </span>
-              ))}
+              {word.split('').map((char, charIdx) => {
+                const isCharRevealed = isDiscovered || (revealedChars[idx] && revealedChars[idx][charIdx]);
+                return (
+                  <span key={charIdx} className="w-3 text-center block">
+                    {isCharRevealed ? char : '_'}
+                  </span>
+                );
+              })}
             </div>
           );
         })}
@@ -618,7 +724,7 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
 
       {/* Bonus Words list container */}
       {bonusWords.size > 0 && (
-        <div className="w-full max-w-lg bg-slate-900/30 border border-slate-850 p-4 rounded-2xl">
+        <div className="w-full max-w-lg bg-slate-900/30 border border-slate-850 p-4 rounded-2xl animate-fade-in mt-4">
           <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1">
             <span>🎉</span> PALAVRAS BÔNUS (+50 Pts cd)
           </p>
@@ -633,11 +739,11 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
       )}
 
       {/* Utilities control bar at bottom */}
-      <div className="w-full max-w-lg grid grid-cols-3 gap-2.5 pt-3">
+      <div className="w-full max-w-lg grid grid-cols-2 gap-2.5 pt-3">
         <button
           id="palavras-reset-btn"
           onClick={initLevel}
-          className="bg-slate-900 border border-slate-850 hover:border-slate-800 text-slate-400 hover:text-white transition-all py-2 rounded-xl flex flex-col justify-center items-center text-[8px] font-black uppercase shrink-0"
+          className="bg-slate-900 border border-slate-855 hover:border-slate-800 text-slate-400 hover:text-white transition-all py-2 rounded-xl flex flex-col justify-center items-center text-[8px] font-black uppercase shrink-0"
         >
           <RotateCcw size={14} className="mb-1" />
           Reiniciar
@@ -646,92 +752,19 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
         <button
           id="palavras-hint-btn"
           onClick={handleGetHint}
-          className="bg-slate-900 border border-slate-850 hover:border-slate-800 text-yellow-400 hover:text-yellow-350 transition-all py-2 rounded-xl flex flex-col justify-center items-center text-[8px] font-black uppercase shrink-0"
+          className="bg-slate-900 border border-slate-855 hover:border-slate-800 text-yellow-400 hover:text-yellow-350 transition-all py-2 rounded-xl flex flex-col justify-center items-center text-[8px] font-black uppercase shrink-0"
         >
           <Sparkles size={14} className="mb-1" />
           Dica Sábia
         </button>
-
-        <button
-          id="palavras-reveal-btn"
-          onClick={handleRevealAll}
-          className="bg-slate-900 border border-slate-850 hover:border-slate-850 text-indigo-400 hover:text-indigo-350 transition-all py-2 rounded-xl flex flex-col justify-center items-center text-[8px] font-black uppercase shrink-0"
-        >
-          <HelpIcon size={14} className="mb-1" />
-          Solução
-        </button>
       </div>
 
-      {/* Modals & Gameplay Overlays inside Canvas view */}
-      <AnimatePresence>
-        {gameState === 'victory' && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed inset-0 bg-slate-950/95 flex flex-col justify-center items-center p-6 text-center z-50 select-none"
-          >
-            <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full flex items-center justify-center text-4xl mb-4 animate-bounce">
-              🏆💫
-            </div>
-            
-            <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">
-              Alvo Atingido! (500 pts+)
-            </h3>
-            
-            <p className="text-slate-400 text-xs font-bold leading-relaxed max-w-xs mt-2">
-              Seu vocabulário tático de patrulha é impecável! Todas as palavras-chave foram identificadas com sucesso.
-            </p>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl px-6 py-4 mt-6">
-              <span className="text-[8px] font-black tracking-wider text-slate-500 block uppercase">XP Consolidado</span>
-              <span className="text-3.5xl font-black text-yellow-400 font-mono block">
-                +{difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700} XP
-              </span>
-            </div>
-            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-6">Arquivando sessão na folha de serviço...</p>
-          </motion.div>
-        )}
-
-        {gameState === 'failed' && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed inset-0 bg-slate-950/95 flex flex-col justify-center items-center p-6 text-center z-50 border border-red-500/20"
-          >
-            <div className="w-16 h-16 bg-red-500/10 border-2 border-red-500 rounded-full flex items-center justify-center text-3xl mb-4 text-red-500">
-              🛑
-            </div>
-            
-            <h3 className="text-2xl font-black text-red-500 uppercase italic tracking-tighter">
-              Limites Excedidos! (Reprovado)
-            </h3>
-            
-            <p className="text-slate-400 text-xs leading-relaxed max-w-xs mt-2">
-              Seu tempo de decodificação expirou. Estude os conjuntos de letras e recomece para garantir sua pontuação!
-            </p>
-
-            <div className="flex gap-4 mt-6 w-full max-w-xs">
-              <Button 
-                onClick={() => {
-                  setSetupComplete(false);
-                  setGameState('playing');
-                }}
-                className="flex-1 bg-slate-900 hover:bg-slate-850 text-slate-300 font-bold uppercase tracking-wider text-[10px] border border-slate-700 h-12"
-              >
-                Voltar Menu
-              </Button>
-              <Button 
-                onClick={initLevel}
-                className="flex-1 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase tracking-wider text-[10px] h-12 animate-pulse"
-              >
-                Recomeçar
-              </Button>
-            </div>
-
-            <Button 
-              onClick={() => onComplete(
+      {gameState === 'playing' && (
+        <div className="w-full flex justify-center mt-4">
+          <Button 
+            onClick={() => {
+              // Save current score immediately
+              onComplete(
                 multiplayerMode === '2p' ? p1Score : score,
                 1,
                 multiplayerMode === '2p',
@@ -739,14 +772,204 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
                 p1Score,
                 p2Score,
                 'PALAVRAS_500',
-                true
-              )}
-              variant="outline"
-              className="w-full max-w-xs h-12 mt-3 rounded-2xl border-slate-850 bg-slate-900/40 hover:bg-slate-800 text-slate-400 hover:text-white font-bold uppercase text-[10px] tracking-wider transition-all active:scale-95"
-            >
-              VOLTAR À CENTRAL DE JOGOS
-            </Button>
+                false,
+                true // keepInGameSelection = true
+              );
+              setShowAbandonModal(true);
+            }}
+            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider font-sans"
+          >
+            ABANDONAR PATRULHA
+          </Button>
+        </div>
+      )}
+
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-505 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSetupComplete(false);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setGameState('playing');
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* Modals & Gameplay Overlays inside Canvas view */}
+      <AnimatePresence>
+        {gameState === 'victory' && (
+          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto select-none">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+            >
+              <div className="relative animate-bounce">
+                <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                  <span className="text-4xl">👑</span>
+                </div>
+                <span className="absolute -top-1 -right-1 text-xl">🎉</span>
+              </div>
+              
+              <div className="space-y-2">
+                <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase font-mono font-sans">PATRULHA CONCLUÍDA</span>
+                <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Vocabulário Aprovado!</h3>
+                <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto italic font-sans_not_used">
+                  Seu vocabulário tático de patrulha é impecável! Todas as palavras-chave foram identificadas com sucesso.
+                </p>
+              </div>
+
+              {/* Score box */}
+              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+                <span className="text-3xl font-black text-yellow-400 font-mono block">
+                  {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+                </span>
+              </div>
+
+              <div className="w-full flex flex-col gap-3">
+                <Button 
+                  onClick={() => onComplete(
+                    multiplayerMode === '2p' ? p1Score : score,
+                    1,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    p1Score,
+                    p2Score,
+                    'PALAVRAS_500',
+                    false,
+                    false
+                  )}
+                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans"
+                >
+                  VOLTAR À CENTRAL DE JOGOS
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setSetupComplete(false);
+                    setGameState('playing');
+                    setScore(0);
+                    setP1Score(0);
+                    setP2Score(0);
+                  }}
+                  variant="outline"
+                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                >
+                  TENTAR NOVAMENTE 🔁
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {gameState === 'failed' && (
+          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto select-none">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+            >
+              <div className="relative">
+                <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20 animate-pulse">
+                  <span className="text-4xl text-red-500">⏱️</span>
+                </div>
+                <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+              </div>
+              
+              <div className="space-y-2">
+                <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FALHA NA INSPEÇÃO</span>
+                <h3 className="text-2xl font-black text-red-500 uppercase italic tracking-tighter">Tempo Expirado</h3>
+                <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto italic">
+                  O tempo regulamentar para concluir esta inspeção expirou. Nenhum ponto de vistoria foi faturado nesta jogada.
+                </p>
+              </div>
+
+              {/* Score box */}
+              <div className="w-full bg-slate-900/40 p-4 rounded-2xl border border-slate-850">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+                <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
+              </div>
+
+              <div className="w-full flex flex-col gap-3">
+                <Button 
+                  onClick={() => onComplete(
+                    0,
+                    1,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    0,
+                    0,
+                    'PALAVRAS_500',
+                    true,
+                    false
+                  )}
+                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans"
+                >
+                  VOLTAR À CENTRAL DE JOGOS
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setSetupComplete(false);
+                    setGameState('playing');
+                    setScore(0);
+                    setP1Score(0);
+                    setP2Score(0);
+                  }}
+                  variant="outline"
+                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                >
+                  TENTAR NOVAMENTE 🔁
+                </Button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

@@ -44,7 +44,8 @@ interface ParkingEscapeProps {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout?: boolean
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate: (points: number) => void;
   onCancel: () => void;
@@ -64,6 +65,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
 
   const [gameState, setGameState] = useState<'selection' | 'playing' | 'won' | 'lost'>('selection');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
   
   // Custom configurations
   const [gridSize, setGridSize] = useState<6 | 7 | 8>(6);
@@ -78,6 +80,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
   // Timer state
   const [timeLeft, setTimeLeft] = useState(90);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Set default dimensions when difficulty changes, but let the user override
   useEffect(() => {
@@ -103,13 +106,13 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
   // Helper to generate a random background color for other vehicles
   const getRandomVehicleColor = () => {
     const colors = [
-      'bg-slate-600 border-slate-500 shadow-slate-800/50',
-      'bg-blue-600 border-blue-500 shadow-blue-800/50',
-      'bg-emerald-600 border-emerald-500 shadow-emerald-800/50',
-      'bg-amber-600 border-amber-500 shadow-amber-800/50',
-      'bg-indigo-600 border-indigo-500 shadow-indigo-800/50',
-      'bg-purple-600 border-purple-500 shadow-purple-800/50',
-      'bg-cyan-600 border-cyan-500 shadow-cyan-800/50',
+      'bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border-slate-600/80 shadow-[0_4px_12px_rgba(0,0,0,0.5)] text-slate-300',
+      'bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-850 border-blue-500/80 shadow-[0_4px_12px_rgba(29,78,216,0.3)] text-blue-100',
+      'bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-850 border-emerald-550/80 shadow-[0_4px_12px_rgba(4,120,87,0.3)] text-emerald-100',
+      'bg-gradient-to-br from-amber-500 via-amber-600 to-orange-700 border-amber-400/80 shadow-[0_4px_12px_rgba(217,119,6,0.3)] text-amber-100',
+      'bg-gradient-to-br from-violet-600 via-purple-700 to-fuchsia-850 border-violet-500/80 shadow-[0_4px_12px_rgba(109,40,217,0.3)] text-purple-100',
+      'bg-gradient-to-br from-cyan-600 via-cyan-700 to-sky-850 border-cyan-550/80 shadow-[0_4px_12px_rgba(14,116,144,0.3)] text-cyan-100',
+      'bg-gradient-to-br from-rose-750 via-rose-800 to-red-950 border-rose-500/80 shadow-[0_4px_12px_rgba(190,24,74,0.3)] text-rose-100',
     ];
     return colors[Math.floor(Math.random() * colors.length)];
   };
@@ -127,7 +130,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
       col: targetCol,
       size: tSize,
       orientation: 'H',
-      color: 'bg-red-500 border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.7)] text-white',
+      color: 'bg-gradient-to-r from-red-600 via-rose-500 to-red-700 border-red-400 shadow-[0_0_20px_rgba(239,68,68,0.8)] text-white font-black',
       isTarget: true,
     };
     newVehicles.push(target);
@@ -266,23 +269,8 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
   };
 
   useEffect(() => {
-    if (gameState === 'playing') {
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current!);
-            setGameState('lost');
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [gameState, level]);
+    // Timer is completely disabled per user request
+  }, []);
 
   // Movement Logic: Move selected vehicle along its orientation axis
   const moveVehicle = (vehicleId: string, direction: 'prev' | 'next') => {
@@ -380,7 +368,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
     
     // Performance score calculations
     const basePts = 300;
-    const speedBonus = Math.max(0, timeLeft * 2);
+    const speedBonus = 0;
     const roundScore = basePts + speedBonus;
     
     if (multiplayerMode === '2p') {
@@ -408,14 +396,15 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
 
   const handleFinishDeployment = () => {
     onComplete(
-      multiplayerMode === '2p' ? p1Score : score,
+      gameState === 'lost' ? 0 : (multiplayerMode === '2p' ? p1Score : score),
       1,
       multiplayerMode === '2p',
       selectedPartner,
-      p1Score,
-      p2Score,
+      gameState === 'lost' ? 0 : p1Score,
+      gameState === 'lost' ? 0 : p2Score,
       'PARKING_ESCAPE',
-      gameState === 'lost'
+      gameState === 'lost',
+      false
     );
   };
 
@@ -491,7 +480,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
                       {levelName === 'easy' ? 'Fácil' : levelName === 'medium' ? 'Médio' : 'Difícil'}
                     </span>
                     <span className={`text-[8px] font-bold uppercase tracking-tighter mt-0.5 ${difficulty === levelName ? 'text-slate-900/60' : 'text-slate-600'}`}>
-                      {levelName === 'easy' ? 'Tempo Generoso (120s) | Pátio 6x6' : levelName === 'medium' ? 'Tempo Moderado (90s) | Pátio 7x7' : 'Tempo Extremo (60s) | Pátio 8x8'}
+                      {levelName === 'easy' ? 'Manobras Iniciais | Pátio 6x6' : levelName === 'medium' ? 'Tráfego Médio | Pátio 7x7' : 'Batalhão Congestionado | Pátio 8x8'}
                     </span>
                   </div>
                   {difficulty === levelName && (
@@ -629,29 +618,19 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
         </div>
       )}
 
-      {/* Progress Bar and Timer */}
-      <div className="w-full max-w-sm mb-5 bg-slate-900 border border-slate-850 p-4 rounded-3xl space-y-3 shadow-lg">
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Tempo Restante</span>
-            <span className={`text-xl font-black mt-1 ${timeLeft <= 15 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
-              {timeLeft}s
-            </span>
-          </div>
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Movimentos</span>
-            <span className="text-xl font-black text-yellow-400 mt-1">
-              {moves}
-            </span>
-          </div>
+      {/* Move counter and level details - replaced timeline per user request */}
+      <div className="w-full max-w-sm mb-5 bg-slate-900 border border-slate-850 p-4 rounded-3xl flex justify-between items-center shadow-lg">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Dificuldade</span>
+          <span className="text-sm font-black text-white uppercase mt-1">
+            {difficulty === 'easy' ? 'Fácil' : difficulty === 'medium' ? 'Médio' : 'Difícil'}
+          </span>
         </div>
-        <div className="h-2 bg-slate-850 rounded-full overflow-hidden">
-          <motion.div 
-            className={`h-full ${timeLeft <= 15 ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-yellow-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]'}`}
-            initial={{ width: '100%' }}
-            animate={{ width: `${(timeLeft / getDifficultyTime(difficulty)) * 100}%` }}
-            transition={{ duration: 1, ease: 'linear' }}
-          />
+        <div className="flex flex-col items-end">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Movimentos</span>
+          <span className="text-xl font-black text-yellow-400 mt-1">
+            {moves}
+          </span>
         </div>
       </div>
 
@@ -665,148 +644,238 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
             className="flex flex-col items-center space-y-6 w-full max-w-sm"
           >
             {/* The Main Parking Lot Pátio Block Board */}
-            <div className="relative w-full aspect-square bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] p-2 overflow-hidden shadow-2xl">
-              {/* Grid Cells for background visual aid */}
-              <div 
-                className="absolute inset-2 grid gap-1 p-0.5"
-                style={{
-                  gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
-                  gridTemplateRows: `repeat(${gridSize}, 1fr)`
-                }}
-              >
-                {Array.from({ length: gridSize * gridSize }).map((_, idx) => {
-                  const r = Math.floor(idx / gridSize);
-                  const isExitRow = r === exitRow;
-                  return (
-                    <div 
-                      key={idx} 
-                      className={`rounded-xl transition-colors ${
-                        isExitRow 
-                          ? 'bg-slate-800/40 border border-red-500/10' 
-                          : 'bg-slate-800/20 border border-slate-850'
-                      }`}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Glowing Exit Route Mark Marker */}
-              <div 
-                className="absolute right-0 h-10 w-2 flex items-center justify-center pointer-events-none"
-                style={{
-                  top: `calc(${exitRow * (100 / gridSize)}% + 14px)`,
-                  height: `calc(${100 / gridSize}% - 12px)`,
-                }}
-              >
-                <div className="absolute right-0 w-8 h-full bg-red-500/10 border-r-4 border-red-500 rounded-l-md shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse flex items-center justify-end px-1">
-                  <span className="text-[8px] font-black text-red-400 tracking-tighter leading-none whitespace-nowrap -rotate-90">SAÍDA 👉</span>
-                </div>
-              </div>
-
-              {/* Render Interactive Vehicles */}
-              {vehicles.map(v => {
-                const isSelected = selectedVehicleId === v.id;
-                const cellSize = 100 / gridSize;
+            <div className="relative w-full aspect-square bg-slate-950 border-8 border-slate-900 rounded-[2.5rem] p-3 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-visible">
+              
+              {/* Active Playing Area Grid Wrapper to clamp child dimensions and overflow */}
+              <div id="parking-grid-container" className="relative w-full h-full bg-slate-900 rounded-3xl overflow-hidden border border-slate-800/80">
                 
-                // Position calculations
-                const top = v.row * cellSize;
-                const left = v.col * cellSize;
-                const width = v.orientation === 'H' ? v.size * cellSize : cellSize;
-                const height = v.orientation === 'V' ? v.size * cellSize : cellSize;
+                {/* 1. Mathematical Background Grid Cells */}
+                {Array.from({ length: gridSize }).map((_, r) => 
+                  Array.from({ length: gridSize }).map((_, c) => {
+                    const isExitRow = r === exitRow;
+                    const top = r * (100 / gridSize);
+                    const left = c * (100 / gridSize);
+                    const cellSize = 100 / gridSize;
+                    return (
+                      <div
+                        key={`bcell-${r}-${c}`}
+                        className="absolute p-0.5 pointer-events-none"
+                        style={{
+                          top: `${top}%`,
+                          left: `${left}%`,
+                          width: `${cellSize}%`,
+                          height: `${cellSize}%`,
+                        }}
+                      >
+                        <div 
+                          className={`w-full h-full rounded-xl flex items-center justify-center border transition-all ${
+                            isExitRow 
+                              ? 'bg-red-950/15 border-red-500/15 shadow-[inset_0_0_10px_rgba(239,68,68,0.05)]' 
+                              : 'bg-slate-950/40 border-slate-900/40 shadow-[inset_0_0_10px_rgba(0,0,0,0.3)]'
+                          }`}
+                        >
+                          {/* Inner crosshair/parking slot marking */}
+                          <div className={`w-1.5 h-1.5 rounded-full ${isExitRow ? 'bg-red-500/25' : 'bg-slate-705/30'}`} />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
 
-                return (
-                  <motion.div
-                    key={v.id}
-                    onClick={() => setSelectedVehicleId(v.id)}
-                    className={`absolute p-1 transition-shadow duration-200 cursor-pointer group`}
-                    style={{
-                      top: `${top}%`,
-                      left: `${left}%`,
-                      width: `${width}%`,
-                      height: `${height}%`,
-                      zIndex: isSelected ? 30 : 10
-                    }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div 
-                      className={`w-full h-full rounded-2xl border-2 flex flex-col items-center justify-center relative transition-all ${v.color} ${
-                        isSelected 
-                          ? 'ring-4 ring-yellow-400 border-yellow-350 scale-[1.03] shadow-lg' 
-                          : 'hover:border-slate-400'
-                      }`}
+                {/* 2. Floating Escape Route Exit Marker Indicator */}
+                <div 
+                  className="absolute right-0 z-20 pointer-events-none"
+                  style={{
+                    top: `${exitRow * (100 / gridSize)}%`,
+                    height: `${100 / gridSize}%`,
+                    width: '20px'
+                  }}
+                >
+                  <div className="w-full h-full bg-gradient-to-l from-red-600/35 to-transparent border-r-[3px] border-red-500 animate-pulse flex items-center justify-end pr-0.5">
+                    <span className="text-[7px] font-black text-red-500/90 tracking-tighter leading-none whitespace-nowrap uppercase -rotate-90">
+                      SAÍDA
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Render Interactive Vehicles */}
+                {vehicles.map(v => {
+                  const isSelected = selectedVehicleId === v.id;
+                  const cellSize = 100 / gridSize;
+                  
+                  // Position calculations
+                  const top = v.row * cellSize;
+                  const left = v.col * cellSize;
+                  const width = v.orientation === 'H' ? v.size * cellSize : cellSize;
+                  const height = v.orientation === 'V' ? v.size * cellSize : cellSize;
+
+                  return (
+                    <motion.div
+                      key={v.id}
+                      onPointerDown={(e) => {
+                        dragStartRef.current = { x: e.clientX, y: e.clientY };
+                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                        setSelectedVehicleId(v.id);
+                      }}
+                      onPointerUp={(e) => {
+                        if (!dragStartRef.current) return;
+                        const deltaX = e.clientX - dragStartRef.current.x;
+                        const deltaY = e.clientY - dragStartRef.current.y;
+                        dragStartRef.current = null;
+                        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+
+                        const dragThreshold = 25; // flick sensitivity
+                        if (v.orientation === 'H') {
+                          if (Math.abs(deltaX) > dragThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                            if (deltaX > 0) {
+                              moveVehicle(v.id, 'next');
+                            } else {
+                              moveVehicle(v.id, 'prev');
+                            }
+                          }
+                        } else {
+                          if (Math.abs(deltaY) > dragThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+                            if (deltaY > 0) {
+                              moveVehicle(v.id, 'next');
+                            } else {
+                              moveVehicle(v.id, 'prev');
+                            }
+                          }
+                        }
+                      }}
+                      className="absolute p-0.5 transition-shadow duration-300 cursor-pointer touch-none select-none"
+                      style={{
+                        top: `${top}%`,
+                        left: `${left}%`,
+                        width: `${width}%`,
+                        height: `${height}%`,
+                        zIndex: isSelected ? 30 : 10
+                      }}
+                      whileTap={{ scale: 0.98 }}
                     >
-                      {/* Vehicle direction icon details */}
-                      <div className="opacity-80 flex flex-col items-center justify-center pointer-events-none">
-                        {v.isTarget ? (
-                          <div className="flex flex-col items-center">
-                            <Car className="w-5 h-5 text-white animate-bounce" />
-                            <span className="text-[7px] font-black uppercase tracking-widest mt-0.5 whitespace-nowrap">
-                              VIATURA X
-                            </span>
-                          </div>
+                      {/* Outer beautiful styled vehicle shell */}
+                      <div 
+                        className={`w-full h-full rounded-2xl border-2 flex flex-col items-center justify-center relative transition-all ${v.color} ${
+                          isSelected 
+                            ? 'ring-4 ring-yellow-400 border-yellow-300 scale-[1.01] shadow-[0_0_20px_rgba(250,204,21,0.4)]' 
+                            : 'hover:border-slate-350 shadow-md'
+                        }`}
+                      >
+                        {/* 3A. Cyberpunk Bumper Lights (Faroletes) on Ends */}
+                        {v.orientation === 'H' ? (
+                          <>
+                            {/* Headlights (left side) */}
+                            <div className="absolute left-1.5 top-1 bottom-1 w-1 flex flex-col justify-between pointer-events-none opacity-90 py-0.5">
+                              <span className="w-1 h-1 rounded-full bg-yellow-250 shadow-[0_0_6px_#fef08a]" />
+                              <span className="w-1 h-1 rounded-full bg-yellow-250 shadow-[0_0_6px_#fef08a]" />
+                            </div>
+                            {/* Taillights (right side) */}
+                            <div className="absolute right-1.5 top-1 bottom-1 w-1 flex flex-col justify-between pointer-events-none opacity-90 py-0.5">
+                              <span className="w-1 h-1 rounded-[1px] bg-red-500 shadow-[0_0_6px_#ef4444]" />
+                              <span className="w-1 h-1 rounded-[1px] bg-red-500 shadow-[0_0_6px_#ef4444]" />
+                            </div>
+                          </>
                         ) : (
-                          <div className="flex flex-col items-center">
+                          <>
+                            {/* Headlights (top side) */}
+                            <div className="absolute top-1.5 left-1 right-1 h-1 flex justify-between pointer-events-none opacity-90 px-0.5">
+                              <span className="w-1 h-1 rounded-full bg-yellow-250 shadow-[0_0_6px_#fef08a]" />
+                              <span className="w-1 h-1 rounded-full bg-yellow-250 shadow-[0_0_6px_#fef08a]" />
+                            </div>
+                            {/* Taillights (bottom side) */}
+                            <div className="absolute bottom-1.5 left-1 right-1 h-1 flex justify-between pointer-events-none opacity-90 px-0.5">
+                              <span className="w-1 h-1 rounded-[1px] bg-red-500 shadow-[0_0_6px_#ef4444]" />
+                              <span className="w-1 h-1 rounded-[1px] bg-red-500 shadow-[0_0_6px_#ef4444]" />
+                            </div>
+                          </>
+                        )}
+
+                        {/* 3B. High-Contrast cabin windshield decal */}
+                        <div 
+                          className={`absolute bg-slate-950/75 backdrop-blur-sm border border-white/10 rounded-xl pointer-events-none shadow-inner flex items-center justify-center ${
+                            v.orientation === 'H' 
+                              ? 'inset-y-2 left-[18%] right-[18%]' 
+                              : 'inset-x-2 top-[18%] bottom-[18%]'
+                          }`}
+                        >
+                          {/* Siren flashing details for target breakout patrulha */}
+                          {v.isTarget ? (
+                            <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-750 rounded px-1.5 py-0.5 animate-pulse shadow-md">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-550 shadow-[0_0_8px_#ef4444] animate-ping" />
+                              <span className="text-[7px] font-black uppercase tracking-widest text-red-400">ALVO</span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-550 shadow-[0_0_8px_#3b82f6]" />
+                            </div>
+                          ) : (
+                            <div className="opacity-95 text-white/45">
+                              {v.orientation === 'H' ? (
+                                <ArrowLeftRight className="w-3.5 h-3.5" />
+                              ) : (
+                                <ArrowUpDown className="w-3.5 h-3.5" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 3C. Custom target labeling */}
+                        {v.isTarget && (
+                          <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[6px] font-black tracking-widest text-red-300 opacity-90 leading-none whitespace-nowrap uppercase">
+                            PATRULHA FUGITIVA
+                          </div>
+                        )}
+
+                        {/* Direction Helpers arrow overlay on selected */}
+                        {isSelected && (
+                          <div className="absolute inset-0 flex items-center justify-between pointer-events-none z-50">
                             {v.orientation === 'H' ? (
-                              <ArrowLeftRight className="w-4 h-4 text-white/50" />
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    moveVehicle(v.id, 'prev');
+                                  }}
+                                  className="absolute left-1 pointer-events-auto w-7 h-7 rounded-full bg-yellow-400 hover:bg-yellow-300 border border-slate-900 text-slate-900 flex items-center justify-center shadow-lg active:scale-90 font-black text-xs"
+                                >
+                                  ◀
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    moveVehicle(v.id, 'next');
+                                  }}
+                                  className="absolute right-1 pointer-events-auto w-7 h-7 rounded-full bg-yellow-400 hover:bg-yellow-300 border border-slate-900 text-slate-900 flex items-center justify-center shadow-lg active:scale-90 font-black text-xs"
+                                >
+                                  ▶
+                                </button>
+                              </>
                             ) : (
-                              <ArrowUpDown className="w-4 h-4 text-white/50" />
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    moveVehicle(v.id, 'prev');
+                                  }}
+                                  className="absolute top-1 left-1/2 -translate-x-1/2 pointer-events-auto w-7 h-7 rounded-full bg-yellow-400 hover:bg-yellow-300 border border-slate-900 text-slate-900 flex items-center justify-center shadow-lg active:scale-90 font-black text-xs"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    moveVehicle(v.id, 'next');
+                                  }}
+                                  className="absolute bottom-1 left-1/2 -translate-x-1/2 pointer-events-auto w-7 h-7 rounded-full bg-yellow-400 hover:bg-yellow-300 border border-slate-900 text-slate-900 flex items-center justify-center shadow-lg active:scale-90 font-black text-xs"
+                                >
+                                  ▼
+                                </button>
+                              </>
                             )}
                           </div>
                         )}
                       </div>
-
-                      {/* Direction Helpers arrow overlay on selected */}
-                      {isSelected && (
-                        <div className="absolute inset-0 flex items-center justify-between pointer-events-none z-50">
-                          {v.orientation === 'H' ? (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  moveVehicle(v.id, 'prev');
-                                }}
-                                className="absolute left-1 pointer-events-auto w-6 h-6 rounded-lg bg-yellow-400 hover:bg-yellow-300 border border-slate-900 text-slate-900 flex items-center justify-center shadow-md active:scale-90"
-                              >
-                                ◀
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  moveVehicle(v.id, 'next');
-                                }}
-                                className="absolute right-1 pointer-events-auto w-6 h-6 rounded-lg bg-yellow-400 hover:bg-yellow-300 border border-slate-900 text-slate-900 flex items-center justify-center shadow-md active:scale-90"
-                              >
-                                ▶
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  moveVehicle(v.id, 'prev');
-                                }}
-                                className="absolute top-1 left-1/2 -translate-x-1/2 pointer-events-auto w-6 h-6 rounded-lg bg-yellow-400 hover:bg-yellow-300 border border-slate-900 text-slate-900 flex items-center justify-center shadow-md active:scale-90"
-                              >
-                                ▲
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  moveVehicle(v.id, 'next');
-                                }}
-                                className="absolute bottom-1 left-1/2 -translate-x-1/2 pointer-events-auto w-6 h-6 rounded-lg bg-yellow-400 hover:bg-yellow-300 border border-slate-900 text-slate-900 flex items-center justify-center shadow-md active:scale-90"
-                              >
-                                ▼
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Instruções Simplificadas */}
@@ -828,7 +897,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="w-full max-w-sm bg-slate-900 border-2 border-emerald-500/20 p-8 rounded-[2.5rem] flex flex-col items-center justify-center space-y-6 text-center shadow-[0_0_30px_rgba(16,185,129,0.1)]"
+            className="w-full max-w-sm bg-slate-900 border-2 border-emerald-500/20 p-8 rounded-[2.5rem] flex flex-col items-center justify-center space-y-6 text-center shadow-[0_0_30px_rgba(16,185,129,0.1)] animate-fade-in"
           >
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/30">
               <Trophy className="w-8 h-8 text-emerald-400" />
@@ -839,34 +908,58 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Viatura Principal Resgatada</p>
             </div>
 
-            <div className="w-full bg-slate-950 rounded-2xl border border-slate-800 p-4">
+            {/* Performance board card */}
+            <div className="w-full bg-slate-950/60 rounded-2xl border border-slate-850 p-4">
               <div className="flex justify-between text-xs py-1">
                 <span className="text-slate-400">Total de Movimentos:</span>
                 <span className="font-bold text-white">{moves}</span>
               </div>
               <div className="flex justify-between text-xs py-1">
                 <span className="text-slate-400">Bônus de Tempo:</span>
-                <span className="font-bold text-yellow-400">+{timeLeft * 2} pts</span>
+                <span className="font-bold text-yellow-400">+0 pts</span>
               </div>
               <div className="border-t border-slate-800 my-2 pt-2 flex justify-between text-xs font-bold uppercase">
-                <span className="text-emerald-400">Pontuação Total:</span>
+                <span className="text-emerald-400">Pontuação de Carreira:</span>
                 <span className="font-extrabold text-white">{multiplayerMode === '2p' ? p1Score + p2Score : score} pts</span>
               </div>
             </div>
 
-            <Button
-              onClick={handleNextLevel}
-              className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black uppercase text-xs rounded-2xl tracking-wider active:scale-95 transition-all"
-            >
-              PRÓXIMO NÍVEL 🚀
-            </Button>
+            {/* Standard Score Box (Pontos Ganhos) */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1 font-sans">Pontos Ganhos</span>
+               <span className="text-3xl font-black text-emerald-400 font-mono block">+300 XP</span>
+            </div>
 
-            <Button
-              onClick={handleFinishDeployment}
-              className="w-full h-12 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold uppercase text-[10px] rounded-2xl tracking-wider active:scale-95 transition-all"
-            >
-              Concluir & Salvar
-            </Button>
+            <div className="w-full flex flex-col gap-3">
+              <Button
+                onClick={handleNextLevel}
+                className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black uppercase text-xs rounded-2xl tracking-wider active:scale-95 transition-all"
+              >
+                PRÓXIMO NÍVEL 🚀
+              </Button>
+
+              <Button
+                onClick={handleFinishDeployment}
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+
+              <Button
+                onClick={() => {
+                  setLevel(1);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setMoves(0);
+                  setGameState('selection');
+                }}
+                variant="outline"
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
           </motion.div>
         ) : (
           <motion.div 
@@ -876,45 +969,126 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
             exit={{ scale: 0.9, opacity: 0 }}
             className="w-full max-w-sm bg-slate-900 border-2 border-red-500/20 p-8 rounded-[2.5rem] flex flex-col items-center justify-center space-y-6 text-center shadow-[0_0_30px_rgba(239,68,68,0.1)]"
           >
-            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center border-2 border-red-500/30">
-              <AlertTriangle className="w-8 h-8 text-red-500" />
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20 animate-pulse">
+                <span className="text-4xl">⏱️</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-3xl font-black text-red-500 uppercase leading-none italic">Bloqueado!</h2>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Acabou o Tempo limite de resgate</p>
+              <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FALHA NA INSPEÇÃO</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Inspeção Interrompida</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                O tempo regulamentar para concluir esta inspeção expirou. Nenhum ponto de vistoria foi faturado nesta jogada.
+              </p>
             </div>
 
-            <p className="text-slate-400 text-xs leading-relaxed italic">
-              A via foi inteiramente interditada e o guincho não pôde resgatar a viatura principal a tempo.
-            </p>
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1 font-sans">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
+            </div>
 
-            <Button
-              onClick={handleFinishDeployment}
-              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
-            >
-              VOLTAR À CENTRAL DE JOGOS
-            </Button>
+            <div className="w-full flex flex-col gap-3">
+              <Button
+                onClick={handleFinishDeployment}
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
 
-            <Button
-              onClick={startGame}
-              variant="outline"
-              className="w-full h-12 border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all"
-            >
-              Tentar Novamente 🔄
-            </Button>
+              <Button
+                onClick={() => {
+                  setGameState('selection');
+                  setShowAbandonModal(false);
+                }}
+                variant="outline"
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-505 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setGameState('selection');
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setMoves(0);
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       <div className="mt-8 w-full max-w-sm flex flex-col items-center">
         {gameState === 'playing' ? (
           <Button 
             onClick={() => {
               if (timerRef.current) clearInterval(timerRef.current);
-              setGameState('selection');
+              // Salva os pontos conquistados até agora de forma imediata
+              onComplete(
+                multiplayerMode === '2p' ? p1Score : score,
+                1,
+                multiplayerMode === '2p',
+                selectedPartner,
+                p1Score,
+                p2Score,
+                'PARKING_ESCAPE',
+                false,
+                true // keepInGameSelection = true
+              );
+              setShowAbandonModal(true);
             }}
-            className="w-full h-14 rounded-2xl bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black tracking-wider uppercase text-xs shadow-lg hover:scale-[1.02] active:scale-95 transition-all border border-yellow-500/20"
+            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
           >
             ABANDONAR PATRULHA
           </Button>
@@ -926,7 +1100,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
             }}
             className="px-6 h-12 bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-850 rounded-2xl text-[10px] font-bold uppercase tracking-widest active:scale-95 transition-all"
           >
-            Sair para Painel
+            VOLTAR À CENTRAL DE JOGOS
           </Button>
         )}
       </div>

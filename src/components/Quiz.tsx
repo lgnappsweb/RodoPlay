@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { QUESTIONS } from '../data/questions';
+import { QUESTIONS, QUIZ_THEMES } from '../data/questions';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { motion, AnimatePresence } from 'motion/react';
@@ -22,7 +22,8 @@ interface QuizProps {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout?: boolean
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -30,6 +31,7 @@ interface QuizProps {
 }
 
 export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: QuizProps) {
+  const [selectedThemeId, setSelectedThemeId] = useState<string>(QUIZ_THEMES[0].id);
   const [sessionQuestions, setSessionQuestions] = useState<typeof QUESTIONS>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [score, setScore] = useState(0);
@@ -40,6 +42,7 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
   const [isTimeOut, setIsTimeOut] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   // Multiplayer State
   const [multiplayerMode, setMultiplayerMode] = useState<'1p' | '2p'>('1p');
@@ -53,21 +56,32 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
     return diff === 'easy' ? 25 : diff === 'medium' ? 15 : 10;
   };
 
-  useEffect(() => {
+  // Helper to get questions for dynamic theme selections
+  const getQuestionsSubset = useCallback((themeId: string) => {
+    const themeQuestions = QUESTIONS.filter(q => q.themeId === themeId);
+    
+    // Pick 2 random questions from each difficulty level (1 to 5) for a total of 10
     const qByDifficulty = [1, 2, 3, 4, 5].flatMap(diff => {
-      const filtered = QUESTIONS.filter(q => (q.difficulty || 1) === diff);
+      const filtered = themeQuestions.filter(q => (q.difficulty || 1) === diff);
       return filtered.sort(() => Math.random() - 0.5).slice(0, 2);
     });
-    setSessionQuestions(qByDifficulty);
-    setIsTimeOut(false);
+
+    if (qByDifficulty.length < 10) {
+      return themeQuestions.sort(() => Math.random() - 0.5).slice(0, 10);
+    }
+    
+    return qByDifficulty.sort(() => Math.random() - 0.5);
   }, []);
 
+  useEffect(() => {
+    const qSubset = getQuestionsSubset(selectedThemeId);
+    setSessionQuestions(qSubset);
+    setIsTimeOut(false);
+  }, [selectedThemeId, getQuestionsSubset]);
+
   const restartQuiz = () => {
-    const qByDifficulty = [1, 2, 3, 4, 5].flatMap(diff => {
-      const filtered = QUESTIONS.filter(q => (q.difficulty || 1) === diff);
-      return filtered.sort(() => Math.random() - 0.5).slice(0, 2);
-    });
-    setSessionQuestions(qByDifficulty);
+    const qSubset = getQuestionsSubset(selectedThemeId);
+    setSessionQuestions(qSubset);
     setCurrentIdx(0);
     setScore(0);
     setTimeLeft(getInitialTimeLimit(difficulty));
@@ -86,36 +100,48 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
     setIsAnswered(true);
 
     if (idx === question.correctAnswer) {
-      const timeBonus = Math.floor(timeLeft * 10);
+      const timeBonus = 0;
       const diffMultiplier = question.difficulty || 1;
       const points = (100 * diffMultiplier) + timeBonus;
       
+      let finalScore = score;
+      let finalP1 = p1Score;
+      let finalP2 = p2Score;
+
       if (multiplayerMode === '2p') {
         if (activePlayerTurn === 'p1') {
-          setP1Score(s => s + points);
+          finalP1 = p1Score + points;
+          setP1Score(finalP1);
         } else {
-          setP2Score(s => s + points);
+          finalP2 = p2Score + points;
+          setP2Score(finalP2);
         }
       } else {
-        setScore(s => s + points);
+        finalScore = score + points;
+        setScore(finalScore);
       }
       setCorrectCount(c => c + 1);
       if (onScoreUpdate) onScoreUpdate(points);
-    }
-  }, [isAnswered, question, timeLeft, onScoreUpdate, multiplayerMode, activePlayerTurn]);
 
+      // Computa os pontos imediatamente no faturamento geral de patrulhas e perfil
+      onComplete(
+        multiplayerMode === '2p' ? finalP1 : finalScore,
+        1,
+        multiplayerMode === '2p',
+        selectedPartner,
+        finalP1,
+        finalP2,
+        'QUIZ',
+        false,
+        true
+      );
+    }
+  }, [isAnswered, question, timeLeft, onScoreUpdate, multiplayerMode, activePlayerTurn, p1Score, p2Score, score, selectedPartner, onComplete]);
+
+  // Timer is disabled per user request
   useEffect(() => {
-    if (isTimeOut) return;
-    if (timeLeft <= 0 && !isAnswered) {
-      setIsTimeOut(true);
-      return;
-    }
-
-    if (timeLeft > 0 && !isAnswered) {
-      const timer = setTimeout(() => setTimeLeft(t => t - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [timeLeft, isAnswered, handleSelect, isTimeOut]);
+    // No timer/timeouts running
+  }, []);
 
   const handleNext = () => {
     if (currentIdx < sessionQuestions.length - 1) {
@@ -189,7 +215,7 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
                   <div className="flex flex-col text-left">
                     <span className="font-black uppercase text-sm italic">{level === 'easy' ? 'Fácil' : level === 'medium' ? 'Médio' : 'Difícil'}</span>
                     <span className={`text-[8px] font-bold uppercase tracking-tighter mt-0.5 ${difficulty === level ? 'text-slate-900/60' : 'text-slate-600'}`}>
-                      {level === 'easy' ? 'Tempo Generoso (25s)' : level === 'medium' ? 'Tempo Moderado (15s)' : 'Tempo Extremo (10s)'}
+                      {level === 'easy' ? 'Básico / Teoria' : level === 'medium' ? 'Intermediário' : 'Avançado / Placas'}
                     </span>
                   </div>
                   {difficulty === level && (
@@ -198,6 +224,39 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
                       className="ml-auto w-2 h-2 bg-slate-900 rounded-full"
                     />
                   )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div id="theme-selector" className="space-y-3">
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest text-center">Selecione o Tema do Quiz</p>
+            
+            <div className="grid grid-cols-1 gap-2.5 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+              {QUIZ_THEMES.map(theme => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => setSelectedThemeId(theme.id)}
+                  className={`flex items-start p-3 bg-slate-900 border-2 rounded-2xl transition-all text-left ${
+                    selectedThemeId === theme.id
+                      ? 'border-yellow-400 scale-[1.01] shadow-[0_0_15px_rgba(250,204,21,0.1)]'
+                      : 'border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center text-2xl w-11 h-11 bg-slate-950/60 rounded-xl mr-3 select-none">
+                    {theme.icon}
+                  </div>
+                  <div className="flex-1 min-w-0 pr-1">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-black uppercase tracking-tight truncate ${selectedThemeId === theme.id ? 'text-yellow-400' : 'text-slate-200'}`}>
+                        {theme.name}
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold leading-tight line-clamp-2">
+                      {theme.description}
+                    </p>
+                  </div>
                 </button>
               ))}
             </div>
@@ -216,7 +275,15 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
           <Button 
             disabled={multiplayerMode === '2p' && !selectedPartner}
             onClick={() => {
+              const qSubset = getQuestionsSubset(selectedThemeId);
+              setSessionQuestions(qSubset);
               setTimeLeft(getInitialTimeLimit(difficulty));
+              setCurrentIdx(0);
+              setScore(0);
+              setSelectedIdx(null);
+              setIsAnswered(false);
+              setCorrectCount(0);
+              setIsTimeOut(false);
               setSetupComplete(true);
             }} 
             className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all disabled:opacity-50"
@@ -290,22 +357,9 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
         </div>
       </div>
 
-      {/* Timer */}
-      <div className="mb-8 px-4 relative z-10">
-        <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-white/5">
-          <motion.div 
-            className={`h-full ${timeLeft < 3 ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-yellow-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]'}`}
-            initial={{ width: '100%' }}
-            animate={{ width: `${(timeLeft / getInitialTimeLimit(difficulty)) * 100}%` }}
-            transition={{ duration: 1, ease: "linear" }}
-          />
-        </div>
-        <div className="flex flex-col items-center mt-2 space-y-1">
-          <span className={`text-sm font-black tracking-tighter ${timeLeft < 3 ? 'text-red-500 animate-pulse' : 'text-slate-400'}`}>
-            0:{timeLeft.toString().padStart(2, '0')}
-          </span>
-          <span className="text-[8px] font-bold text-yellow-500/80 uppercase tracking-widest">Nível de Dificuldade: {question.difficulty}</span>
-        </div>
+      {/* Level Info */}
+      <div className="mb-4 px-4 relative z-10 flex flex-col items-center">
+        <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-full">Nível de Dificuldade: {question.difficulty}</span>
       </div>
 
       {/* Question Card */}
@@ -382,22 +436,89 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
             <div className="w-full flex justify-center mt-6">
               <Button 
                 onClick={() => {
-                  setSetupComplete(false);
-                  setCurrentIdx(0);
-                  setScore(0);
-                  setSelectedIdx(null);
-                  setIsAnswered(false);
-                  setCorrectCount(0);
-                  setIsTimeOut(false);
+                  // Salva os pontos acumulados até o de agora e patrulha antes de mostrar o modal
+                  onComplete(
+                    multiplayerMode === '2p' ? p1Score : score,
+                    1,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    p1Score,
+                    p2Score,
+                    'QUIZ',
+                    false,
+                    true // keepInGameSelection = true
+                  );
+                  setShowAbandonModal(true);
                 }}
                 className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
               >
-                Abandonar Patrulha
+                ABANDONAR PATRULHA
               </Button>
             </div>
           )}
         </AnimatePresence>
       </div>
+      
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSetupComplete(false);
+                  setCurrentIdx(0);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setSelectedIdx(null);
+                  setIsAnswered(false);
+                  setCorrectCount(0);
+                  setIsTimeOut(false);
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {isTimeOut && (
         <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
           <motion.div 
@@ -409,34 +530,34 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
               <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20">
                 <span className="text-4xl animate-pulse">⏱️</span>
               </div>
-              <span className="absolute -top-1 -right-1 text-xl">⚠️</span>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
             </div>
 
             <div className="space-y-2">
-              <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FIM DO TEMPO</span>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Tempo Esgotado!</h3>
+              <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FALHA NA INSPEÇÃO</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Inspeção Interrompida</h3>
               <p className="text-slate-400 text-xs leading-relaxed italic">
-                O cronômetro encerrou antes que você pudesse responder à pergunta. Não perca seus pontos! Escolha abaixo:
+                O tempo regulamentar para concluir esta inspeção expirou. Nenhum ponto de vistoria foi faturado nesta jogada.
               </p>
             </div>
 
             {/* Score box */}
             <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontuação Conquistada</span>
-              <span className="text-3xl font-black text-yellow-400 font-mono block">{score} XP</span>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
             </div>
 
             <div className="w-full flex flex-col gap-3">
               <Button 
-                onClick={() => onComplete(score, correctCount, false, null, 0, 0, 'QUIZ', isTimeOut)} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+                onClick={() => onComplete(0, 1, false, null, 0, 0, 'QUIZ', true, false)} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
               >
                 VOLTAR À CENTRAL DE JOGOS
               </Button>
               <Button 
                 onClick={restartQuiz} 
                 variant="outline" 
-                className="w-full h-14 border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all"
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
               >
                 TENTAR NOVAMENTE 🔁
               </Button>

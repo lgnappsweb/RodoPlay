@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Player, GameType } from '../types';
 import { Button } from './ui/button';
@@ -52,7 +52,70 @@ const TIPS = [
 
 export function Home({ player, onPlay, onViewChange }: HomeProps) {
   const [topPlayer, setTopPlayer] = useState<Player | null>(null);
+  const [weeklyHighlight, setWeeklyHighlight] = useState<Player | null>(null);
   const [tipIndex, setTipIndex] = useState(0);
+  const [isCardHovered, setIsCardHovered] = useState(false);
+
+  // Subscribe to the weekly highlight state
+  useEffect(() => {
+    const docRef = doc(db, 'stats', 'weekly_highlight');
+    const unsubscribe = onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data && data.player) {
+          setWeeklyHighlight(data.player as Player);
+        }
+      }
+    }, (err) => {
+      console.warn("[Home Highlights] Error fetching weekly highlight from Firestore:", err);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Update weekly highlight at Sunday 00:00 (or first load after it)
+  useEffect(() => {
+    if (!topPlayer) return;
+
+    const checkAndUpdateWeeklyHighlight = async () => {
+      try {
+        const docRef = doc(db, 'stats', 'weekly_highlight');
+        const snap = await getDoc(docRef);
+
+        const now = new Date();
+        const currentSunday = new Date();
+        const currentDay = currentSunday.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        
+        // Find the past Sunday 00:00:00
+        currentSunday.setDate(currentSunday.getDate() - currentDay);
+        currentSunday.setHours(0, 0, 0, 0);
+        const currentSundayTime = currentSunday.getTime();
+
+        let needsUpdate = false;
+        if (!snap.exists()) {
+          needsUpdate = true;
+        } else {
+          const data = snap.data();
+          const lastUpdated = data.lastUpdated || 0;
+          // If the last persistent update was before this Sunday's 00:00, refresh with current top player!
+          if (lastUpdated < currentSundayTime) {
+            needsUpdate = true;
+          }
+        }
+
+        if (needsUpdate) {
+          console.log("[Home] Automatically updating weekly highlight to highest ranked:", topPlayer.displayName);
+          await setDoc(docRef, {
+            player: topPlayer,
+            lastUpdated: Date.now()
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to check/update weekly highlight:", err);
+      }
+    };
+
+    checkAndUpdateWeeklyHighlight();
+  }, [topPlayer]);
 
 
 
@@ -98,8 +161,14 @@ export function Home({ player, onPlay, onViewChange }: HomeProps) {
           });
         }
       });
-      if (allPlayers.length > 0) {
-        allPlayers.sort((a, b) => {
+      const activePlayers = allPlayers.filter(p => {
+        const score = p.totalScore || 0;
+        const patrols = p.gamesPlayed || p.completedGames || 0;
+        return score > 0 && patrols > 0;
+      });
+
+      if (activePlayers.length > 0) {
+        activePlayers.sort((a, b) => {
           const scoreB = b.totalScore || 0;
           const scoreA = a.totalScore || 0;
           if (scoreB !== scoreA) {
@@ -116,7 +185,9 @@ export function Home({ player, onPlay, onViewChange }: HomeProps) {
           const victoriesA = a.victories || 0;
           return victoriesB - victoriesA;
         });
-        setTopPlayer(allPlayers[0]);
+        setTopPlayer(activePlayers[0]);
+      } else {
+        setTopPlayer(null);
       }
     }, (err) => {
       console.error("[Home Highlights] Error fetching players:", err);
@@ -124,13 +195,56 @@ export function Home({ player, onPlay, onViewChange }: HomeProps) {
     return () => unsubscribe();
   }, []);
 
-  const highlightPlayer = topPlayer || player;
+  const isCurrentPlayerActive = (player.totalScore || 0) > 0 && ((player.gamesPlayed || 0) > 0 || (player.completedGames || 0) > 0);
+  const highlightPlayer = topPlayer || (isCurrentPlayerActive ? player : null);
 
   // Level XP progression calculation
   const currentTotalPower = player.totalScore || 0;
   const currentLevel = player.level || 1;
   const pointsRemainingInLevel = 1000 - (currentTotalPower % 1000);
   const currentLevelProgress = Math.min(100, Math.round(((currentTotalPower % 1000) / 1000) * 100));
+
+  // Real-time synchronization of the highlighted player's profile data
+  const highlightUid = weeklyHighlight?.uid || topPlayer?.uid;
+  const [realTimeHighlightDetails, setRealTimeHighlightDetails] = useState<Player | null>(null);
+
+  useEffect(() => {
+    if (!highlightUid) {
+      setRealTimeHighlightDetails(null);
+      return;
+    }
+
+    const docRef = doc(db, 'rankings/global/players', highlightUid);
+    const unsubscribe = onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setRealTimeHighlightDetails({
+          ...data,
+          totalScore: typeof data.totalScore === 'string' ? parseFloat(data.totalScore) : (data.totalScore !== undefined ? data.totalScore : (data.pontos || 0)),
+          gamesPlayed: typeof data.gamesPlayed === 'string' ? parseInt(data.gamesPlayed, 10) : (data.gamesPlayed !== undefined ? data.gamesPlayed : (data.patrulhas || 0)),
+          completedGames: typeof data.completedGames === 'string' ? parseInt(data.completedGames, 10) : (data.completedGames !== undefined ? data.completedGames : (data.partidas || 0)),
+          victories: typeof data.victories === 'string' ? parseInt(data.victories, 10) : (data.victories !== undefined ? data.victories : (data.vitorias || 0)),
+          defeats: typeof data.defeats === 'string' ? parseInt(data.defeats, 10) : (data.defeats !== undefined ? data.defeats : (data.derrotas || 0)),
+          level: typeof data.level === 'string' ? parseInt(data.level, 10) : (data.level !== undefined ? data.level : (data.nivel || 1)),
+          uid: snapshot.id
+        } as Player);
+      }
+    }, (err) => {
+      console.warn("[Home Highlights] Error syncing highlight player details:", err);
+    });
+
+    return () => unsubscribe();
+  }, [highlightUid]);
+
+  // Determine which operator is displayed on the "Destaque da Semana" card (shared weekly snapshot with real-time updates)
+  const displayedHighlight = realTimeHighlightDetails || weeklyHighlight || topPlayer;
+  const highlightName = displayedHighlight?.displayName || (displayedHighlight as any)?.name || (displayedHighlight as any)?.apelido || 'Operador RodoPlay';
+
+  // Level XP progression calculation for the displayed highlighted operator
+  const highlightTotalPower = displayedHighlight?.totalScore || 0;
+  const highlightLevel = displayedHighlight?.level || 1;
+  const highlightRemainingInLevel = 1000 - (highlightTotalPower % 1000);
+  const highlightLevelProgress = Math.min(100, Math.round(((highlightTotalPower % 1000) / 1000) * 100));
 
   const handleLaunchRandomGame = () => {
     const gameTypes = Object.values(GameType);
@@ -257,19 +371,19 @@ export function Home({ player, onPlay, onViewChange }: HomeProps) {
           </div>
           
           {/* Header row with badges and manual slider keys */}
-          <div className="flex items-center justify-between gap-2.5 w-full border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-yellow-450/10 border border-yellow-550/20 rounded-lg text-yellow-450 flex-shrink-0">
-                <HelpCircle size={14} className="animate-pulse" />
+          <div className="flex flex-col items-center justify-center gap-3 w-full border-b border-slate-800 pb-4 text-center">
+            <div className="flex flex-col items-center gap-2.5">
+              <div className="p-2.5 bg-yellow-450/15 border border-yellow-550/20 rounded-xl text-yellow-400 flex-shrink-0 animate-pulse shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                <HelpCircle size={20} />
               </div>
-              <div className="text-left">
-                <span className="text-[8.5px] font-black text-slate-500 uppercase tracking-widest block leading-none">GUIA RÁPIDO S.O.S</span>
-                <span className="text-[10px] font-black text-yellow-500 uppercase tracking-wider block mt-0.5">DICAS DE TODOS OS JOGOS</span>
+              <div className="text-center">
+                <span className="text-[10.5px] font-black text-slate-400 uppercase tracking-[0.25em] block leading-none whitespace-nowrap">GUIA RÁPIDO S.O.S</span>
+                <span className="text-sm sm:text-base font-black text-yellow-400 uppercase tracking-wider block mt-1.5 drop-shadow-[0_0_10px_rgba(250,204,21,0.3)] whitespace-nowrap">DICAS DE TODOS OS JOGOS</span>
               </div>
             </div>
 
             {/* Slider navigation controls */}
-            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-xl border border-slate-850 select-none">
+            <div className="flex items-center gap-1 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-850 select-none">
               <button 
                 onClick={prevTip}
                 className="p-1 hover:bg-slate-900 text-slate-400 hover:text-yellow-400 rounded-lg transition-colors focus:outline-none"
@@ -325,74 +439,221 @@ export function Home({ player, onPlay, onViewChange }: HomeProps) {
           </div>
         </div>
 
-        {/* Rivalry Widget */}
-        <div className="bg-slate-800/40 border-2 border-yellow-500/30 rounded-[2rem] p-6 mb-8 relative overflow-hidden group">
-          <div className="absolute -right-12 -bottom-12 w-40 h-40 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-yellow-500/10 transition-colors duration-500" />
-          
-          {/* Header do Card (Destaque da Semana) - Posicionado internamente e bem visível */}
-          <div className="flex items-center justify-between gap-3 border-b border-yellow-500/10 pb-4 mb-5">
-            <div className="flex items-center gap-2 bg-yellow-400/10 border border-yellow-500/30 px-3 py-1.5 rounded-full text-[10px] font-black text-yellow-400 uppercase tracking-widest shadow-sm">
-              <Sparkles size={12} className="animate-spin text-yellow-400" style={{ animationDuration: '3s' }} />
-              Destaque da Semana
-            </div>
+        {/* Custom Player Profile Card - Extremely Highlighted Masterpiece */}
+        {displayedHighlight ? (
+          <div 
+            onMouseEnter={() => setIsCardHovered(true)}
+            onMouseLeave={() => setIsCardHovered(false)}
+            style={{ 
+              borderColor: 'var(--primary-color)',
+              boxShadow: isCardHovered 
+                ? '0 0 55px color-mix(in srgb, var(--primary-color) 45%, transparent)' 
+                : '0 0 32px color-mix(in srgb, var(--primary-color) 25%, transparent)'
+            }}
+            className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-[3px] rounded-[2.5rem] p-6 mb-8 relative overflow-hidden group transition-all duration-300 hover:scale-[1.012]"
+          >
+            {/* Ambient Background Glows */}
+            <div 
+              style={{ 
+                backgroundColor: isCardHovered 
+                  ? 'color-mix(in srgb, var(--primary-color) 15%, transparent)' 
+                  : 'color-mix(in srgb, var(--primary-color) 10%, transparent)' 
+              }}
+              className="absolute -right-16 -top-16 w-64 h-64 rounded-full blur-3xl pointer-events-none transition-all duration-500" 
+            />
+            <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
             
-            <div className="flex items-center gap-1.5 select-none shrink-0 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest leading-none">Tempo Real</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-            {/* Coluna Esquerda/Centro: Avatar e Detalhes do Perfil */}
-            <div className="md:col-span-8 flex items-center gap-4 min-w-0">
-              <div className="relative shrink-0">
-                <div className="w-16 h-16 rounded-2xl bg-slate-900 border-2 border-yellow-400/50 flex items-center justify-center text-5xl shadow-md overflow-hidden select-none leading-none">
-                  {highlightPlayer.avatar?.startsWith('data') || highlightPlayer.avatar?.startsWith('http') ? (
-                    <img src={highlightPlayer.avatar} alt={highlightPlayer.displayName} className="w-full h-full object-cover" />
-                  ) : (
-                    highlightPlayer.avatar || '👷'
-                  )}
-                </div>
-                <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-400 border border-slate-900 rounded-full flex items-center justify-center text-[10px] text-slate-950 font-black shadow-md">
-                  #1
+            {/* Header: Identity & Status Indicator */}
+            <div 
+              style={{ borderBottomColor: 'color-mix(in srgb, var(--primary-color) 20%, transparent)' }}
+              className="flex flex-col items-center justify-center text-center border-b-2 pb-5 mb-5 relative"
+            >
+              <div 
+                style={{ 
+                  backgroundColor: 'color-mix(in srgb, var(--primary-color) 15%, transparent)',
+                  borderColor: 'color-mix(in srgb, var(--primary-color) 30%, transparent)',
+                  boxShadow: '0 0 15px color-mix(in srgb, var(--primary-color) 20%, transparent)'
+                }}
+                className="flex items-center gap-2 select-none shrink-0 border px-3 py-1 rounded-full mb-3"
+              >
+                <Crown size={14} style={{ color: 'var(--primary-color)' }} className="animate-bounce" />
+                <span style={{ color: 'var(--primary-color)' }} className="text-[10px] font-black uppercase tracking-[0.2em] leading-none">REVELADO TODO DOMINGO ÀS 00:00</span>
+              </div>
+              <h2 
+                style={{ 
+                  backgroundImage: 'linear-gradient(to right, var(--primary-light), var(--primary-color), #ffffff)',
+                  filter: 'drop-shadow(0 2px 15px color-mix(in srgb, var(--primary-color) 30%, transparent))'
+                }}
+                className="text-3xl sm:text-4xl font-black italic tracking-wider uppercase text-center text-transparent bg-clip-text drop-shadow-[0_2px_15px_rgba(250,204,21,0.3)] select-none"
+              >
+                DESTAQUE DA SEMANA
+              </h2>
+              
+              {/* Real-time highlighted player's name directly below the title - Extremely Highlighted Masterpiece */}
+              <div 
+                style={{ 
+                  backgroundImage: 'linear-gradient(to right, color-mix(in srgb, var(--primary-color) 15%, transparent), color-mix(in srgb, var(--primary-color) 25%, transparent), color-mix(in srgb, var(--primary-color) 15%, transparent))',
+                  borderColor: 'var(--primary-color)',
+                  boxShadow: '0 0 25px color-mix(in srgb, var(--primary-color) 40%, transparent)'
+                }}
+                className="mt-3 px-8 py-2.5 border-2 rounded-3xl select-all transform hover:scale-105 transition-all duration-300 flex items-center gap-3"
+              >
+                <Sparkles size={16} style={{ color: 'var(--primary-color)' }} className="animate-pulse shrink-0" />
+                <span style={{ color: 'var(--primary-light)' }} className="text-2xl sm:text-3.5xl font-black uppercase italic tracking-widest drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                  {highlightName}
                 </span>
+                <Sparkles size={16} style={{ color: 'var(--primary-color)' }} className="animate-pulse shrink-0" />
               </div>
 
-              <div className="min-w-0 space-y-2 flex-1">
-                {/* Nome do jogador - Completo, sem truncamento, wrapping suave */}
-                <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white uppercase italic tracking-tight leading-normal whitespace-normal break-words">
-                  {highlightPlayer.displayName}
-                </h3>
-
-                {/* Badges do jogador: Nível, Base e Turno */}
-                <div className="flex flex-wrap items-center gap-2 pt-1.5">
-                  {/* Nivel */}
-                  <span className="inline-flex items-center justify-center bg-yellow-400 text-slate-950 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider h-5.5 select-none shrink-0">
-                    Nível {highlightPlayer.level || 1}
-                  </span>
-                  
-                  {/* Base */}
-                  <span className="inline-flex items-center justify-center text-white bg-slate-900 border border-slate-705 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest h-5.5 shrink-0">
-                    {highlightPlayer.base || 'SEM BASE'}
-                  </span>
-
-                  {/* Turno */}
-                  <span className="inline-flex items-center text-[10px] font-semibold text-slate-400 uppercase tracking-widest leading-none h-5.5">
-                    Turno: <strong className="text-white ml-1">{highlightPlayer.shift || 'GERAL'}</strong>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Coluna Direita: Box de Pontuação Acumulada em Tempo Real */}
-            <div className="md:col-span-4 w-full bg-slate-900/40 border border-slate-700/40 p-4 rounded-2xl flex flex-col justify-center items-start md:items-end">
-              <p className="text-[9px] font-black text-slate-400 tracking-wider uppercase leading-none mb-1">SCORE ACUMULADO</p>
-              <p className="text-xl sm:text-2xl font-black text-yellow-400 tracking-tighter leading-none mt-1">
-                {highlightPlayer.totalScore?.toLocaleString('pt-BR') || 0} PTS
+              <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest mt-4 flex items-center gap-1 justify-center">
+                <Sparkles size={11} className="animate-spin" style={{ color: 'var(--primary-color)', animationDuration: '4s' }} />
+                OPERADOR RECOMPENSADO POR EXCELÊNCIA INTEGRAL
+                <Sparkles size={11} className="animate-spin" style={{ color: 'var(--primary-color)', animationDuration: '4s' }} />
               </p>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
+              {/* Primary Identity Section: Avatar and Name Unified Together */}
+              <div className="md:col-span-12">
+                <div 
+                  style={{ 
+                    borderColor: 'color-mix(in srgb, var(--primary-color) 25%, transparent)',
+                    boxShadow: 'inset 0 1px 25px color-mix(in srgb, var(--primary-color) 10%, transparent)'
+                  }}
+                  className="relative flex flex-col sm:flex-row items-center gap-5 bg-slate-950/80 border-2 p-5 rounded-3xl w-full transition-all duration-300 hover:border-yellow-400/65"
+                >
+                  
+                  {/* Left block: Avatar & level badge tightly unified */}
+                  <div 
+                    style={{ 
+                      borderColor: 'color-mix(in srgb, var(--primary-color) 20%, transparent)'
+                    }}
+                    className="relative flex flex-col items-center shrink-0 w-full sm:w-auto p-4 bg-slate-900/90 border rounded-2xl shadow-lg"
+                  >
+                    <div 
+                      style={{ borderColor: 'var(--primary-color)' }}
+                      className="w-20 h-20 rounded-2xl bg-slate-950 border-2 flex items-center justify-center text-5xl shadow-[0_4px_22px_rgba(0,0,0,0.75)] overflow-hidden select-none leading-none relative group-hover:border-yellow-300 transition-colors duration-300"
+                    >
+                      {displayedHighlight.avatar?.startsWith('data') || displayedHighlight.avatar?.startsWith('http') ? (
+                        <img src={displayedHighlight.avatar} alt={highlightName} className="w-full h-full object-cover animate-fade-in" />
+                      ) : (
+                        displayedHighlight.avatar || '👷'
+                      )}
+                    </div>
+                    <div 
+                      style={{ 
+                        backgroundColor: 'var(--primary-color)',
+                        boxShadow: '0 3px 10px color-mix(in srgb, var(--primary-color) 30%, transparent)'
+                      }}
+                      className="mt-2.5 text-slate-950 px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest"
+                    >
+                      NÍVEL {highlightLevel}
+                    </div>
+                  </div>
+
+                  {/* Right block: Name and email bound together inside this avatar header */}
+                  <div className="flex-1 text-center sm:text-left min-w-0">
+                    <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-[0.25em] leading-none block mb-1">OPERADOR DESTAQUE</span>
+                    <h3 
+                      style={{ backgroundImage: 'linear-gradient(to right, var(--primary-light), var(--primary-color), #ffffff)' }}
+                      className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text uppercase italic tracking-tight leading-tight whitespace-normal break-words drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]"
+                    >
+                      {highlightName}
+                    </h3>
+                    {displayedHighlight.email && (
+                      <p className="text-slate-400 font-bold tracking-wide lowercase truncate text-[11px] sm:text-xs mt-1.5 flex items-center justify-center sm:justify-start gap-1">
+                        <span 
+                          style={{ backgroundColor: 'color-mix(in srgb, var(--primary-color) 85%, transparent)' }}
+                          className="w-1.5 h-1.5 rounded-full animate-pulse" 
+                        />
+                        {displayedHighlight.email}
+                      </p>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Grid Section: Base, Turn and Location details */}
+              <div className="md:col-span-12 grid grid-cols-2 gap-3 pt-4 border-t border-slate-800/60">
+                <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-850/80 flex flex-col justify-between">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                    <Compass size={10} style={{ color: 'var(--primary-color)' }} />
+                    Base Operacional
+                  </span>
+                  <span className="text-xs font-black text-white uppercase mt-1.5 truncate">{displayedHighlight.base || 'Base 01'}</span>
+                </div>
+                
+                <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-850/80 flex flex-col justify-between">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                    <Flame size={10} style={{ color: 'var(--primary-color)' }} className="animate-pulse" />
+                    Turno de Serviço
+                  </span>
+                  <span style={{ color: 'var(--primary-color)' }} className="text-xs font-black uppercase mt-1.5 truncate">{displayedHighlight.shift || (displayedHighlight as any).turno || 'GERAL'}</span>
+                </div>
+
+                <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-850/80 flex flex-col justify-between">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                    <Car size={10} style={{ color: 'var(--primary-color)' }} />
+                    Praça de Pedágio
+                  </span>
+                  <span className="text-xs font-black text-slate-350 uppercase mt-1.5 truncate">
+                    {(displayedHighlight as any).praca || (displayedHighlight as any).praça || 'Não Aplicável'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-850/80 flex flex-col justify-between">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                    <Trophy size={10} style={{ color: 'var(--primary-color)' }} />
+                    Patrulhas Ativas
+                  </span>
+                  <span className="text-xs font-black text-blue-400 uppercase mt-1.5 truncate">
+                    {displayedHighlight.completedGames || displayedHighlight.gamesPlayed || 0} EFETUADAS
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress and Real-time XP Charging bar */}
+              <div className="md:col-span-12 bg-slate-950/80 border border-slate-850 p-4 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Award size={16} style={{ color: 'var(--primary-color)' }} />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">MÉTRICA DE PONTUAÇÃO</span>
+                  </div>
+                  <span style={{ color: 'var(--primary-color)' }} className="text-[10px] font-black font-mono">
+                    {highlightTotalPower % 1000} / 1000 XP
+                  </span>
+                </div>
+
+                {/* Micro level tracking bar */}
+                <div className="relative w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                  <motion.div 
+                    className="absolute top-0 left-0 h-full rounded-full"
+                    style={{ 
+                      backgroundImage: 'linear-gradient(to right, var(--primary-dark), var(--primary-color), var(--primary-light))', 
+                      width: `${highlightLevelProgress}%` 
+                    }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${highlightLevelProgress}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                  />
+                </div>
+
+                <div className="flex justify-between items-center text-[8.5px] text-slate-500 font-bold uppercase mt-1">
+                  <span>PONTUAÇÃO OPERACIONAL: <strong style={{ color: 'var(--primary-light)' }} className="font-mono text-[9px] ml-0.5">{(displayedHighlight.totalScore || 0).toLocaleString()} PTS</strong></span>
+                  <span>FALTAM <strong className="text-slate-350">{highlightRemainingInLevel} XP</strong> P/ LVL {highlightLevel + 1}</span>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div 
+            style={{ borderColor: 'var(--primary-color)' }}
+            className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-[3px] rounded-[2.5rem] p-8 mb-8 text-center text-slate-400 font-black uppercase text-xs tracking-widest animate-pulse h-40 flex items-center justify-center"
+          >
+            CARREGANDO DESTAQUE DA SEMANA... 🏆
+          </div>
+        )}
 
         {/* Leaderboard Card */}
         <div 

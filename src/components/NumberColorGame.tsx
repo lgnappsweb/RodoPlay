@@ -19,7 +19,8 @@ interface NumberColorGameProps {
     p1Score?: number,
     p2Score?: number,
     gameType?: string,
-    isTimeout?: boolean
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -65,6 +66,7 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
   const [level, setLevel] = useState(1);
   const [score, setScore] = useState(0);
   const [status, setStatus] = useState<'idle' | 'ready' | 'showing' | 'input' | 'won' | 'lost' | 'match_won'>('idle');
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   // Multiplayer State
   const [multiplayerMode, setMultiplayerMode] = useState<'1p' | '2p'>('1p');
@@ -162,35 +164,10 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
     playLocalSequence(sequence, activeColors, level);
   };
 
-  // Timer loop for countdown in input phase
+  // Timer loop for countdown in input phase - disabled per user request
   useEffect(() => {
-    if (status !== 'input' || isPlaying || gameState !== 'playing') {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-      return;
-    }
-
-    timerIntervalRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerIntervalRef.current!);
-          timerIntervalRef.current = null;
-          setStatus('lost');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-    };
-  }, [status, isPlaying, gameState]);
+    // No response countdown timer
+  }, []);
 
   const handleInput = (index: number) => {
     if (status !== 'input' || isPlaying) return;
@@ -321,7 +298,7 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
                       {diffLevel === 'easy' ? 'Fácil' : diffLevel === 'medium' ? 'Médio' : 'Difícil'}
                     </span>
                     <span className={`text-[8px] font-bold uppercase tracking-tighter mt-0.5 ${difficulty === diffLevel ? 'text-slate-900/60' : 'text-slate-600'}`}>
-                      {diffLevel === 'easy' ? 'Tempo Generoso (25s)' : diffLevel === 'medium' ? 'Tempo Moderado (15s)' : 'Tempo Extremo (10s)'}
+                      {diffLevel === 'easy' ? 'Sequência Curta / Memorização Iniciante' : diffLevel === 'medium' ? 'Sequência Moderada / Memorização Intermediária' : 'Sequência Longa / Memorização Especialista'}
                     </span>
                   </div>
                   {difficulty === diffLevel && (
@@ -410,8 +387,7 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
           </div>
         </div>
         <div className="bg-slate-900/60 border border-slate-800 px-3 py-1.5 rounded-full flex items-center gap-2">
-          <Timer className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-          <span className="text-xs font-black text-white font-mono">{timeLeft}s</span>
+          <span className="text-xs font-black text-indigo-400 uppercase tracking-widest font-mono">Nível {level}</span>
         </div>
       </div>
 
@@ -557,47 +533,94 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
           )}
         </div>
 
-        {/* Circular Timing Progress Bar */}
-        {status === 'input' && (
-          <div className="w-full max-w-sm px-4">
-            <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800 relative">
-              <motion.div 
-                initial={{ width: '100%' }}
-                animate={{ width: `${(timeLeft / maxTime) * 100}%` }}
-                transition={{ duration: 1, ease: 'linear' }}
-                className={`h-full ${
-                  timeLeft < 4 ? 'bg-red-500 shadow-[0_0_10px_#ef4444]' :
-                  timeLeft < (maxTime / 2) ? 'bg-yellow-400' :
-                  'bg-indigo-500'
-                }`}
-              />
-            </div>
-            <div className="flex justify-between mt-1 px-1">
-              <span className="text-[7px] font-mono font-black text-slate-600 uppercase tracking-widest">Tempo de Resposta</span>
-              <span className="text-[8px] font-mono font-bold text-slate-400">{timeLeft} segundo(s) restante(s)</span>
-            </div>
-          </div>
-        )}
+        {/* response timer hidden per user request */}
       </div>
 
       {/* Action Cancel Button */}
-      <div className="w-full max-w-sm shrink-0 mt-2">
+      <div className="w-full max-w-sm shrink-0 mt-2 flex justify-center">
         <Button 
           onClick={() => {
             if (timerIntervalRef.current) {
               clearInterval(timerIntervalRef.current);
               timerIntervalRef.current = null;
             }
-            setStatus('idle');
-            setIsPlaying(false);
-            setActiveIndex(null);
-            setGameState('selection');
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'NUMBER_GUESS',
+              false,
+              true // keepInGameSelection
+            );
+            setShowAbandonModal(true);
           }}
-          className="w-full h-14 rounded-2xl bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black tracking-wider uppercase text-xs shadow-lg hover:scale-[1.02] active:scale-95 transition-all border border-yellow-500/20"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
           ABANDONAR PATRULHA
         </Button>
       </div>
+
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setLevel(1);
+                  setStatus('idle');
+                  setIsPlaying(false);
+                  setActiveIndex(null);
+                  setGameState('selection');
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* MODALS */}
       <AnimatePresence>
@@ -649,7 +672,7 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 text-center"
+            className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 text-center overflow-y-auto"
           >
             <motion.div
               initial={{ scale: 0.9, rotate: -2 }}
@@ -658,45 +681,52 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-red-600" />
               
-              <div className="bg-red-500/15 border border-red-500 w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-lg shadow-red-500/25">
-                🚨
+              <div className="bg-red-500/15 border border-red-500 w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-lg shadow-red-500/25 animate-pulse">
+                🛑
               </div>
-              <h2 className="text-3xl font-black text-white mb-2 italic uppercase">ERRO NO SINAL</h2>
+              <h2 className="text-3xl font-black text-white mb-2 italic uppercase">
+                ERRO NO SINAL
+              </h2>
               <p className="text-slate-400 mb-6 font-bold uppercase tracking-widest text-[9px]">
-                {timeLeft === 0 ? 'O cronômetro esgotou antes da resposta.' : 'Sequência incorreta inserida na pista.'}
+                Sequência incorreta inserida na pista.
               </p>
 
-              <div className="bg-slate-950/60 rounded-2xl border border-slate-800/80 p-5 mb-8 flex items-center justify-around font-mono">
-                <div>
-                  <span className="text-[7px] text-slate-500 block uppercase font-bold tracking-widest leading-none">Rendimento</span>
-                  <span className="text-lg font-black text-white block mt-1">{level}/10 Rodada</span>
-                </div>
-                <div className="border-l border-slate-800 pl-6">
-                  <span className="text-[7px] text-slate-500 block uppercase font-bold tracking-widest leading-none">Placar Final</span>
-                  <span className="text-lg font-black text-yellow-400 block mt-1">{multiplayerMode === '2p' ? p1Score + p2Score : score} pts</span>
-                </div>
+              {/* Standard Score Box (Pontos Ganhos) */}
+              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850 mb-6">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1 font-sans">Pontos Ganhos</span>
+                <span className="text-3xl font-black text-red-500 font-mono block">
+                  {(multiplayerMode === '2p' ? p1Score : score)} XP
+                </span>
               </div>
 
               <div className="flex flex-col gap-3">
                 <Button 
                   onClick={() => onComplete(
-                    multiplayerMode === '2p' ? p1Score : score,
+                    (multiplayerMode === '2p' ? p1Score : score),
                     1,
                     multiplayerMode === '2p',
                     selectedPartner,
                     p1Score,
                     p2Score,
                     'NUMBER_GUESS',
-                    timeLeft === 0
+                    false,
+                    false
                   )} 
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider"
+                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
                 >
                   VOLTAR À CENTRAL DE JOGOS
                 </Button>
                 <Button 
-                  onClick={startGame} 
+                  onClick={() => {
+                    setGameState('selection');
+                    setStatus('idle');
+                    setScore(0);
+                    setP1Score(0);
+                    setP2Score(0);
+                    setLevel(1);
+                  }} 
                   variant="outline" 
-                  className="w-full h-14 border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider"
+                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
                 >
                   TENTAR NOVAMENTE 🔁
                 </Button>
@@ -710,7 +740,7 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 text-center"
+            className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 text-center overflow-y-auto"
           >
             <motion.div
               initial={{ scale: 0.9, y: 30 }}
@@ -729,15 +759,12 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
                 Supere absoluto nas 10 rodadas de sinais!
               </p>
 
-              <div className="bg-slate-950/60 rounded-2xl border border-slate-800/80 p-5 mb-8 flex items-center justify-around font-mono">
-                <div>
-                  <span className="text-[7px] text-slate-500 block uppercase font-bold tracking-widest leading-none">Rendimento</span>
-                  <span className="text-xl font-black text-emerald-400 block mt-1">10 / 10 Perfeito</span>
-                </div>
-                <div className="border-l border-slate-800 pl-6 font-semibold">
-                  <span className="text-[7px] text-slate-500 block uppercase font-bold tracking-widest leading-none">Total Resgatado</span>
-                  <span className="text-xl font-black text-yellow-400 block mt-1">{multiplayerMode === '2p' ? p1Score + p2Score : score} pts</span>
-                </div>
+              {/* Standard Score Box (Pontos Ganhos) */}
+              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850 mb-6 font-sans">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1 font-sans">Pontos Ganhos</span>
+                <span className="text-3xl font-black text-emerald-400 font-mono block">
+                  +{multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+                </span>
               </div>
 
               <div className="flex flex-col gap-3">
@@ -751,16 +778,23 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
                     p2Score,
                     'NUMBER_GUESS'
                   )} 
-                  className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md active:scale-95"
+                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
                 >
-                  RESGATAR PONTOS SUPREMOS 🎉
+                  VOLTAR À CENTRAL DE JOGOS
                 </Button>
                 <Button 
-                  onClick={startGame} 
+                  onClick={() => {
+                    setGameState('selection');
+                    setStatus('idle');
+                    setScore(0);
+                    setP1Score(0);
+                    setP2Score(0);
+                    setLevel(1);
+                  }} 
                   variant="outline" 
-                  className="w-full h-14 border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider"
+                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
                 >
-                  NOVA PARTIDA 🔁
+                  TENTAR NOVAMENTE 🔁
                 </Button>
               </div>
             </motion.div>

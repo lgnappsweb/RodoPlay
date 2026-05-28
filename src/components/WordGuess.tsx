@@ -19,7 +19,9 @@ interface WordGuessProps {
     partner?: any,
     p1Score?: number,
     p2Score?: number,
-    gameType?: string
+    gameType?: string,
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -38,6 +40,7 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
   const [score, setScore] = useState(0);
   const [status, setStatus] = useState<'playing' | 'won' | 'lost'>('playing');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   // Multiplayer State
   const [multiplayerMode, setMultiplayerMode] = useState<'1p' | '2p'>('1p');
@@ -93,16 +96,35 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     if (newWonGrids.every(w => w)) {
       setStatus('won');
       const points = (maxAttempts - newGuesses.length) * 100 * gridCount;
+      let finalScore = score;
+      let finalP1 = p1Score;
+      let finalP2 = p2Score;
       if (multiplayerMode === '2p') {
         if (activePlayerTurn === 'p1') {
-          setP1Score(prev => prev + points);
+          finalP1 = p1Score + points;
+          setP1Score(finalP1);
         } else {
-          setP2Score(prev => prev + points);
+          finalP2 = p2Score + points;
+          setP2Score(finalP2);
         }
       } else {
-        setScore(prev => prev + points);
+        finalScore = score + points;
+        setScore(finalScore);
       }
       if (onScoreUpdate) onScoreUpdate(points);
+      
+      // Computa os pontos imediatamente no estado geral para salvar na nuvem e perfil do usuário
+      onComplete(
+        multiplayerMode === '2p' ? finalP1 : finalScore,
+        1,
+        multiplayerMode === '2p',
+        selectedPartner,
+        finalP1,
+        finalP2,
+        'WORD_GUESS',
+        false,
+        true
+      );
     } else if (newGuesses.length >= maxAttempts) {
       setStatus('lost');
     } else {
@@ -381,14 +403,41 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
               <>
                 <div className="bg-emerald-500 w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mb-6 shadow-glow shadow-emerald-500/40">🔒🔓</div>
                 <h2 className="text-4xl font-black text-white mb-2 italic uppercase">Código Quebrado!</h2>
-                <p className="text-slate-400 mb-8 font-bold uppercase tracking-widest text-sm">Acesso liberado a todos os setores!</p>
-                <Button 
-                  id="won-next-btn"
-                  onClick={nextLevel} 
-                  className="w-full max-w-xs h-14 bg-yellow-400 text-slate-900 font-black text-lg rounded-2xl uppercase italic"
-                >
-                  PRÓXIMO CÓDIGO ⚡
-                </Button>
+                
+                {/* Pontos já conquistados no momento */}
+                <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 mb-6 w-full max-w-xs">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Conquistados</span>
+                  <span className="text-2xl font-black text-yellow-400 font-mono block">
+                    {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+                  </span>
+                </div>
+
+                <p className="text-slate-400 mb-6 font-bold uppercase tracking-widest text-xs">Acesso liberado a todos os setores!</p>
+                <div className="flex flex-col w-full max-w-xs gap-3">
+                  <Button
+                    id="won-cancel-btn"
+                    onClick={() => onComplete(
+                      multiplayerMode === '2p' ? p1Score : score,
+                      1,
+                      multiplayerMode === '2p',
+                      selectedPartner,
+                      p1Score,
+                      p2Score,
+                      'WORD_GUESS'
+                    )}
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+                  >
+                    VOLTAR À CENTRAL DE JOGOS
+                  </Button>
+                  <Button 
+                    id="won-next-btn"
+                    onClick={nextLevel} 
+                    variant="outline"
+                    className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                  >
+                    PROXIMO CÓDIGO ⚡
+                  </Button>
+                </div>
               </>
             ) : (
               <>
@@ -415,9 +464,26 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
                        p2Score,
                        'WORD_GUESS'
                      )} 
-                     className="w-full h-14 bg-yellow-400 text-slate-900 font-black text-lg rounded-2xl uppercase italic"
+                     className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
                    >
-                      RESGATAR XP
+                     VOLTAR À CENTRAL DE JOGOS
+                   </Button>
+                   <Button 
+                     onClick={() => {
+                       setSetupComplete(false);
+                       setCurrentGuess('');
+                       setGuesses([]);
+                       setScore(0);
+                       setP1Score(0);
+                       setP2Score(0);
+                       setActivePlayerTurn('p1');
+                       setLevel(1);
+                       setStatus('playing');
+                     }} 
+                     variant="outline" 
+                     className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                   >
+                     TENTAR NOVAMENTE 🔁
                    </Button>
                 </div>
               </>
@@ -426,20 +492,87 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
         )}
       </AnimatePresence>
       
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSetupComplete(false);
+                  setCurrentGuess('');
+                  setGuesses([]);
+                  setScore(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setActivePlayerTurn('p1');
+                  setLevel(1);
+                  setStatus('playing');
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <div className="w-full flex justify-center mt-6">
         <Button 
           id="abandon-code-btn"
           onClick={() => {
-            setSetupComplete(false);
-            setScore(0);
-            setP1Score(0);
-            setP2Score(0);
-            setActivePlayerTurn('p1');
-            setLevel(1);
+            // Salva os pontos acumulados até agora e incrementa 1 patrulha de forma imediata antes de abrir o modal
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'WORD_GUESS',
+              false,
+              true // keepInGameSelection = true
+            );
+            setShowAbandonModal(true);
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
-          Abandonar Patrulha
+          ABANDONAR PATRULHA
         </Button>
       </div>
     </div>

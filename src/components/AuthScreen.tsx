@@ -237,7 +237,7 @@ export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProp
         {/* Decorative App Identity */}
         <div className="flex flex-col items-center gap-3 mb-8 justify-center text-center">
           <img 
-            src="/%C3%ADcone-192%20png%20%282%29.png" 
+            src="/icone-192.png" 
             alt="RodoPlay Logo"
             referrerPolicy="no-referrer"
             className="w-24 h-24 rounded-[1.75rem] object-cover shadow-[0_0_25px_rgba(250,204,21,0.3)] border-2 border-yellow-400/90"

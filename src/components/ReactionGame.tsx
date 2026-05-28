@@ -18,7 +18,9 @@ interface ReactionGameProps {
     partner?: any,
     p1Score?: number,
     p2Score?: number,
-    gameType?: string
+    gameType?: string,
+    isTimeout?: boolean,
+    keepInGameSelection?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -42,6 +44,7 @@ export function ReactionGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
   const [activePlayerTurn, setActivePlayerTurn] = useState<'p1' | 'p2'>('p1');
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
+  const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   useEffect(() => {
     if (setupComplete) {
@@ -344,26 +347,95 @@ export function ReactionGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
 
       <div className="w-full max-w-sm flex flex-col gap-3 items-center pt-6">
         {(gameState === 'clicked' || gameState === 'too-early') && (
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+          <Button
             onClick={startRound}
-            className="w-full h-14 rounded-2xl bg-emerald-600 text-white font-black uppercase shadow-lg hover:bg-emerald-500 transition-all active:scale-95 border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 text-xs"
+            variant="outline"
+            className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
           >
-            Tentar Novamente
-          </motion.button>
+            TENTAR NOVAMENTE 🔁
+          </Button>
         )}
         <Button 
+          id="abandon-reaction-btn"
           onClick={() => {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             if (intervalRef.current) clearInterval(intervalRef.current);
-            setSetupComplete(false);
+            const scoreNum = multiplayerMode === '2p' ? p1Score : (reactionTime > 0 ? Math.max(0, 1000 - reactionTime) : 0);
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : scoreNum,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              multiplayerMode === '2p' ? p2Score : 0,
+              'REACTION',
+              false,
+              true // keepInGameSelection = true
+            );
+            setShowAbandonModal(true);
           }}
-          className="w-full h-14 rounded-2xl bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black tracking-wider uppercase text-xs shadow-lg hover:scale-[1.02] active:scale-95 transition-all border border-yellow-500/20"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
           ABANDONAR PATRULHA
         </Button>
       </div>
+
+      {showAbandonModal && (
+        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
+          >
+            <div className="relative">
+              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl animate-pulse">🏁</span>
+              </div>
+              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
+              <p className="text-slate-400 text-xs leading-relaxed italic">
+                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
+              </p>
+            </div>
+
+            {/* Score box */}
+            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
+              <span className="text-3xl font-black text-yellow-400 font-mono block">
+                {(multiplayerMode === '2p' ? p1Score + p2Score : (reactionTime > 0 ? Math.max(0, 1000 - reactionTime) : 0))} XP
+              </span>
+            </div>
+
+            <div className="w-full flex flex-col gap-3">
+              <Button 
+                onClick={onCancel} 
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
+              >
+                VOLTAR À CENTRAL DE JOGOS
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSetupComplete(false);
+                  setReactionTime(0);
+                  setP1Score(0);
+                  setP2Score(0);
+                  setLevel(1);
+                  setGameState('waiting');
+                  setShowAbandonModal(false);
+                }} 
+                variant="outline" 
+                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+              >
+                TENTAR NOVAMENTE 🔁
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
