@@ -351,64 +351,6 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         ))}
       </div>
 
-      {showAbandonModal && (
-        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-          >
-            <div className="relative">
-              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                <span className="text-4xl animate-pulse">🏁</span>
-              </div>
-              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
-              <p className="text-slate-400 text-xs leading-relaxed italic">
-                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
-              </p>
-            </div>
-
-            {/* Score box */}
-            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-              <span className="text-3xl font-black text-yellow-400 font-mono block">
-                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
-              </span>
-            </div>
-
-            <div className="w-full flex flex-col gap-3">
-              <Button 
-                onClick={onCancel} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
-              >
-                VOLTAR À CENTRAL DE JOGOS
-              </Button>
-              <Button 
-                onClick={() => {
-                  setSetupComplete(false);
-                  setScore(0);
-                  setP1Score(0);
-                  setP2Score(0);
-                  setSelection([]);
-                  setMoves(0);
-                  setIsTimeOut(false);
-                  setShowAbandonModal(false);
-                }} 
-                variant="outline" 
-                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-              >
-                TENTAR NOVAMENTE 🔁
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
       <div className="w-full flex justify-center mt-6">
         <Button 
           id="abandon-mem-btn"
@@ -423,11 +365,10 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               p2Score,
               'MEMORY',
               false,
-              true // keepInGameSelection = true
+              false
             );
-            setShowAbandonModal(true);
           }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
           ABANDONAR PATRULHA
         </Button>

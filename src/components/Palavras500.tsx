@@ -370,7 +370,7 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
     const reachedTargetScore = curTotalScore >= 500;
 
     if (allDiscovered || reachedTargetScore) {
-      setGameState('victory');
+      setGameState('playing');
 
       const baseAward = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
       const speedBonus = 0;
@@ -380,15 +380,30 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
         const p1Final = activePlayerTurn === 'p1' ? p1Score + finalAward : p1Score;
         const p2Final = activePlayerTurn === 'p2' ? p2Score + finalAward : p2Score;
         
-        if (activePlayerTurn === 'p1') {
-          setP1Score(p1Final);
-        } else {
-          setP2Score(p2Final);
-        }
+        onComplete(
+          p1Final,
+          1,
+          true,
+          selectedPartner,
+          p1Final,
+          p2Final,
+          'PALAVRAS_500',
+          false,
+          false
+        );
       } else {
         const finalScore = score + finalAward;
-        setScore(finalScore);
-        if (onScoreUpdate) onScoreUpdate(finalAward);
+        onComplete(
+          finalScore,
+          1,
+          false,
+          null,
+          finalScore,
+          undefined,
+          'PALAVRAS_500',
+          false,
+          false
+        );
       }
     }
   };
@@ -445,7 +460,19 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
   const handleRevealAll = () => {
     if (gameState !== 'playing') return;
     setDiscoveredWords(new Set(targetWords));
-    setGameState('victory');
+    setGameState('playing');
+    const finalScore = multiplayerMode === '2p' ? p1Score : score;
+    onComplete(
+      finalScore,
+      1,
+      multiplayerMode === '2p',
+      selectedPartner,
+      p1Score,
+      p2Score,
+      'PALAVRAS_500',
+      false,
+      false
+    );
   };
 
   if (!setupComplete) {
@@ -759,220 +786,30 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
         </button>
       </div>
 
-      {gameState === 'playing' && (
-        <div className="w-full flex justify-center mt-4">
-          <Button 
-            onClick={() => {
-              // Save current score immediately
-              onComplete(
-                multiplayerMode === '2p' ? p1Score : score,
-                1,
-                multiplayerMode === '2p',
-                selectedPartner,
-                p1Score,
-                p2Score,
-                'PALAVRAS_500',
-                false,
-                true // keepInGameSelection = true
-              );
-              setShowAbandonModal(true);
-            }}
-            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider font-sans"
-          >
-            ABANDONAR PATRULHA
-          </Button>
-        </div>
-      )}
-
-      {showAbandonModal && (
-        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-          >
-            <div className="relative">
-              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                <span className="text-4xl animate-pulse">🏁</span>
-              </div>
-              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-[10px] font-black tracking-widest text-yellow-505 uppercase">PATRULHA ABANDONADA</span>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
-              <p className="text-slate-400 text-xs leading-relaxed italic">
-                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
-              </p>
-            </div>
-
-            {/* Score box */}
-            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-              <span className="text-3xl font-black text-yellow-400 font-mono block">
-                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
-              </span>
-            </div>
-
-            <div className="w-full flex flex-col gap-3">
-              <Button 
-                onClick={onCancel} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
-              >
-                VOLTAR À CENTRAL DE JOGOS
-              </Button>
-              <Button 
-                onClick={() => {
-                  setSetupComplete(false);
-                  setScore(0);
-                  setP1Score(0);
-                  setP2Score(0);
-                  setGameState('playing');
-                  setShowAbandonModal(false);
-                }} 
-                variant="outline" 
-                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-              >
-                TENTAR NOVAMENTE 🔁
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      <div className="w-full flex justify-center mt-4">
+        <Button 
+          onClick={() => {
+            // Salva os pontos acumulados até agora e incrementa a patrulha de forma imediata enviando à central
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'PALAVRAS_500',
+              false,
+              false
+            );
+          }}
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider font-sans"
+        >
+          ABANDONAR PATRULHA
+        </Button>
+      </div>
 
       {/* Modals & Gameplay Overlays inside Canvas view */}
-      <AnimatePresence>
-        {gameState === 'victory' && (
-          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto select-none">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-            >
-              <div className="relative animate-bounce">
-                <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                  <span className="text-4xl">👑</span>
-                </div>
-                <span className="absolute -top-1 -right-1 text-xl">🎉</span>
-              </div>
-              
-              <div className="space-y-2">
-                <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase font-mono font-sans">PATRULHA CONCLUÍDA</span>
-                <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Vocabulário Aprovado!</h3>
-                <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto italic font-sans_not_used">
-                  Seu vocabulário tático de patrulha é impecável! Todas as palavras-chave foram identificadas com sucesso.
-                </p>
-              </div>
-
-              {/* Score box */}
-              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-                <span className="text-3xl font-black text-yellow-400 font-mono block">
-                  {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
-                </span>
-              </div>
-
-              <div className="w-full flex flex-col gap-3">
-                <Button 
-                  onClick={() => onComplete(
-                    multiplayerMode === '2p' ? p1Score : score,
-                    1,
-                    multiplayerMode === '2p',
-                    selectedPartner,
-                    p1Score,
-                    p2Score,
-                    'PALAVRAS_500',
-                    false,
-                    false
-                  )}
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans"
-                >
-                  VOLTAR À CENTRAL DE JOGOS
-                </Button>
-                <Button 
-                  onClick={() => {
-                    setSetupComplete(false);
-                    setGameState('playing');
-                    setScore(0);
-                    setP1Score(0);
-                    setP2Score(0);
-                  }}
-                  variant="outline"
-                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-                >
-                  TENTAR NOVAMENTE 🔁
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {gameState === 'failed' && (
-          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto select-none">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-            >
-              <div className="relative">
-                <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20 animate-pulse">
-                  <span className="text-4xl text-red-500">⏱️</span>
-                </div>
-                <span className="absolute -top-1 -right-1 text-xl">🚨</span>
-              </div>
-              
-              <div className="space-y-2">
-                <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FALHA NA INSPEÇÃO</span>
-                <h3 className="text-2xl font-black text-red-500 uppercase italic tracking-tighter">Tempo Expirado</h3>
-                <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto italic">
-                  O tempo regulamentar para concluir esta inspeção expirou. Nenhum ponto de vistoria foi faturado nesta jogada.
-                </p>
-              </div>
-
-              {/* Score box */}
-              <div className="w-full bg-slate-900/40 p-4 rounded-2xl border border-slate-850">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-                <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
-              </div>
-
-              <div className="w-full flex flex-col gap-3">
-                <Button 
-                  onClick={() => onComplete(
-                    0,
-                    1,
-                    multiplayerMode === '2p',
-                    selectedPartner,
-                    0,
-                    0,
-                    'PALAVRAS_500',
-                    true,
-                    false
-                  )}
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans"
-                >
-                  VOLTAR À CENTRAL DE JOGOS
-                </Button>
-                <Button 
-                  onClick={() => {
-                    setSetupComplete(false);
-                    setGameState('playing');
-                    setScore(0);
-                    setP1Score(0);
-                    setP2Score(0);
-                  }}
-                  variant="outline"
-                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-                >
-                  TENTAR NOVAMENTE 🔁
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
+      <AnimatePresence />
     </div>
   );
 }

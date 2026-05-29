@@ -475,17 +475,35 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
 
     // Check if the game is successfully solved
     if (guessRank === 1) {
+      let finalP1 = p1Score;
+      let finalP2 = p2Score;
+      let finalSingle = calculatedPoints;
       if (multiplayerMode === '2p') {
         const winReward = calculatedPoints;
         if (activePlayerTurn === 'p1') {
-          setP1Score(prev => prev + winReward);
+          finalP1 = p1Score + winReward;
+          setP1Score(finalP1);
         } else {
-          setP2Score(prev => prev + winReward);
+          finalP2 = p2Score + winReward;
+          setP2Score(finalP2);
         }
       } else {
         setScore(calculatedPoints);
+        finalSingle = calculatedPoints;
       }
-      setGameState('victory');
+      setTimeout(() => {
+        onComplete(
+          multiplayerMode === '2p' ? finalP1 + finalP2 : finalSingle,
+          1,
+          multiplayerMode === '2p',
+          selectedPartner,
+          finalP1,
+          finalP2,
+          'CONTEXTO',
+          false,
+          false
+        );
+      }, 1000);
     } else {
       if (multiplayerMode === '2p') {
         if (guessRank < 500) {
@@ -929,214 +947,15 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
                   p2Score,
                   'CONTEXTO',
                   false,
-                  true // keepInGameSelection = true
+                  false
                 );
-                setShowAbandonModal(true);
               }}
-              className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider cursor-pointer flex items-center justify-center font-sans"
+              className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider cursor-pointer flex items-center justify-center font-sans"
             >
               ABANDONAR PATRULHA
             </button>
           </div>
         </div>
-      )}
-
-      {/* Abandon Patrol Modal Popup Overlay */}
-      {showAbandonModal && (
-        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-          >
-            <div className="relative">
-              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                <span className="text-4xl animate-pulse">🏁</span>
-              </div>
-              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
-              <p className="text-slate-400 text-xs leading-relaxed italic font-sans animate-fade-in">
-                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
-              </p>
-            </div>
-
-            {/* Score box */}
-            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-              <span className="text-3xl font-black text-yellow-400 font-mono block">
-                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
-              </span>
-            </div>
-
-            <div className="w-full flex flex-col gap-3">
-              <button 
-                onClick={onCancel} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center font-sans"
-              >
-                VOLTAR À CENTRAL DE JOGOS
-              </button>
-              <button 
-                onClick={() => {
-                  setGuesses([]);
-                  setInputValue('');
-                  setAttempts(0);
-                  setHintsUsed(0);
-                  setErrorText('');
-                  setP1Score(0);
-                  setP2Score(0);
-                  setScore(0);
-                  setShowAbandonModal(false);
-                  setGameState('selection');
-                }} 
-                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all cursor-pointer flex items-center justify-center bg-slate-900/40 font-sans"
-              >
-                TENTAR NOVAMENTE 🔁
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* 3. VICTORY SUCCESS SCREEN */}
-      {gameState === 'victory' && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="max-w-xl mx-auto bg-slate-900 border border-yellow-400/50 rounded-[2.5rem] p-6 text-center space-y-6 shadow-[0_20px_50px_rgba(234,179,8,0.25)] relative"
-        >
-          {/* Confetti-like visual glows */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="space-y-2">
-            <span className="text-5xl block animate-bounce">🏆</span>
-            <div className="inline-block bg-yellow-400 text-slate-950 px-3.5 py-1 font-black skew-x-[-10deg] text-xs uppercase tracking-widest">
-              NÍVEL RESOLVIDO!
-            </div>
-            <h2 className="text-3xl font-black italic tracking-tighter text-white uppercase leading-tight pt-1">
-              VOCÊ ADIVINHOU O SEGREDO!
-            </h2>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none pt-1">
-              A palavra contextualizada secreta era:
-            </p>
-            <p className="text-3xl font-black font-mono tracking-widest uppercase text-yellow-400 italic">
-              {selectedTheme.secretWord}
-            </p>
-          </div>
-
-          {/* Performance Board Details */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950/50 border border-slate-850 p-4 rounded-3xl text-center">
-            <div>
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">TEMPO GASTO</p>
-              <p className="text-sm font-mono font-black text-white mt-1.5 leading-none">
-                {Math.floor(elapsedSeconds / 60).toString().padStart(2, '0')}:{(elapsedSeconds % 60).toString().padStart(2, '0')}
-              </p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">PALPITES</p>
-              <p className="text-sm font-mono font-black text-white mt-1.5 leading-none">{attempts}</p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">DICAS USADAS</p>
-              <p className="text-sm font-mono font-black text-white mt-1.5 leading-none">{hintsUsed}</p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none text-yellow-500 font-bold">SCORE OBTIDO</p>
-              <p className="text-sm font-mono font-black text-yellow-400 mt-1.5 leading-none">+{calculatedPoints.toLocaleString()} PTS</p>
-            </div>
-          </div>
-
-          {/* Multiplayer 2P Scoreboard */}
-          {multiplayerMode === '2p' && selectedPartner && (
-            <div className="bg-slate-950/60 border border-slate-850 p-4.5 rounded-3xl space-y-2 text-left">
-              <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Resultado da Dupla</h4>
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-black uppercase text-slate-300 italic">Você</span>
-                <span className="font-black text-yellow-400 font-mono">+{p1Score} XP</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-black uppercase text-slate-350 italic">{selectedPartner.displayName}</span>
-                <span className="font-black text-yellow-400 font-mono">+{p2Score} XP</span>
-              </div>
-              <div className="border-t border-slate-800 pt-2 mt-1 flex justify-between items-center text-xs font-black uppercase">
-                <span className="text-white italic font-mono">Total Acumulado:</span>
-                <span className="text-yellow-400 font-mono">+{p1Score + p2Score} XP</span>
-              </div>
-            </div>
-          )}
-
-          {/* Distribution Graph breakdown visualization */}
-          <div className="text-left bg-slate-950/30 p-4 rounded-3xl border border-slate-850/60">
-            <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 leading-none flex items-center gap-1.5">
-              <span>📊</span> DISTRIBUIÇÃO DAS RESPOSTAS
-            </h5>
-            <div className="space-y-2 md:space-y-2.5 font-mono text-[10px]">
-              {/* Green (🔥 Muito Quente) */}
-              <div className="flex items-center gap-2">
-                <span className="w-24 text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0 leading-none">Muito Quente:</span>
-                <div className="flex-1 bg-slate-950/80 h-3 roundedoverflow-hidden flex items-center relative pr-2">
-                  <div className="bg-emerald-400 h-full rounded" style={{ width: `${guesses.length > 0 ? (statsSummary.greenCount / guesses.length) * 100 : 0}%`, minWidth: statsSummary.greenCount > 0 ? '6px' : '0' }} />
-                  <span className="absolute right-2 font-black text-emerald-400">{statsSummary.greenCount}</span>
-                </div>
-              </div>
-              {/* Yellow (✨ Quente) */}
-              <div className="flex items-center gap-2">
-                <span className="w-24 text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0 leading-none">Quente:</span>
-                <div className="flex-1 bg-slate-950/80 h-3 rounded overflow-hidden flex items-center relative pr-2">
-                  <div className="bg-amber-500 h-full rounded" style={{ width: `${guesses.length > 0 ? (statsSummary.yellowCount / guesses.length) * 100 : 0}%`, minWidth: statsSummary.yellowCount > 0 ? '6px' : '0' }} />
-                  <span className="absolute right-2 font-black text-amber-500">{statsSummary.yellowCount}</span>
-                </div>
-              </div>
-              {/* Orange (🌤️ Morno) */}
-              <div className="flex items-center gap-2">
-                <span className="w-24 text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0 leading-none">Morno:</span>
-                <div className="flex-1 bg-slate-950/80 h-3 rounded overflow-hidden flex items-center relative pr-2">
-                  <div className="bg-orange-400 h-full rounded" style={{ width: `${guesses.length > 0 ? (statsSummary.orangeCount / guesses.length) * 100 : 0}%`, minWidth: statsSummary.orangeCount > 0 ? '6px' : '0' }} />
-                  <span className="absolute right-2 font-black text-orange-400">{statsSummary.orangeCount}</span>
-                </div>
-              </div>
-              {/* Cold (❄️ Frio) */}
-              <div className="flex items-center gap-2">
-                <span className="w-24 text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0 leading-none">Frio:</span>
-                <div className="flex-1 bg-slate-950/80 h-3 rounded overflow-hidden flex items-center relative pr-2">
-                  <div className="bg-slate-600 h-full rounded" style={{ width: `${guesses.length > 0 ? (statsSummary.coldCount / guesses.length) * 100 : 0}%`, minWidth: statsSummary.coldCount > 0 ? '6px' : '0' }} />
-                  <span className="absolute right-2 font-black text-slate-400">{statsSummary.coldCount}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action trigger buttons */}
-          <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
-            <Button
-              onClick={triggerGameComplete}
-              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
-            >
-              VOLTAR À CENTRAL DE JOGOS
-            </Button>
-            <Button
-              onClick={() => {
-                setGuesses([]);
-                setInputValue('');
-                setAttempts(0);
-                setHintsUsed(0);
-                setErrorText('');
-                setP1Score(0);
-                setP2Score(0);
-                setScore(0);
-                setShowAbandonModal(false);
-                setGameState('selection');
-              }}
-              variant="outline"
-              className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-            >
-              TENTAR NOVAMENTE 🔁
-            </Button>
-          </div>
-        </motion.div>
       )}
     </div>
   );

@@ -396,32 +396,55 @@ export function TicTacToe({
     const timeBonus = 0;
     const pointsGained = baseWin + timeBonus;
 
+    let finalP1 = p1Score;
+    let finalP2 = p2Score;
+    let singleScore = score;
+
     if (multiplayerMode === '2p') {
       if (winnerToken === 'X') {
-        setP1Score(prev => prev + pointsGained);
+        finalP1 = p1Score + pointsGained;
+        setP1Score(finalP1);
         if (onScoreUpdate) onScoreUpdate(pointsGained);
       } else if (winnerToken === 'O') {
-        setP2Score(prev => prev + pointsGained);
+        finalP2 = p2Score + pointsGained;
+        setP2Score(finalP2);
         if (onScoreUpdate) onScoreUpdate(pointsGained);
       } else {
         // Draw rewards 50 XP to both
-        setP1Score(prev => prev + 50);
-        setP2Score(prev => prev + 50);
+        finalP1 = p1Score + 50;
+        finalP2 = p2Score + 50;
+        setP1Score(finalP1);
+        setP2Score(finalP2);
         if (onScoreUpdate) onScoreUpdate(50);
       }
     } else {
       // 1P Mode points rules
       if (winnerToken === playerSymbol) {
-        setScore(prev => prev + pointsGained);
+        singleScore = score + pointsGained;
+        setScore(singleScore);
         if (onScoreUpdate) onScoreUpdate(pointsGained);
       } else if (winnerToken === (playerSymbol === 'X' ? 'O' : 'X')) {
         // Lost - no points
       } else {
         // Draw: minor bonus
-        setScore(prev => prev + 40);
+        singleScore = score + 40;
+        setScore(singleScore);
         if (onScoreUpdate) onScoreUpdate(40);
       }
     }
+
+    // Directly trigger standard Parent completion after showing final board for 1.5 seconds
+    setTimeout(() => {
+      onComplete(
+        multiplayerMode === '2p' ? finalP1 + finalP2 : singleScore,
+        completedRounds + 1,
+        multiplayerMode === '2p',
+        selectedPartner,
+        finalP1,
+        finalP2,
+        'TIC_TAC_TOE'
+      );
+    }, 1500);
   };
 
   const getDifficultyLabel = () => {
@@ -699,134 +722,6 @@ export function TicTacToe({
         })}
       </div>
 
-      {/* Standard Results Overlay when completed */}
-      <AnimatePresence>
-        {gameState !== 'playing' && !isTimeOut && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 text-center"
-          >
-            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mb-6 shadow-glow rotate-12 ${
-              gameState === 'won' ? 'bg-yellow-400 text-slate-950 shadow-yellow-400/40' : 'bg-slate-800 text-slate-400 shadow-slate-800/40'
-            }`}>
-              {gameState === 'won' ? '🏆' : '🤝'}
-            </div>
-
-            <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
-              {gameState === 'won' ? 'Missão Concluída!' : 'Confronto Empatado!'}
-            </h2>
-
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mb-8">
-              {gameState === 'won' ? (
-                multiplayerMode === '1p' ? (
-                  winnerMark === 'X' ? 'Excelente! Você derrotou a AI!' : 'A Inteligência Artificial venceu esta rodada!'
-                ) : (
-                  winnerMark === 'X' ? 'Jogador 1 (X) venceu o confronto!' : 'Jogador 2 (O) venceu o confronto!'
-                )
-              ) : (
-                'Empate operacional no quadrante do Jogo da Velha!'
-              )}
-            </p>
-
-            <div className="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-8">
-              <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-1">XP total acumulado</span>
-              <span className="text-2xl font-black text-yellow-400 font-mono block">
-                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
-              </span>
-            </div>
-
-            <div className="flex flex-col w-full max-w-xs gap-3">
-              <Button 
-                onClick={() => onComplete(
-                  multiplayerMode === '2p' ? p1Score : score, 
-                  completedRounds, 
-                  multiplayerMode === '2p', 
-                  selectedPartner, 
-                  p1Score, 
-                  p2Score, 
-                  'TIC_TAC_TOE'
-                )} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
-              >
-                VOLTAR À CENTRAL DE JOGOS
-              </Button>
-              <Button 
-                onClick={initGame} 
-                variant="outline" 
-                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-              >
-                TENTAR NOVAMENTE 🔁
-              </Button>
-            </div>
-          </motion.div>
-        )}
-
-        {isTimeOut && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="absolute inset-0 bg-slate-950/95 flex flex-col justify-center items-center p-6 text-center z-50 border border-red-500/20"
-          >
-            <div className="relative">
-              <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20 animate-pulse">
-                <span className="text-4xl">⏱️</span>
-              </div>
-              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
-            </div>
-            
-            <h3 className="text-xl font-black text-red-500 uppercase italic tracking-tighter mt-4">
-              FALHA NA INSPEÇÃO
-            </h3>
-            
-            <p className="text-slate-400 text-xs leading-relaxed max-w-xs mt-2 italic">
-              O tempo regulamentar para concluir esta inspeção expirou. Nenhum ponto de vistoria foi faturado nesta jogada.
-            </p>
-
-            {/* Score box */}
-            <div className="w-full max-w-xs bg-slate-950/60 p-4 rounded-2xl border border-slate-850 mt-4 mb-4">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-              <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
-            </div>
-
-            <div className="flex flex-col gap-2 w-full max-w-xs font-sans">
-              <Button 
-                onClick={() => onComplete(
-                  0,
-                  completedRounds || 1,
-                  multiplayerMode === '2p',
-                  selectedPartner,
-                  0,
-                  0,
-                  'TIC_TAC_TOE',
-                  true,
-                  false
-                )}
-                className="w-full bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase text-xs h-14 rounded-2xl shadow-md active:scale-95 transition-all font-sans"
-              >
-                VOLTAR À CENTRAL DE JOGOS
-              </Button>
-              <Button 
-                onClick={() => {
-                  setSetupComplete(false);
-                  setScore(0);
-                  setP1Score(0);
-                  setP2Score(0);
-                  setCompletedRounds(0);
-                  setIsTimeOut(false);
-                  initGame();
-                }}
-                variant="outline"
-                className="w-full border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 font-bold uppercase text-xs h-14 rounded-2xl transition-all active:scale-95 bg-slate-900/40 font-sans"
-              >
-                TENTAR NOVAMENTE 🔁
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {setupComplete && gameState === 'playing' && (
         <div className="w-full flex justify-center mt-6">
           <Button 
@@ -841,72 +736,13 @@ export function TicTacToe({
                 p2Score,
                 'TIC_TAC_TOE',
                 false,
-                true // keepInGameSelection
+                false
               );
-              setShowAbandonModal(true);
             }}
-            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider animate-pulse"
+            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
           >
             ABANDONAR PATRULHA
           </Button>
-        </div>
-      )}
-
-      {showAbandonModal && (
-        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-          >
-            <div className="relative">
-              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                <span className="text-4xl animate-pulse">🏁</span>
-              </div>
-              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
-              <p className="text-slate-400 text-xs leading-relaxed italic">
-                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
-              </p>
-            </div>
-
-            {/* Score box */}
-            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-              <span className="text-3xl font-black text-yellow-400 font-mono block">
-                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
-              </span>
-            </div>
-
-            <div className="w-full flex flex-col gap-3">
-              <Button 
-                onClick={onCancel} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
-              >
-                VOLTAR À CENTRAL DE JOGOS
-              </Button>
-              <Button 
-                onClick={() => {
-                  setSetupComplete(false);
-                  setScore(0);
-                  setP1Score(0);
-                  setP2Score(0);
-                  setCompletedRounds(0);
-                  setGameState('playing');
-                  setShowAbandonModal(false);
-                  initGame();
-                }} 
-                variant="outline" 
-                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-              >
-                TENTAR NOVAMENTE 🔁
-              </Button>
-            </div>
-          </motion.div>
         </div>
       )}
     </div>

@@ -3,18 +3,36 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef, ChangeEvent, useEffect } from 'react';
+import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { Player } from '../types';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { LogOut, User, Camera, Shield, Check, RefreshCw, Upload, Sun, Moon, Palette, Smartphone, Monitor, Laptop, HelpCircle, Activity, Trash2, X, FileText, Loader2, ArrowLeft } from 'lucide-react';
+import { LogOut, User, Camera, Shield, Check, RefreshCw, Upload, Sun, Moon, Palette, Smartphone, Monitor, Laptop, HelpCircle, Activity, Trash2, X, FileText, Loader2, ArrowLeft, ChevronLeft, ChevronRight, MoveHorizontal } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BASE_OPTIONS, SHIFT_OPTIONS } from '../constants';
-import { ALL_AVATARS } from '../data/avatars';
+import { ALL_AVATARS, DEFAULT_AVATAR } from '../data/avatars';
 import { getThemeSettings, saveThemeSettings, applyTheme } from '../lib/theme';
 import { db, auth } from '../lib/firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { sanitizeId } from '../lib/rankingSync';
+
+const getContrastColor = (hex: string) => {
+  if (!hex) return '#ffffff';
+  const c = hex.startsWith('#') ? hex.substring(1) : hex;
+  let r = 0, g = 0, b = 0;
+  if (c.length === 3) {
+    r = parseInt(c.charAt(0) + c.charAt(0), 16);
+    g = parseInt(c.charAt(1) + c.charAt(1), 16);
+    b = parseInt(c.charAt(2) + c.charAt(2), 16);
+  } else if (c.length === 6) {
+    const rgb = parseInt(c, 16);
+    r = (rgb >> 16) & 0xff;
+    g = (rgb >> 8) & 0xff;
+    b = (rgb >> 0) & 0xff;
+  }
+  const luma = 0.2116 * r + 0.7152 * g + 0.0722 * b;
+  return luma < 140 ? '#ffffff' : '#0f172a';
+};
 
 interface SettingsProps {
   player: Player;
@@ -27,7 +45,7 @@ interface SettingsProps {
 export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }: SettingsProps) {
   const [name, setName] = useState(player.displayName);
   const [shift, setShift] = useState(player.shift);
-  const [selectedAvatar, setSelectedAvatar] = useState(player.avatar || '👷');
+  const [selectedAvatar, setSelectedAvatar] = useState(player.avatar || DEFAULT_AVATAR);
   const [avatarBatchIndex, setAvatarBatchIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
@@ -78,7 +96,7 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
   useEffect(() => {
     setName(player.displayName);
     setShift(player.shift);
-    setSelectedAvatar(player.avatar || '👷');
+    setSelectedAvatar(player.avatar || DEFAULT_AVATAR);
   }, [player.displayName, player.shift, player.avatar]);
   
   // Accent-insensitive, case-insensitive, and space-relaxed normalization to ensure the delete button activates smoothly
@@ -334,14 +352,41 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
 
   // Show 25 at a time
   const BATCH_SIZE = 25;
+  const totalPages = Math.ceil(ALL_AVATARS.length / BATCH_SIZE);
   const currentAvatars = ALL_AVATARS.slice(
     avatarBatchIndex * BATCH_SIZE,
     (avatarBatchIndex * BATCH_SIZE) + BATCH_SIZE
   );
 
+  const goToNextBatch = () => {
+    setAvatarBatchIndex((prev) => (prev + 1) % totalPages);
+  };
+
+  const goToPrevBatch = () => {
+    setAvatarBatchIndex((prev) => (prev - 1 + totalPages) % totalPages);
+  };
+
   const rotateAvatars = () => {
-    const nextIndex = (avatarBatchIndex + 1) % Math.ceil(ALL_AVATARS.length / BATCH_SIZE);
-    setAvatarBatchIndex(nextIndex);
+    goToNextBatch();
+  };
+
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX;
+    const swipeThreshold = 50; // pixels
+    if (diff > swipeThreshold) {
+      goToNextBatch();
+    } else if (diff < -swipeThreshold) {
+      goToPrevBatch();
+    }
+    touchStartX.current = null;
   };
 
   const handleSave = () => {
@@ -357,7 +402,7 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
                     shift !== player.shift;
 
   return (
-    <div className="space-y-8 p-4 pb-28">
+    <div className="space-y-8 p-4 pb-12">
       {onBack && (
         <div className="flex justify-start pt-2">
           <motion.button 
@@ -441,29 +486,171 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex justify-between items-center px-1">
-            <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Escolher Avatar</label>
+            <div className="flex flex-col">
+              <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Escolher Avatar (Personagem)</label>
+              <span className="text-[9px] font-bold text-slate-400 italic mt-0.5">Mais de 500 avatares disponíveis</span>
+            </div>
             <button 
+              type="button"
               onClick={rotateAvatars}
-              className="text-[10px] font-black uppercase text-yellow-400 hover:text-yellow-300 flex items-center gap-1"
+              className="text-[10px] font-black uppercase text-yellow-400 hover:text-yellow-300 flex items-center gap-1 bg-slate-850 px-3 py-1.5 rounded-xl border border-slate-700 active:scale-95 transition-all"
             >
-              <RefreshCw size={12} /> Trocar Lote
+              <RefreshCw size={11} className="animate-spin-slow" /> Trocar Lote
             </button>
           </div>
-          <div className="grid grid-cols-5 gap-3 bg-slate-800/50 p-4 rounded-[2rem] border border-slate-700/50">
-            {currentAvatars.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => setSelectedAvatar(emoji)}
-                className={`w-12 h-12 rounded-xl flex items-center justify-center text-3xl leading-none select-none transition-all ${
-                  selectedAvatar === emoji ? 'bg-yellow-400 scale-110 shadow-lg' : 'bg-slate-700 hover:bg-slate-600'
-                }`}
-              >
-                {emoji}
-              </button>
-            ))}
+
+          {/* Swipable Grid container using Touch Start/End and Motion drag helper */}
+          <div className="relative overflow-hidden">
+            {/* Visual indicator overlay */}
+            <div className="absolute right-3 top-3 z-10 bg-slate-900/95 border border-slate-750 text-[8px] px-2 py-0.5 rounded-full font-black text-slate-400 flex items-center gap-1.5 pointer-events-none select-none uppercase tracking-wider">
+              <MoveHorizontal size={10} className="text-yellow-400" />
+              <span>Arraste para os lados</span>
+            </div>
+
+            <motion.div
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={(event, info) => {
+                const swipeThreshold = 50;
+                if (info.offset.x < -swipeThreshold) {
+                  goToNextBatch();
+                } else if (info.offset.x > swipeThreshold) {
+                  goToPrevBatch();
+                }
+              }}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              className="grid grid-cols-5 gap-3 bg-slate-800/50 p-4 rounded-[2rem] border border-slate-700/50 md:cursor-grab active:cursor-grabbing touch-pan-y"
+            >
+              {currentAvatars.map((avatarUrl) => (
+                <button
+                  key={avatarUrl}
+                  type="button"
+                  onClick={() => setSelectedAvatar(avatarUrl)}
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden select-none transition-all active:scale-90 ${
+                    selectedAvatar === avatarUrl ? 'bg-yellow-400 scale-110 shadow-lg border-2 border-yellow-500' : 'bg-slate-750 hover:bg-slate-700'
+                  }`}
+                >
+                  <img 
+                    src={avatarUrl} 
+                    alt="Personagem" 
+                    className="w-[85%] h-[85%] object-contain rounded-lg animate-fade-in" 
+                    referrerPolicy="no-referrer"
+                  />
+                </button>
+              ))}
+            </motion.div>
           </div>
+
+          {/* Pagination carousel controls and quick select range slider */}
+          <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-[1.5rem] flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={goToPrevBatch}
+                className="flex items-center gap-1 bg-slate-800 hover:bg-slate-750 text-white hover:text-yellow-400 w-10 h-10 rounded-xl justify-center border border-slate-700 transition-all select-none active:scale-95"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              
+              <div className="text-center">
+                <p className="text-[11px] font-black text-yellow-400 uppercase tracking-wider leading-none">
+                  LOTE {avatarBatchIndex + 1} DE {totalPages}
+                </p>
+                <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest mt-1">
+                  {avatarBatchIndex * BATCH_SIZE + 1} - {Math.min((avatarBatchIndex + 1) * BATCH_SIZE, ALL_AVATARS.length)} de {ALL_AVATARS.length} avatares
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={goToNextBatch}
+                className="flex items-center gap-1 bg-slate-800 hover:bg-slate-750 text-white hover:text-yellow-400 w-10 h-10 rounded-xl justify-center border border-slate-700 transition-all select-none active:scale-95"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+
+            {/* Micro range slider to adjust/navigate batch easily */}
+            <div className="space-y-1.5 px-1 mt-1">
+              <div className="flex justify-between items-center">
+                <span className="text-[8px] font-black uppercase text-slate-500 tracking-wider">Ajuste Rápido de Lote</span>
+                <span className="text-[8px] font-mono font-bold text-slate-400">Lote {avatarBatchIndex + 1}/{totalPages}</span>
+              </div>
+              <input 
+                type="range"
+                min="0"
+                max={totalPages - 1}
+                value={avatarBatchIndex}
+                onChange={(e) => setAvatarBatchIndex(Number(e.target.value))}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-yellow-405"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Card className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden">
+          <CardContent className="p-0">
+             <button 
+               onClick={() => setShowGuidelines(true)}
+               className="w-full flex items-center gap-4 px-6 py-5 hover:bg-slate-700/50 transition-all group cursor-pointer text-left"
+             >
+                <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-yellow-400">
+                    <Shield size={20} />
+                </div>
+                <div className="text-left flex-1">
+                   <p className="text-xs font-black uppercase text-white">Central de Segurança</p>
+                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Normas e Conduta</p>
+                </div>
+             </button>
+             <div className="h-[1px] bg-slate-700/50 mx-6" />
+             <input 
+               type="file" 
+               ref={fileInputRef} 
+               onChange={handleFileChange} 
+               accept="image/*" 
+               className="hidden" 
+             />
+             <button 
+               onClick={() => fileInputRef.current?.click()}
+               className="w-full flex items-center gap-4 px-6 py-5 hover:bg-slate-700/50 transition-all group"
+             >
+                <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-sky-400">
+                   <Camera size={20} />
+                </div>
+                <div className="text-left flex-1">
+                   <p className="text-xs font-black uppercase text-white">Alterar Foto</p>
+                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Upload de identificação</p>
+                </div>
+                {isImageAvatar && <span className="text-[8px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded-full font-black">OK</span>}
+                <Upload size={14} className="text-slate-600 group-hover:text-sky-400 transition-colors" />
+             </button>
+          </CardContent>
+        </Card>
+
+        {/* Botão de Salvar Alterações integrado diretamente abaixo da Central de Segurança na rolagem com a cor dinâmica do Usuário */}
+        <div className="pt-2">
+          <Button 
+            onClick={handleSave}
+            disabled={!hasChanges}
+            style={{ 
+              backgroundColor: primaryColor,
+              color: getContrastColor(primaryColor),
+              borderColor: primaryColor,
+              opacity: hasChanges ? 1.0 : 0.4
+            }}
+            className={`w-full h-14 font-black rounded-2xl uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-3 select-none border-none ${
+              hasChanges 
+                ? 'scale-100 animate-pulse cursor-pointer' 
+                : 'scale-98 cursor-not-allowed'
+            }`}
+          >
+            <Check size={20} />
+            Salvar Alterações
+          </Button>
         </div>
 
         {/* Card de Aparência e Cores */}
@@ -586,47 +773,6 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
 
 
 
-        <Card className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden">
-          <CardContent className="p-0">
-             <button 
-               onClick={() => setShowGuidelines(true)}
-               className="w-full flex items-center gap-4 px-6 py-5 hover:bg-slate-700/50 transition-all group cursor-pointer text-left"
-             >
-                <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-yellow-400">
-                    <Shield size={20} />
-                </div>
-                <div className="text-left flex-1">
-                   <p className="text-xs font-black uppercase text-white">Central de Segurança</p>
-                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Normas e Conduta</p>
-                </div>
-             </button>
-             <div className="h-[1px] bg-slate-700/50 mx-6" />
-             <input 
-               type="file" 
-               ref={fileInputRef} 
-               onChange={handleFileChange} 
-               accept="image/*" 
-               className="hidden" 
-             />
-             <button 
-               onClick={() => fileInputRef.current?.click()}
-               className="w-full flex items-center gap-4 px-6 py-5 hover:bg-slate-700/50 transition-all group"
-             >
-                <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-sky-400">
-                   <Camera size={20} />
-                </div>
-                <div className="text-left flex-1">
-                   <p className="text-xs font-black uppercase text-white">Alterar Foto</p>
-                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Upload de identificação</p>
-                </div>
-                {isImageAvatar && <span className="text-[8px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded-full font-black">OK</span>}
-                <Upload size={14} className="text-slate-600 group-hover:text-sky-400 transition-colors" />
-             </button>
-          </CardContent>
-        </Card>
-
-
-
         {/* Card de Gestão de Conta e Segurança */}
         <Card id="account-actions-card" className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden mt-4">
           <CardContent className="p-0">
@@ -709,23 +855,6 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
 
           </CardContent>
         </Card>
-
-        <div className="fixed bottom-24 left-0 right-0 p-4 px-8 pointer-events-none">
-          <div className="max-w-md mx-auto w-full pointer-events-auto">
-            <Button 
-              onClick={handleSave}
-              disabled={!hasChanges}
-              className={`w-full h-14 font-black rounded-2xl uppercase tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3 ${
-                hasChanges 
-                  ? 'bg-yellow-400 text-slate-900 hover:bg-yellow-300 scale-100 opacity-100 animate-pulse' 
-                  : 'bg-slate-800 text-slate-500 scale-95 opacity-50'
-              }`}
-            >
-              <Check size={20} />
-              Salvar Alterações
-            </Button>
-          </div>
-        </div>
       </div>
 
       {/* Fullscreen Guidelines & Conduct Modal */}

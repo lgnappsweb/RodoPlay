@@ -197,7 +197,17 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       const newErrors = errors + 1;
       setErrors(newErrors);
       if (newErrors >= maxErrors) {
-        setGameState('failed');
+        onComplete(
+          0,
+          1,
+          false,
+          null,
+          0,
+          0,
+          'SUDOKU',
+          true,
+          false
+        );
       }
     } else {
       // Check for structural absolute board victory condition
@@ -219,7 +229,6 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
 
   const handleVictoryAction = () => {
     setGameState('victory');
-    setShowVictoryCard(true);
     
     // Reward settings based on difficulty
     const finalScore = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
@@ -235,7 +244,7 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       0,
       'SUDOKU',
       false,
-      true
+      false
     );
   };
 
@@ -492,111 +501,7 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         )}
 
         {/* Victory Screen Modal overlay within the Active Grid */}
-        <AnimatePresence>
-          {showVictoryCard && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="absolute inset-0 bg-slate-950/95 rounded-3xl flex flex-col justify-center items-center p-6 text-center z-30 border border-yellow-500/20"
-            >
-              <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full flex items-center justify-center text-4xl mb-4 animate-bounce">
-                🎉⚙️
-              </div>
-              
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">
-                Matriz Homologada!
-              </h3>
-              
-              <p className="text-slate-400 text-xs font-bold leading-relaxed max-w-xs mt-2">
-                Você completou o Sudoku tático de vias sem exceder o regimento de infrações municipais! Seu mérito foi computado.
-              </p>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-3 mt-4 mb-4">
-                <span className="text-[8px] font-black tracking-wider text-slate-500 block uppercase">Pontuação Acumulada</span>
-                <span className="text-2xl font-black text-yellow-400 font-mono block">
-                  +{difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700} XP
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
-                <Button 
-                  onClick={() => {
-                    const finalScore = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
-                    onComplete(
-                      finalScore,
-                      1,
-                      false,
-                      null,
-                      finalScore,
-                      undefined,
-                      'SUDOKU',
-                      false
-                    );
-                  }}
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
-                >
-                  VOLTAR À CENTRAL DE JOGOS
-                </Button>
-                <Button 
-                  onClick={startNewGame}
-                  variant="outline"
-                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-                >
-                  TENTAR NOVAMENTE 🔁
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {gameState === 'failed' && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="absolute inset-0 bg-slate-950/95 rounded-3xl flex flex-col justify-center items-center p-6 text-center z-30 border border-red-500/20"
-            >
-              <>
-                <div className="w-16 h-16 bg-red-500/10 border-2 border-red-500 rounded-full flex items-center justify-center text-3xl mb-4 text-red-500 shadow-lg shadow-red-500/10">
-                  🛑
-                </div>
-                
-                <h3 className="text-xl font-black text-red-500 uppercase italic tracking-tighter">
-                  Operação Reprovada!
-                </h3>
-                
-                <p className="text-slate-400 text-xs leading-relaxed max-w-xs mt-2">
-                  Você cometeu o limite máximo de 3 infrações (divergências) de regimento nesta inspeção. No XP faturado.
-                </p>
-
-                <div className="w-full max-w-xs bg-slate-900/60 p-4 rounded-xl border border-slate-800 mt-4 mb-4">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-                  <span className="text-3xl font-black text-red-500 font-mono block">0 XP</span>
-                </div>
-
-                <div className="flex flex-col gap-2 w-full max-w-xs font-sans">
-                  <button 
-                    onClick={() => onComplete(0, 1, false, null, 0, 0, 'SUDOKU', true, false)}
-                    className="w-full bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black uppercase text-xs h-14 rounded-2xl shadow-md active:scale-95 transition-all font-sans"
-                  >
-                    VOLTAR À CENTRAL DE JOGOS
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setSetupComplete(false);
-                      setErrors(0);
-                      setSelectedCell(null);
-                      setGameState('playing');
-                    }}
-                    className="w-full border border-slate-800 bg-slate-900/40 text-slate-400 font-bold hover:text-white hover:bg-slate-800 uppercase text-xs h-14 rounded-2xl transition-all active:scale-95 font-sans"
-                  >
-                    TENTAR NOVAMENTE 🔁
-                  </button>
-                </div>
-              </>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <AnimatePresence />
       </div>
 
       {/* Styled Interactive Number Pad Selector */}
@@ -695,67 +600,12 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         </button>
       </div>
 
-      {showAbandonModal && (
-        <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-          >
-            <div className="relative">
-              <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                <span className="text-4xl animate-pulse">🏁</span>
-              </div>
-              <span className="absolute -top-1 -right-1 text-xl">🚨</span>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase">PATRULHA ABANDONADA</span>
-              <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Pontos Salvos!</h3>
-              <p className="text-slate-400 text-xs leading-relaxed italic">
-                Sua patrulha foi encerrada com sucesso. Todos os pontos conquistados até o momento foram carregados e computados em seu saldo de carreira:
-              </p>
-            </div>
-
-            {/* Score box */}
-            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-              <span className="text-3xl font-black text-yellow-400 font-mono block">
-                {gameState === 'victory' ? (difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700) : 0} XP
-              </span>
-            </div>
-
-            <div className="w-full flex flex-col gap-3">
-              <Button 
-                onClick={onCancel} 
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all"
-              >
-                VOLTAR À CENTRAL DE JOGOS
-              </Button>
-              <Button 
-                onClick={() => {
-                  setSetupComplete(false);
-                  setErrors(0);
-                  setSelectedCell(null);
-                  setGameState('playing');
-                  setShowAbandonModal(false);
-                }} 
-                variant="outline" 
-                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
-              >
-                TENTAR NOVAMENTE 🔁
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
       <div className="w-full flex justify-center mt-4">
         <Button 
           id="abandon-sudoku-btn"
           onClick={() => {
             const finalScore = gameState === 'victory' ? (difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700) : 0;
-            // Salva os pontos acumulados até agora and increment 1 patrol immediately open modal
+            // Salva os pontos acumulados até agora e incrementa a patrulha de forma imediata enviando à central
             onComplete(
               finalScore,
               1,
@@ -765,9 +615,8 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               0,
               'SUDOKU',
               false,
-              true // keepInGameSelection = true
+              false
             );
-            setShowAbandonModal(true);
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >

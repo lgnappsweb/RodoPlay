@@ -371,17 +371,18 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
     const speedBonus = 0;
     const roundScore = basePts + speedBonus;
     
-    if (multiplayerMode === '2p') {
-      if (activePlayerTurn === 'p1') {
-        setP1Score(prev => prev + roundScore);
-      } else {
-        setP2Score(prev => prev + roundScore);
-      }
-    } else {
-      setScore(prev => prev + roundScore);
-    }
-    onScoreUpdate(roundScore);
-    setGameState('won');
+    const finalScore = multiplayerMode === '2p' ? p1Score + roundScore : score + roundScore;
+    onComplete(
+      finalScore,
+      1,
+      multiplayerMode === '2p',
+      selectedPartner,
+      multiplayerMode === '2p' ? p1Score + roundScore : score + roundScore,
+      p2Score,
+      'PARKING_ESCAPE',
+      false,
+      false
+    );
   };
 
   const handleNextLevel = () => {
@@ -1074,7 +1075,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
           <Button 
             onClick={() => {
               if (timerRef.current) clearInterval(timerRef.current);
-              // Salva os pontos conquistados até agora de forma imediata
+              // Salva os pontos conquistados até agora de forma imediata enviando à central
               onComplete(
                 multiplayerMode === '2p' ? p1Score : score,
                 1,
@@ -1084,9 +1085,8 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
                 p2Score,
                 'PARKING_ESCAPE',
                 false,
-                true // keepInGameSelection = true
+                false
               );
-              setShowAbandonModal(true);
             }}
             className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
           >

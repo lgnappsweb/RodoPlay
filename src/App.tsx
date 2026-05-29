@@ -13,7 +13,7 @@ import { db } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { getThemeSettings, applyTheme } from './lib/theme';
 import { createNotification } from './lib/notifications';
-import { Bell, Gamepad2, Shield, Trash2 } from 'lucide-react';
+import { Bell, Gamepad2, Shield, Trash2, Compass, RefreshCw } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 
 // Lazy load heavy or secondary components
@@ -55,6 +55,14 @@ export default function App() {
   } = useAuth();
   const [view, setView] = useState<'home' | 'leaderboard' | 'settings' | 'multiplayer' | 'notifications' | GameType>('home');
   const [isDeletedScreen, setIsDeletedScreen] = useState(false);
+  const [activePatrolResult, setActivePatrolResult] = useState<{
+    score: number;
+    gameType: string;
+    isMultiplayer: boolean;
+    isTimeout: boolean;
+    roundsPlayed: number;
+  } | null>(null);
+  const [gameSessionId, setGameSessionId] = useState(0);
 
   // Sync user profile state changes including edits and newly obtained avatars into saved profiles list for rapid 1-click access
   useEffect(() => {
@@ -587,11 +595,14 @@ export default function App() {
     } catch (error) {
       console.warn("[Firebase Error] Falha ao sincronizar dados do fim de partida:", error);
     } finally {
-      // Transiciona a interface de volta para a central de jogos após a conclusão ou falha
       setSessionScore(0);
-      if (!keepInGameSelection) {
-        setView('multiplayer');
-      }
+      setActivePatrolResult({
+        score: isMultiplayer && p1Score !== undefined ? p1Score : score,
+        gameType: gameType || (Object.values(GameType).includes(view as any) ? view as string : 'TIC_TAC_TOE'),
+        isMultiplayer,
+        isTimeout,
+        roundsPlayed
+      });
     }
   };
 
@@ -644,8 +655,8 @@ export default function App() {
               </motion.button>
             )}
 
-            <div className={`flex transition-all duration-500 ${isHome ? 'flex-col items-center gap-5' : 'items-center gap-3'}`}>
-              <div className="relative">
+            <div className={`flex transition-all duration-500 ${isHome ? 'flex-col items-center gap-3' : 'items-center gap-3'}`}>
+              <div className="flex flex-col items-center shrink-0">
                 <div className={`rounded-2xl bg-slate-800 flex items-center justify-center shadow-inner border-2 border-slate-700 overflow-hidden transition-all duration-500 ${isHome ? 'w-24 h-24 text-7xl leading-none select-none shadow-[0_0_30px_rgba(30,41,59,0.5)]' : 'w-12 h-12 text-4xl leading-none select-none'}`}>
                   {player.avatar?.startsWith('data') || player.avatar?.startsWith('http') ? (
                     <img src={player.avatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -653,8 +664,14 @@ export default function App() {
                     player.avatar || '👷'
                   )}
                 </div>
-                <div className={`absolute bg-blue-600 font-black rounded-lg border border-white uppercase transition-all duration-500 ${isHome ? '-bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 text-[10px]' : '-bottom-1 -right-1 px-1.5 py-0.5 text-[8px]'}`}>
-                  LV {player.level}
+                <div 
+                  style={{ 
+                    backgroundColor: 'var(--primary-color)',
+                    boxShadow: '0 2px 8px color-mix(in srgb, var(--primary-color) 40%, transparent)'
+                  }}
+                  className="mt-2.5 text-slate-950 px-3.5 py-0.5 rounded-full text-[9px] font-mono font-black uppercase tracking-widest border border-white/20 select-none"
+                >
+                  NÍVEL {player.level}
                 </div>
               </div>
               <div className={isHome ? 'text-center' : ''}>
@@ -695,11 +712,11 @@ export default function App() {
                 <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Todos Cadastrados</span>
               </motion.div>
               <div className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-3' : 'min-w-[85px] px-2 py-1.5'}`}>
-                <span className={`font-black text-blue-400 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Patrulhas Coletivas</span>
+                <span className={`font-black text-blue-400 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Minhas Patrulhas</span>
                 <span className={`font-black text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)] leading-none ${isHome ? 'text-xl' : 'text-sm'}`}>
-                  {globalDisplayGamesPlayed.toLocaleString()}
+                  {(player.gamesPlayed || 0).toLocaleString()}
                 </span>
-                <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Todos Cadastrados</span>
+                <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Aptidão Individual</span>
               </div>
             </div>
           </header>
@@ -801,7 +818,7 @@ export default function App() {
 
           {view === GameType.QUIZ && (
             <motion.div
-              key="quiz"
+              key={`quiz_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -820,7 +837,7 @@ export default function App() {
 
           {view === GameType.HANGMAN && (
             <motion.div
-              key="hangman"
+              key={`hangman_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -839,7 +856,7 @@ export default function App() {
 
           {view === GameType.WORD_SEARCH && (
             <motion.div
-              key="wordsearch"
+              key={`wordsearch_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -858,7 +875,7 @@ export default function App() {
 
           {view === GameType.WORD_GUESS && (
             <motion.div
-              key="wordguess"
+              key={`wordguess_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -877,7 +894,7 @@ export default function App() {
 
           {view === GameType.NUMBER_GUESS && (
             <motion.div
-              key="numberguess"
+              key={`numberguess_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -896,7 +913,7 @@ export default function App() {
 
           {view === GameType.MEMORY && (
             <motion.div
-              key="memory"
+              key={`memory_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -915,7 +932,7 @@ export default function App() {
 
           {view === GameType.REACTION && (
             <motion.div
-              key="reaction"
+              key={`reaction_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -934,7 +951,7 @@ export default function App() {
 
           {view === GameType.SPEED_MATH && (
             <motion.div
-              key="speedmath"
+              key={`speedmath_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -953,7 +970,7 @@ export default function App() {
 
           {view === GameType.SIGN_MATCH && (
             <motion.div
-              key="signmatch"
+              key={`signmatch_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -972,7 +989,7 @@ export default function App() {
 
           {view === GameType.ROUTE_ORDER && (
             <motion.div
-              key="routeorder"
+              key={`routeorder_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -991,7 +1008,7 @@ export default function App() {
 
           {view === GameType.PARKING_ESCAPE && (
             <motion.div
-              key="parkingescape"
+              key={`parkingescape_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -1010,7 +1027,7 @@ export default function App() {
 
           {view === GameType.TIC_TAC_TOE && (
             <motion.div
-              key="tictactoe"
+              key={`tictactoe_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -1036,7 +1053,7 @@ export default function App() {
 
           {view === GameType.QUEENS && (
             <motion.div
-              key="queensgame"
+              key={`queensgame_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -1055,7 +1072,7 @@ export default function App() {
 
           {view === GameType.PALAVRAS_500 && (
             <motion.div
-              key="palavras500"
+              key={`palavras550_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -1074,7 +1091,7 @@ export default function App() {
 
           {view === GameType.CONTEXTO && (
             <motion.div
-              key="contextogame"
+              key={`contextogame_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -1093,7 +1110,7 @@ export default function App() {
 
           {view === GameType.SUDOKU && (
             <motion.div
-              key="sudokugame"
+              key={`sudokugame_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -1112,7 +1129,7 @@ export default function App() {
 
           {view === GameType.DAMA && (
             <motion.div
-              key="damagame"
+              key={`damagame_${gameSessionId}`}
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
@@ -1186,6 +1203,125 @@ export default function App() {
                 </button>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {activePatrolResult && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] bg-slate-950/95 backdrop-blur-md flex flex-col justify-center items-center p-6 font-sans select-none"
+          >
+            {/* Ambient orange-yellow flare glow background */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-yellow-500/10 rounded-full blur-[100px] pointer-events-none animate-pulse" style={{ animationDuration: '4s' }} />
+
+            <motion.div 
+              initial={{ scale: 0.9, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: -20, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="w-full max-w-sm bg-slate-900 border-2 border-yellow-500/30 rounded-[2rem] p-5 md:p-6 text-center space-y-4 shadow-[0_0_50px_rgba(250,204,21,0.15)] relative overflow-y-auto max-h-[88vh] flex flex-col items-center border-b-4 border-b-yellow-500 scrollbar-none"
+            >
+              {/* Dynamic Warning Operational Stripe */}
+              <div className="absolute top-0 left-0 right-0 h-2 hazard-stripe opacity-60 rounded-t-[1.8rem]" />
+
+              <div className="flex flex-col items-center">
+                <div className="relative mt-1">
+                  <div className="w-16 h-16 bg-slate-950 border-2 border-yellow-400 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20 overflow-hidden">
+                    {player?.avatar?.startsWith('data') || player?.avatar?.startsWith('http') ? (
+                      <img src={player.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">{player?.avatar || '👷'}</span>
+                    )}
+                  </div>
+                  <div className="absolute -top-1 -right-1 bg-yellow-400 text-slate-950 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shadow-md border border-slate-900">
+                    ✓
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <span className="text-xs font-black text-white uppercase italic tracking-wider leading-tight block">
+                    {player?.displayName || 'Agente'}
+                  </span>
+                  <span className="text-[8px] font-black tracking-widest text-yellow-400 uppercase mt-0.5 block">
+                    Operador
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="inline-block bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2.5 py-0.5 font-black uppercase text-[8px] tracking-[0.2em] rounded-md leading-none">
+                  PATRULHA HOMOLOGADA! 📋
+                </span>
+                <h3 className="text-xl font-black text-white uppercase italic tracking-tight">Inspeção Concluída</h3>
+                <p className="text-slate-400 text-[10px] leading-relaxed max-w-[250px] mx-auto">
+                  Métricas de vistoria e aptidão operacional urbana salvas na central de tráfego.
+                </p>
+              </div>
+
+              {/* Showcase box */}
+              <div className="w-full grid grid-cols-2 gap-3 bg-slate-950/85 p-3.5 rounded-2xl border border-slate-800/80 font-mono">
+                <div className="text-left border-r border-slate-850 pr-1.5 flex flex-col justify-center">
+                  <span className="text-[7px] font-black text-slate-550 uppercase tracking-widest block mb-1">Setor Vistoriado</span>
+                  <span className="text-[10px] font-black text-slate-300 uppercase truncate block">
+                    {getFriendlyGameName(activePatrolResult.gameType)}
+                  </span>
+                </div>
+                <div className="text-right pl-1.5 flex flex-col justify-center">
+                  <span className="text-[7px] font-black text-slate-550 uppercase tracking-widest block mb-1">Pontos Faturados</span>
+                  <span className="text-base font-black text-yellow-400 block tracking-tight">
+                    +{activePatrolResult.score} XP
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid actions */}
+              <div className="w-full flex flex-col gap-2 pt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setActivePatrolResult(null);
+                      setGameSessionId(prev => prev + 1);
+                    }}
+                    className="w-full h-11 border border-slate-805 text-slate-400 font-bold hover:text-white hover:bg-slate-800/80 text-[10px] rounded-xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>REPETIR 🔁</span>
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      const currentType = activePatrolResult.gameType;
+                      const gameTypes = Object.values(GameType);
+                      const otherTypes = gameTypes.filter(t => t !== currentType);
+                      const randomType = otherTypes[Math.floor(Math.random() * otherTypes.length)];
+                      setActivePatrolResult(null);
+                      setGameSessionId(prev => prev + 1);
+                      setView(randomType as any);
+                    }}
+                    className="w-full h-11 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-[10px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-yellow-500/10 border-none font-sans"
+                  >
+                    <Compass size={12} className="animate-spin" style={{ animationDuration: '4s' }} />
+                    <span>AVANÇAR 🧭</span>
+                  </motion.button>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setActivePatrolResult(null);
+                    setView('multiplayer');
+                  }}
+                  className="w-full h-11 border border-slate-800 text-slate-350 font-extrabold hover:text-white hover:bg-slate-800 text-[10px] rounded-xl uppercase tracking-widest active:scale-95 transition-all bg-slate-950/40 font-sans flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>VOLTAR À CENTRAL DE JOGOS</span>
+                </motion.button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

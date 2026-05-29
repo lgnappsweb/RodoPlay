@@ -134,6 +134,29 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
     setLastCaptureMove(0);
   };
 
+  const triggerDirectEnd = (outcome: 'victory' | 'failed' | 'draw') => {
+    let finalScore = 150; // default draw
+    if (outcome === 'victory') {
+      finalScore = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
+    } else if (outcome === 'failed') {
+      finalScore = 100; // consolation
+    }
+    const is2P = multiplayerMode === '2p';
+    const partnerToSend = selectedPartner?.id === 'local' ? null : selectedPartner;
+    
+    onComplete(
+      is2P ? yellowCaptures * 30 : finalScore,
+      1,
+      is2P,
+      partnerToSend,
+      is2P ? yellowCaptures * 30 : finalScore,
+      is2P ? redCaptures * 30 : 0,
+      'DAMA',
+      false,
+      false
+    );
+  };
+
   // Check board state for game ending after every move
   useEffect(() => {
     if (!setupComplete || gameState !== 'playing') return;
@@ -153,17 +176,17 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
 
     // Capture limits reached
     if (yellowCount === 0) {
-      setGameState('failed');
+      setTimeout(() => triggerDirectEnd('failed'), 50);
       return;
     }
     if (redCount === 0) {
-      setGameState('victory');
+      setTimeout(() => triggerDirectEnd('victory'), 50);
       return;
     }
 
     // Draw condition: 40 moves without capture
     if (moveCount - lastCaptureMove >= 40) {
-      setGameState('draw');
+      setTimeout(() => triggerDirectEnd('draw'), 50);
       return;
     }
 
@@ -172,9 +195,9 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
     if (allAvailable.length === 0) {
       // If active has no moves, they lose
       if (turn === 'yellow') {
-        setGameState('failed');
+        setTimeout(() => triggerDirectEnd('failed'), 50);
       } else {
-        setGameState('victory');
+        setTimeout(() => triggerDirectEnd('victory'), 50);
       }
     }
   }, [board, turn, setupComplete]);
@@ -782,172 +805,7 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
         </div>
       </div>
 
-      {/* Overlay Screens (Victory, Defeat, Draw) */}
-      <AnimatePresence>
-        {gameState === 'victory' && (
-          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto select-none">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-            >
-              <div className="relative animate-bounce">
-                <div className="w-20 h-20 bg-slate-950 border-2 border-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                  <span className="text-4xl">👑</span>
-                </div>
-                <span className="absolute -top-1 -right-1 text-xl">🎉</span>
-              </div>
-              
-              <div className="space-y-2">
-                <span className="text-[10px] font-black tracking-widest text-yellow-500 uppercase font-mono font-sans">DAMA CONCLUÍDA</span>
-                <h3 className="text-2xl font-black text-white uppercase italic tracking-tight">Operação Conquistada!</h3>
-                <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto italic font-sans_not_used">
-                  Sua tática de cerco diagonal foi impecável! Você eliminou todas as forças adversárias com maestria estratégica.
-                </p>
-              </div>
-
-              {/* Score box */}
-              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos</span>
-                <span className="text-3xl font-black text-yellow-400 font-mono block">
-                  +{getConsolidatedXP()} XP
-                </span>
-                {multiplayerMode === '2p' && (
-                  <span className="text-[9px] font-extrabold text-slate-400 block mt-1">
-                    Multiplayer: {yellowCaptures * 30} pts (P1) vs {redCaptures * 30} pts (P2)
-                  </span>
-                )}
-              </div>
-
-              <div className="w-full flex flex-col gap-3">
-                <Button 
-                  onClick={handleFinishSession}
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans cursor-pointer"
-                >
-                  VOLTAR À CENTRAL DE JOGOS
-                </Button>
-                <Button 
-                  onClick={handleRestart}
-                  variant="outline"
-                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans cursor-pointer"
-                >
-                  JOGAR NOVAMENTE 🔁
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {gameState === 'failed' && (
-          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto select-none">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-            >
-              <div className="relative animate-pulse">
-                <div className="w-20 h-20 bg-slate-950 border-2 border-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/20">
-                  <span className="text-4xl">💀</span>
-                </div>
-                <span className="absolute -top-1 -right-1 text-xl">🚨</span>
-              </div>
-              
-              <div className="space-y-2">
-                <span className="text-[10px] font-black tracking-widest text-red-500 uppercase font-mono">DAMA EXECUTADA</span>
-                <h3 className="text-2xl font-black text-red-500 uppercase italic tracking-tight">Caminho Bloqueado!</h3>
-                <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto italic">
-                  Suas peças de patrulha foram eliminadas ou cercadas completamente pelo adversário. Estude a diagonal e retorne fortalecido.
-                </p>
-              </div>
-
-              {/* Score box */}
-              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos (Consolação)</span>
-                <span className="text-3xl font-black text-white/50 font-mono block">
-                  +100 XP
-                </span>
-                {multiplayerMode === '2p' && (
-                  <span className="text-[9px] font-extrabold text-slate-400 block mt-1">
-                    Multiplayer: {yellowCaptures * 30} pts (P1) vs {redCaptures * 30} pts (P2)
-                  </span>
-                )}
-              </div>
-
-              <div className="w-full flex flex-col gap-3">
-                <Button 
-                  onClick={handleFinishSession}
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans cursor-pointer"
-                >
-                  VOLTAR À CENTRAL DE JOGOS
-                </Button>
-                <Button 
-                  onClick={handleRestart}
-                  variant="outline"
-                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans cursor-pointer"
-                >
-                  REINICIAR DESAFIO 🔁
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {gameState === 'draw' && (
-          <div className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 z-50 overflow-y-auto select-none">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-sm flex flex-col items-center text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border border-slate-800 shadow-2xl relative"
-            >
-              <div className="relative">
-                <div className="w-20 h-20 bg-slate-950 border-2 border-slate-500 rounded-full flex items-center justify-center shadow-lg shadow-slate-500/20">
-                  <span className="text-4xl">🤝</span>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase font-mono">DAMA EMPATADA</span>
-                <h3 className="text-2xl font-black text-slate-350 uppercase italic tracking-tight">Sessão Empatada</h3>
-                <p className="text-slate-450 text-xs leading-relaxed max-w-sm mx-auto italic">
-                  O jogo atingiu 40 movimentos sem capturas adicionais ou as defesas estão impenetráveis. Ambos os lados ganham XP equilibrado.
-                </p>
-              </div>
-
-              {/* Score box */}
-              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Ganhos (Consolação)</span>
-                <span className="text-3xl font-black text-white/50 font-mono block">
-                  +150 XP
-                </span>
-                {multiplayerMode === '2p' && (
-                  <span className="text-[9px] font-extrabold text-slate-400 block mt-1">
-                    Multiplayer: {yellowCaptures * 30} pts (P1) vs {redCaptures * 30} pts (P2)
-                  </span>
-                )}
-              </div>
-
-              <div className="w-full flex flex-col gap-3">
-                <Button 
-                  onClick={handleFinishSession}
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black uppercase text-xs rounded-2xl shadow-md active:scale-95 transition-all font-sans cursor-pointer"
-                >
-                  VOLTAR À CENTRAL DE JOGOS
-                </Button>
-                <Button 
-                  onClick={handleRestart}
-                  variant="outline"
-                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans cursor-pointer"
-                >
-                  JOGAR NOVAMENTE 🔁
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Overlay Screens (Victory, Defeat, Draw) removed - handled globally */}
 
     </div>
   );

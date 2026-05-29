@@ -20,6 +20,7 @@ import { Player } from '../types';
 import { writePlayerProfile } from '../lib/rankingSync';
 import { createNotification } from '../lib/notifications';
 import { saveThemeSettings, applyTheme } from '../lib/theme';
+import { DEFAULT_AVATAR } from '../data/avatars';
 
 const normalizeShift = (val: string | undefined): string => {
   if (!val) return 'Turno A - Diurno';
@@ -74,7 +75,7 @@ export function useAuth() {
                 uid: authUser.uid,
                 displayName: found.displayName,
                 email: found.email,
-                avatar: found.avatar || '👷',
+                avatar: found.avatar || DEFAULT_AVATAR,
                 base: found.base || 'Base 01',
                 shift: normalizeShift(found.shift || 'Turno A - Diurno'),
                 xp: 0,
@@ -142,7 +143,7 @@ export function useAuth() {
                     email: playerData.email,
                     password: savedPass,
                     displayName: playerData.displayName || 'Membro do Time',
-                    avatar: playerData.avatar || '👷',
+                    avatar: playerData.avatar || DEFAULT_AVATAR,
                     base: playerData.base || 'Base 01',
                     shift: normalizeShift(playerData.shift || 'Turno A - Diurno'),
                     praca: (playerData as any).praca || (playerData as any).praça || 'Não Aplicável'
@@ -182,7 +183,7 @@ export function useAuth() {
                     gamesPlayed: 0,
                     completedGames: 0,
                     timedOutGames: 0,
-                    avatar: pending.avatar || '👷',
+                    avatar: pending.avatar || DEFAULT_AVATAR,
                     status: 'online',
                     createdAt: new Date().toISOString(),
                     lastLogin: new Date().toISOString(),
@@ -321,7 +322,7 @@ export function useAuth() {
         base: base || 'Base 01',
         shift: shift || 'Turno A - Diurno',
         praca: praca || 'Praça 01',
-        avatar: '👷'
+        avatar: DEFAULT_AVATAR
       }));
 
       // 1. Create Auth User
@@ -345,7 +346,7 @@ export function useAuth() {
         gamesPlayed: 0,
         completedGames: 0,
         timedOutGames: 0,
-        avatar: '👷',
+        avatar: DEFAULT_AVATAR,
         status: 'online',
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
@@ -376,7 +377,7 @@ export function useAuth() {
           email: cleanedEmail,
           password: password,
           displayName: displayName.trim(),
-          avatar: '👷',
+          avatar: DEFAULT_AVATAR,
           base: base || 'Base 01',
           shift: shift || 'Turno A - Diurno',
           praca: praca || 'Não Aplicável'
