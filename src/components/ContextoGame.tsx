@@ -835,34 +835,34 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
       {/* 2. MAIN ACTIVE GAMEPLAY SCREEN */}
       {gameState === 'playing' && (
         <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-[2.5rem] p-5 sm:p-6 shadow-[0_20px_40px_rgba(0,0,0,0.5)] flex flex-col min-h-[500px]">
-          {/* Top Panel Actions */}
-          <div className="flex items-center justify-between border-b border-slate-800/70 pb-4 mb-4">
-            <button
-              onClick={() => setGameState('selection')}
-              className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-400 hover:text-white bg-slate-950/60 px-3 py-1.5 rounded-full border border-slate-800/80 transition-all cursor-pointer"
-            >
-              <ArrowLeft size={12} /> VOLTAR
-            </button>
-            <div className="flex items-center gap-2">
-              <span className="text-xl shrink-0">{selectedTheme.icon}</span>
-              <div className="text-left">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">TEMA ATIVO</p>
-                <p className="text-xs font-black uppercase text-yellow-400 tracking-tight mt-0.5 leading-none">{selectedTheme.themeName}</p>
+        {/* Top Header Navigation */}
+          <div className="flex items-center justify-between border-b border-slate-800/70 pb-2 mb-4">
+              <button
+                onClick={() => setGameState('selection')}
+                className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-400 hover:text-white bg-slate-950/60 px-3 py-1.5 rounded-full border border-slate-800/80 transition-all cursor-pointer"
+              >
+                <ArrowLeft size={12} /> VOLTAR
+              </button>
+              
+              <div className="text-right flex items-center gap-4">
+                <div className="hidden sm:block">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">TEMPO</p>
+                  <p className="text-xs font-mono font-black text-white mt-0.5 leading-none">
+                    {Math.floor(elapsedSeconds / 60).toString().padStart(2, '0')}:{(elapsedSeconds % 60).toString().padStart(2, '0')}
+                  </p>
+                </div>
+                <div className="bg-slate-950/60 border border-slate-800/70 px-3 py-1 rounded-xl">
+                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">PALPITES</p>
+                  <p className="text-sm font-mono font-black text-yellow-400 leading-none mt-0.5">{attempts}</p>
+                </div>
               </div>
-            </div>
+          </div>
 
-            {/* Game Duration Elapsed and attempts */}
-            <div className="text-right flex items-center gap-4">
-              <div className="hidden sm:block">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">TEMPO</p>
-                <p className="text-xs font-mono font-black text-white mt-0.5 leading-none">
-                  {Math.floor(elapsedSeconds / 60).toString().padStart(2, '0')}:{(elapsedSeconds % 60).toString().padStart(2, '0')}
-                </p>
-              </div>
-              <div className="bg-slate-950/60 border border-slate-800/70 px-3 py-1 rounded-xl">
-                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">PALPITES</p>
-                <p className="text-sm font-mono font-black text-yellow-400 leading-none mt-0.5">{attempts}</p>
-              </div>
+          <div className="text-center mb-6">
+            <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">CONTEXTO</h2>
+            <div className="inline-flex items-center gap-2 mt-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-800/80 text-slate-300">
+                <span className="text-base select-none">{selectedTheme.icon}</span>
+                <span className="text-[10px] font-black uppercase tracking-wider">TEMA: <span className="text-yellow-400 font-black">{selectedTheme.themeName.toUpperCase()}</span></span>
             </div>
           </div>
 

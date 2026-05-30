@@ -537,7 +537,7 @@ export function Home({ player, onPlay, onViewChange }: HomeProps) {
                       {displayedHighlight.avatar?.startsWith('data') || displayedHighlight.avatar?.startsWith('http') ? (
                         <img src={displayedHighlight.avatar} alt={highlightName} className="w-full h-full object-cover animate-fade-in" />
                       ) : (
-                        displayedHighlight.avatar || '👷'
+                        <span className="text-2xl text-yellow-500 font-black">{(highlightName || '??').split(' ').filter(n => n).map(n=>n[0]).join('').substring(0,2).toUpperCase()}</span>
                       )}
                     </div>
                     <div 

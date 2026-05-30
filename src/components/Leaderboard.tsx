@@ -776,11 +776,11 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
                   </span>
 
                   {/* Avatar */}
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-base border border-slate-800 shrink-0 overflow-hidden">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center text-xl font-black border border-slate-700 shrink-0 overflow-hidden relative">
                     {p.avatar?.startsWith('data') || p.avatar?.startsWith('http') ? (
-                      <img src={p.avatar} alt="P" className="w-full h-full object-cover" />
+                      <img src={p.avatar} alt="P" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      p.avatar || '👷'
+                      <span className="text-yellow-400">{(p.displayName || '??').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase()}</span>
                     )}
                   </div>
 

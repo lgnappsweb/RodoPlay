@@ -986,26 +986,12 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
                 </p>
               </div>
 
-              {/* Item 2 */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-2 relative overflow-hidden group hover:border-slate-700 transition-colors">
-                <div className="absolute right-0 top-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-xl group-hover:bg-yellow-500/10 transition-colors" />
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-yellow-500/10 text-yellow-400 flex items-center justify-center font-black text-xs">
-                    02
-                  </div>
-                  <h4 className="text-xs font-black uppercase text-white tracking-wider">Respeito Mútuo no Multiplayer</h4>
-                </div>
-                <p className="text-[10px] leading-relaxed font-semibold uppercase text-slate-400">
-                  Os lobbies multiplayer e disputas por pontuação exigem ética profissional. Nomes de usuário ofensivos, xingamentos, preconceitos ou assédio moral contra outros motoristas resultarão em cancelamento definitivo da conta de motorista.
-                </p>
-              </div>
-
               {/* Item 3 */}
               <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-2 relative overflow-hidden group hover:border-slate-700 transition-colors">
                 <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-colors" />
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-black text-xs">
-                    03
+                    02
                   </div>
                   <h4 className="text-xs font-black uppercase text-white tracking-wider">Idoneidade nas Respostas</h4>
                 </div>
@@ -1019,7 +1005,7 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
                 <div className="absolute right-0 top-0 w-24 h-24 bg-sky-500/5 rounded-full blur-xl group-hover:bg-sky-500/10 transition-colors" />
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center font-black text-xs">
-                    04
+                    03
                   </div>
                   <h4 className="text-xs font-black uppercase text-white tracking-wider">Diretrizes do CTB e CONTRAN</h4>
                 </div>
@@ -1033,7 +1019,7 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
                 <div className="absolute right-0 top-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl group-hover:bg-purple-500/10 transition-colors" />
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-black text-xs">
-                    05
+                    04
                   </div>
                   <h4 className="text-xs font-black uppercase text-white tracking-wider">Preservação da Saúde e Sono</h4>
                 </div>

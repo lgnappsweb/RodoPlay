@@ -19,26 +19,31 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email == "lgngregorio@icloud.com";
     }
 
+    function isSelfCreateValid(userId) {
+      return isSignedIn() && request.auth.uid == userId && 
+             ((request.resource.data.statusConta == "pendente" && request.resource.data.aprovado == false) ||
+              request.auth.token.email == "lgngregorio@icloud.com");
+    }
+
+    function isSelfUpdateValid(userId) {
+      return isSignedIn() && request.auth.uid == userId && 
+             (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["statusConta", "aprovado"]) ||
+              (request.resource.data.statusConta == resource.data.statusConta &&
+               request.resource.data.aprovado == resource.data.aprovado));
+    }
+
     // Player profiles matches (backwards compatibility and master users collection)
     match /users/{userId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.auth.uid == userId && 
-                       request.resource.data.statusConta == "pendente" && 
-                       request.resource.data.aprovado == false;
-      allow update: if (isOwner(userId) && 
-                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["statusConta", "aprovado"])) || 
-                       isAdmin();
+      allow create: if isSelfCreateValid(userId) || isAdmin();
+      allow update: if isSelfUpdateValid(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
 
     match /players/{playerId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.auth.uid == playerId && 
-                       request.resource.data.statusConta == "pendente" && 
-                       request.resource.data.aprovado == false;
-      allow update: if (isOwner(playerId) && 
-                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["statusConta", "aprovado"])) || 
-                       isAdmin();
+      allow create: if isSelfCreateValid(playerId) || isAdmin();
+      allow update: if isSelfUpdateValid(playerId) || isAdmin();
       allow delete: if isOwner(playerId) || isAdmin();
     }
 

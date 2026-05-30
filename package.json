@@ -34,7 +34,6 @@
     "vite": "^6.2.3"
   },
   "overrides": {
-    "node-domexception": "file:./node-domexception-mock"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

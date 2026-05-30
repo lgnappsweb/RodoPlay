@@ -61,6 +61,8 @@ export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProp
     }
   });
 
+  const [profileToDelete, setProfileToDelete] = useState<any | null>(null);
+
   const handleQuickLogin = async (profile: any) => {
     setErrorMsg('');
     setSuccessMsg('');
@@ -370,7 +372,7 @@ export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProp
                       {p.avatar && (p.avatar.startsWith('data:image') || p.avatar.startsWith('http')) ? (
                         <img src={p.avatar} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
-                        <span>{p.avatar || '👷'}</span>
+                        <span className="text-yellow-400 text-lg font-black">{ (p.displayName || '??').split(' ').filter(n => n).map(n=>n[0]).join('').substring(0,2).toUpperCase() }</span>
                       )}
                     </div>
 
@@ -418,7 +420,11 @@ export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProp
                       whileTap={{ scale: 0.98 }}
                       type="button"
                       disabled={loading}
-                      onClick={(e) => handleRemoveSavedProfile(p.email, e)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setProfileToDelete(p);
+                      }}
                       className="h-10 bg-slate-900 hover:bg-red-400/10 hover:border-red-400/40 border border-slate-800 text-slate-400 hover:text-red-400 font-bold text-[9px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
                       <Trash2 size={11} />
@@ -672,6 +678,60 @@ export function AuthScreen({ onLoginWithEmail, onCreateProfile }: AuthScreenProp
 
         </div>
       </div>
+
+      {/* Custom Confirmation Modal for Profile Removal */}
+      <AnimatePresence>
+        {profileToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setProfileToDelete(null)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-slate-900 border-2 border-red-500/30 rounded-[2rem] p-6 max-w-sm w-full relative z-10 shadow-2xl space-y-4"
+            >
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-red-400/10 text-red-400 flex items-center justify-center border border-red-500/25">
+                  <Trash2 size={24} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black uppercase text-white tracking-wider">Confirmar Exclusão</h4>
+                  <p className="text-[10px] uppercase font-bold text-slate-500 tracking-tight mt-1">Esta ação é irreversível</p>
+                </div>
+                <p className="text-[11px] leading-relaxed font-semibold uppercase text-slate-400">
+                  Deseja mesmo remover o perfil salvo de <span className="text-white font-bold">{profileToDelete.displayName}</span> do acesso instantâneo neste dispositivo?
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setProfileToDelete(null)}
+                  className="h-11 bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 font-black text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    handleRemoveSavedProfile(profileToDelete.email, e);
+                    setProfileToDelete(null);
+                  }}
+                  className="h-11 bg-red-500 hover:bg-red-400 text-white font-black text-[10px] uppercase tracking-wider rounded-xl shadow-lg shadow-red-500/25 active:scale-95 transition-all cursor-pointer border-none"
+                >
+                  Sim, Remover
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

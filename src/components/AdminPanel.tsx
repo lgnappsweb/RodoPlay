@@ -172,33 +172,42 @@ export function AdminPanel({ player, onBack }: AdminPanelProps) {
     };
   }, []);
 
-  // 2. Fetch Audit Logs with filter
-  const fetchAuditLogs = async () => {
-    setLoadingLogs(true);
-    try {
-      const q = query(
-        collection(db, 'auditoria'),
-        orderBy('timestamp', 'desc'),
-        limit(50)
-      );
-      const snap = await getDocs(q);
-      const list: any[] = [];
-      snap.forEach((docSnap) => {
-        list.push({ ...docSnap.data(), id: docSnap.id });
-      });
-      setAuditLogs(list);
-    } catch (e) {
-      console.warn("Error fetching audit logs:", e);
-    } finally {
-      setLoadingLogs(false);
-    }
-  };
-
+  // 2. Listen to Audit Logs and Support Messages in real-time
   useEffect(() => {
-    if (activeTab === 'auditoria') {
-      fetchAuditLogs();
-    }
+    if (activeTab !== 'auditoria') return;
+
+    let auditLogs: any[] = [];
+    let supportLogs: any[] = [];
+
+    const updateCombined = () => {
+        const combined = [...auditLogs, ...supportLogs];
+        combined.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setAuditLogs(combined);
+        setLoadingLogs(false);
+    };
+
+    setLoadingLogs(true);
+    const qAudit = query(collection(db, 'auditoria'), orderBy('timestamp', 'desc'), limit(50));
+    const qSupport = query(collection(db, 'admin_notifications'), where('type', '==', 'Pedido de suporte'), orderBy('dataCadastro', 'desc'), limit(50));
+
+    const unsubAudit = onSnapshot(qAudit, (snap) => {
+        auditLogs = [];
+        snap.forEach(docSnap => auditLogs.push({ ...docSnap.data(), id: docSnap.id, type: 'audit' }));
+        updateCombined();
+    });
+    const unsubSupport = onSnapshot(qSupport, (snap) => {
+        supportLogs = [];
+        snap.forEach(docSnap => supportLogs.push({ ...docSnap.data(), id: docSnap.id, type: 'support', timestamp: docSnap.data().dataCadastro }));
+        updateCombined();
+    });
+
+    return () => {
+      unsubAudit();
+      unsubSupport();
+    };
   }, [activeTab]);
+
+
 
   // 3. Paginated and filtered user list
   const fetchUsersList = async (isNext = false, isPrev = false) => {
@@ -335,13 +344,19 @@ export function AdminPanel({ player, onBack }: AdminPanelProps) {
       }
 
       if (actionName === 'excluir') {
-        // Direct batch purge
-        const batch = writeBatch(db);
-        batch.delete(playerRef);
-        batch.delete(userRef);
-        batch.delete(doc(db, 'rankings/global/players', targetUid));
+        // Call the backend API for authorized permanent purge of all profile data & Auth credential
+        const response = await fetch('/api/deleteUserCompletely', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ uid: targetUid, email: email })
+        });
         
-        await batch.commit();
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Falha ao realizar a exclusão permanente no backend.');
+        }
 
         // Audit exclusion
         const auditId = `audit_${Date.now()}_del_${targetUid}`;
@@ -354,7 +369,7 @@ export function AdminPanel({ player, onBack }: AdminPanelProps) {
           adminName: player.displayName,
           adminEmail: player.email,
           action: 'Exclusão de conta',
-          details: `O administrador removeu permanentemente a conta, o pedido e o perfil de ${displayName} (${email}).`,
+          details: `O administrador removeu permanentemente a conta, o pedido, estatísticas, conquistas e a credencial do Firebase Auth de ${displayName} (${email}).`,
           timestamp: new Date().toISOString()
         });
 
@@ -605,7 +620,7 @@ export function AdminPanel({ player, onBack }: AdminPanelProps) {
                           {u.avatar?.startsWith('data') || u.avatar?.startsWith('http') ? (
                             <img src={u.avatar} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
-                            u.avatar || '👷'
+                            <span className="text-yellow-400 text-lg font-black">{ (u.displayName || '??').split(' ').filter(n => n).map(n=>n[0]).join('').substring(0,2).toUpperCase() }</span>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -816,13 +831,9 @@ export function AdminPanel({ player, onBack }: AdminPanelProps) {
               <h3 className="text-xs font-black uppercase text-white tracking-widest flex items-center gap-2">
                 <FileText size={14} className="text-yellow-405" /> REGISTROS DE AUDITORIA
               </h3>
-              <button 
-                onClick={fetchAuditLogs}
-                disabled={loadingLogs}
-                className="text-[9px] font-black bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1 text-slate-400 hover:text-white uppercase transition-all select-none cursor-pointer"
-              >
-                Atualizar Logs
-              </button>
+              <div className="text-[9px] font-black bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1 text-slate-500 uppercase select-none">
+                Live
+              </div>
             </div>
 
             {/* Micro Filter layout */}
@@ -841,36 +852,61 @@ export function AdminPanel({ player, onBack }: AdminPanelProps) {
               </div>
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                {auditLogs
-                  .filter(log => {
+                {(() => {
+                  const filtered = auditLogs.filter(log => {
                     if (!auditSearch) return true;
                     const l = auditSearch.toLowerCase();
                     return (
                       log.action?.toLowerCase().includes(l) ||
                       log.userName?.toLowerCase().includes(l) ||
                       log.userEmail?.toLowerCase().includes(l) ||
-                      log.details?.toLowerCase().includes(l)
+                      log.details?.toLowerCase().includes(l) ||
+                      log.message?.toLowerCase().includes(l)
                     );
-                  })
-                  .map((log) => (
-                    <div key={log.id} className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 text-[10px] font-semibold space-y-1.5 transition-colors hover:border-slate-750">
-                      <div className="flex justify-between items-start text-[8.5px] font-mono">
-                        <span className="font-black text-yellow-500 uppercase tracking-widest bg-yellow-400/5 px-2 py-0.5 rounded border border-yellow-500/10">
-                          {log.action}
-                        </span>
-                        <span className="text-slate-500">
-                          {log.timestamp ? new Date(log.timestamp).toLocaleTimeString('pt-BR') : ''} • {log.timestamp ? new Date(log.timestamp).toLocaleDateString('pt-BR') : ''}
-                        </span>
-                      </div>
-                      
-                      <p className="text-slate-200 mt-1 uppercase text-[9px] leading-normal">{log.details}</p>
-                      
-                      <div className="text-[8.5px] text-slate-500 pt-1 border-t border-slate-900 flex justify-between">
-                        <span className="truncate max-w-[150px]">Colaborador: <span className="font-bold text-white lowercase">{log.userEmail || 'N/A'}</span></span>
-                        {log.adminEmail && <span className="truncate max-w-[150px]">Admin: <span className="font-bold text-yellow-400 lowercase">{log.adminEmail}</span></span>}
-                      </div>
+                  });
+
+                  const grouped: any = {};
+                  filtered.forEach(log => {
+                    if (log.type === 'support') {
+                      const key = `SUPORTE | BASE: ${log.base || 'N/A'} | TURNO: ${log.turno || 'N/A'}`;
+                      if (!grouped[key]) grouped[key] = [];
+                      grouped[key].push(log);
+                    } else {
+                      const key = 'AUDITORIA GERAL';
+                      if (!grouped[key]) grouped[key] = [];
+                      grouped[key].push(log);
+                    }
+                  });
+
+                  return Object.entries(grouped).map(([key, logs]: [string, any]) => (
+                    <div key={key} className="space-y-2">
+                      <h4 className="text-[9px] font-black uppercase text-yellow-400 bg-yellow-900/10 px-3 py-1 rounded-lg border border-yellow-500/10 tracking-widest mt-4">
+                        {key}
+                      </h4>
+                      {logs.map((log: any) => (
+                        <div key={log.id} className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 text-[10px] font-semibold space-y-1.5 transition-colors hover:border-slate-750">
+                          <div className="flex justify-between items-start text-[8.5px] font-mono">
+                            <span className="font-black text-yellow-500 uppercase tracking-widest bg-yellow-400/5 px-2 py-0.5 rounded border border-yellow-500/10">
+                              {log.type === 'support' ? 'PEDIDO DE AJUDA' : log.action}
+                            </span>
+                            <span className="text-slate-500">
+                              {log.timestamp ? new Date(log.timestamp).toLocaleTimeString('pt-BR') : ''} • {log.timestamp ? new Date(log.timestamp).toLocaleDateString('pt-BR') : ''}
+                            </span>
+                          </div>
+                          
+                          <p className="text-slate-200 mt-1 uppercase text-[9px] leading-normal">
+                             {log.type === 'support' ? log.message : log.details}
+                          </p>
+                          
+                          <div className="text-[8.5px] text-slate-500 pt-1 border-t border-slate-900 flex justify-between">
+                            <span className="truncate max-w-[150px]">Colaborador: <span className="font-bold text-white lowercase">{log.userEmail || log.apelido || 'N/A'}</span></span>
+                            {log.adminEmail && <span className="truncate max-w-[150px]">Admin: <span className="font-bold text-yellow-400 lowercase">{log.adminEmail}</span></span>}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  ));
+                })()}
 
                 {auditLogs.length === 0 && (
                   <p className="text-xs text-slate-600 font-bold text-center py-8 uppercase">Nenhum evento auditado localizado.</p>

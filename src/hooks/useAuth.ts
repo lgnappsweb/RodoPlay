@@ -350,7 +350,7 @@ export function useAuth() {
         gamesPlayed: 0,
         completedGames: 0,
         timedOutGames: 0,
-        avatar: DEFAULT_AVATAR,
+        avatar: null,
         status: 'online',
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
@@ -383,7 +383,7 @@ export function useAuth() {
           email: cleanedEmail,
           password: password,
           displayName: displayName.trim(),
-          avatar: DEFAULT_AVATAR,
+          avatar: null,
           base: base || 'Base 01',
           shift: shift || 'Turno A - Diurno',
           praca: praca || 'Não Aplicável',
@@ -490,7 +490,7 @@ export function useAuth() {
       }
       throw new Error(errorMsg);
     } finally {
-      // setLoading(false); is handled inside catch block or specifically above on success
+      setLoading(false);
     }
   };
 

@@ -16,6 +16,7 @@ import { createNotification } from './lib/notifications';
 import { Bell, Gamepad2, Shield, Trash2, Compass, RefreshCw, Clock, Ban, X } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 
+import { SafetyCenterModal } from './components/SafetyCenterModal';
 // Lazy load heavy or secondary components
 const Leaderboard = lazy(() => import('./components/Leaderboard').then(m => ({ default: m.Leaderboard })));
 const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
@@ -78,6 +79,10 @@ export default function App() {
     return unsub;
   }, []);
 
+  useEffect(() => {
+    setSessionScore(0);
+  }, [player?.uid]);
+
   // Sync user profile state changes including edits and newly obtained avatars into saved profiles list for rapid 1-click access
   useEffect(() => {
     if (player && player.uid && player.email) {
@@ -93,7 +98,7 @@ export default function App() {
             email: player.email,
             password: savedPass,
             displayName: player.displayName,
-            avatar: player.avatar || '👷',
+            avatar: player.avatar || null,
             base: player.base || 'Base 01',
             shift: player.shift || 'Turno A',
             praca: (player as any).praca || (player as any).praça || 'Não Aplicável'
@@ -221,6 +226,7 @@ export default function App() {
   }, [player?.uid]);
 
   const [showRegistration, setShowRegistration] = useState(false);
+  const [showSafetyModal, setShowSafetyModal] = useState(false);
   const [incomingInvite, setIncomingInvite] = useState<any | null>(null);
   const [activeRoom, setActiveRoom] = useState<any | null>(null);
 
@@ -494,9 +500,21 @@ export default function App() {
 
   // Blocking check for non-approved accounts with real-time reactive support and custom WhatsApp formatting
   const isUserAdmin = player?.email?.toLowerCase() === 'lgngregorio@icloud.com';
-  const playerStatus = player?.statusConta || (isUserAdmin ? 'aprovado' : 'aprovado');
+  const playerStatus = player?.statusConta || (isUserAdmin ? 'aprovado' : 'pendente');
 
   if (player && playerStatus !== 'aprovado' && !isUserAdmin) {
+    if (!localStorage.getItem(`safety_accepted_${player.uid}`)) {
+        return <SafetyCenterModal onAccept={() => {
+            localStorage.setItem(`safety_accepted_${player.uid}`, 'true');
+            // Force re-render to proceed (or just toggle state) - here I will make it reload view or something? 
+            // Actually just refresh the component by setting a trigger?
+            // Actually I'll set showSafetyModal to false and let the rest of component render.
+            // Since this is in the middle of app render, I can't easily force re-render, 
+            // but the conditional check might be enough if I change render structure.
+            // Actually, I should probably just set the flag and re-render.
+            window.location.reload(); 
+        }} />;
+    }
     const rawWhatsapp = adminSettings.whatsappAdmin || '5511999999999';
     const whatsappMsg = `Olá, Administrador.
 Solicito aprovação de acesso para o meu cadastro no RodoPlay.
@@ -858,11 +876,11 @@ No aguardo da liberação corporativa.`;
 
             <div className={`flex transition-all duration-500 ${isHome ? 'flex-col items-center gap-3' : 'items-center gap-3'}`}>
               <div className="flex flex-col items-center shrink-0">
-                <div className={`rounded-2xl bg-slate-800 flex items-center justify-center shadow-inner border-2 border-slate-700 overflow-hidden transition-all duration-500 ${isHome ? 'w-24 h-24 text-7xl leading-none select-none shadow-[0_0_30px_rgba(30,41,59,0.5)]' : 'w-12 h-12 text-4xl leading-none select-none'}`}>
+                <div className={`rounded-2xl bg-slate-800 flex items-center justify-center shadow-inner border-2 border-slate-700 overflow-hidden transition-all duration-500 ${isHome ? 'w-24 h-24 text-4xl leading-none select-none shadow-[0_0_30px_rgba(30,41,59,0.5)]' : 'w-12 h-12 text-xl leading-none select-none'}`}>
                   {player.avatar?.startsWith('data') || player.avatar?.startsWith('http') ? (
                     <img src={player.avatar} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    player.avatar || '👷'
+                    <span className="text-yellow-400">{(player.displayName || '??').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase()}</span>
                   )}
                 </div>
                 <div 
@@ -899,18 +917,18 @@ No aguardo da liberação corporativa.`;
               </div>
             </div>
 
-            <div className={`flex gap-3 transition-all duration-500 ${isHome ? 'justify-center w-full px-2' : ''}`}>
+            <div className={`grid grid-cols-2 gap-2 transition-all duration-500 ${isHome ? 'justify-center w-full px-2' : ''}`}>
               <motion.div 
-                key={globalDisplayTotalScore}
+                key={displayTotalScore}
                 initial={{ scale: 1.1, borderColor: 'rgba(250, 204, 21, 0.5)' }}
                 animate={{ scale: 1, borderColor: 'rgba(51, 65, 85, 0.8)' }}
                 className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-3' : 'min-w-[85px] px-3 py-1.5'}`}
               >
-                <span className={`font-black text-yellow-500 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Pontos Gerais</span>
+                <span className={`font-black text-yellow-500 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Meus Pontos</span>
                 <span className={`font-black text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)] leading-none ${isHome ? 'text-xl' : 'text-sm'}`}>
-                  {globalDisplayTotalScore.toLocaleString()}
+                  {displayTotalScore.toLocaleString()}
                 </span>
-                <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Todos Cadastrados</span>
+                <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Total Acumulado</span>
               </motion.div>
               <div className={`bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col items-center shadow-lg transition-all duration-500 ${isHome ? 'flex-1 py-3' : 'min-w-[85px] px-2 py-1.5'}`}>
                 <span className={`font-black text-blue-400 uppercase tracking-[0.2em] leading-none mb-1 ${isHome ? 'text-[8px]' : 'text-[7px]'}`}>Minhas Patrulhas</span>
@@ -918,6 +936,22 @@ No aguardo da liberação corporativa.`;
                   {(player.gamesPlayed || 0).toLocaleString()}
                 </span>
                 <span className="text-[6.5px] font-[900] text-slate-500 uppercase tracking-[0.15em] mt-1 shrink-0">Aptidão Individual</span>
+              </div>
+              
+              {/* New Details Grid */}
+              <div className="col-span-2 grid grid-cols-3 gap-2 mt-2">
+                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 flex flex-col items-center">
+                   <span className="text-[7px] font-black text-slate-500 uppercase">Base</span>
+                   <span className="text-[9px] font-black text-white uppercase text-center">{player.base || 'Base 01'}</span>
+                </div>
+                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 flex flex-col items-center">
+                   <span className="text-[7px] font-black text-slate-500 uppercase">Turno</span>
+                   <span className="text-[9px] font-black text-yellow-400 uppercase text-center">{player.shift || 'Turno A'}</span>
+                </div>
+                <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800 flex flex-col items-center">
+                   <span className="text-[7px] font-black text-slate-500 uppercase">Praça</span>
+                   <span className="text-[9px] font-black text-slate-300 uppercase text-center">{(player as any).praca || 'N/A'}</span>
+                </div>
               </div>
             </div>
           </header>
@@ -1444,7 +1478,7 @@ No aguardo da liberação corporativa.`;
                     {player?.avatar?.startsWith('data') || player?.avatar?.startsWith('http') ? (
                       <img src={player.avatar} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-2xl">{player?.avatar || '👷'}</span>
+                      <span className="text-2xl text-yellow-400 font-black">{(player?.displayName || '??').split(' ').filter(n => n).map(n=>n[0]).join('').substring(0,2).toUpperCase()}</span>
                     )}
                   </div>
                   <div className="absolute -top-1 -right-1 bg-yellow-400 text-slate-950 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shadow-md border border-slate-900">

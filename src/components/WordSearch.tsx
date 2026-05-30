@@ -443,6 +443,23 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
 
       <div className="text-center mb-6">
          <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">CAÇA-PALAVRAS</h2>
+         {(() => {
+           const currentTheme = WORD_SEARCH_THEMES.find(t => t.id === selectedThemeId);
+           if (currentTheme) {
+             const parts = currentTheme.name.split(' ');
+             const emoji = parts[parts.length - 1];
+             const cleanName = parts.slice(0, -1).join(' ');
+             return (
+               <div className="w-full flex justify-center mt-3">
+                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800/80 text-slate-300">
+                   <span className="text-base select-none">{emoji}</span>
+                   <span className="text-[10px] font-black uppercase tracking-wider">TEMA: <span className="text-yellow-400 font-black">{cleanName.toUpperCase()}</span></span>
+                 </div>
+               </div>
+             );
+           }
+           return null;
+         })()}
          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">Localize os termos técnicos do trecho</p>
       </div>
 
