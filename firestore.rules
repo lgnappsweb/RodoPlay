@@ -6,64 +6,107 @@ service cloud.firestore {
       allow read, write: if false;
     }
     
-    // Player profiles and statistics
-    match /players/{playerId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == playerId || playerId.startsWith('p_') || request.auth == null;
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == "lgngregorio@icloud.com";
     }
 
-    // Mandatory master users collection
+    // Player profiles matches (backwards compatibility and master users collection)
     match /users/{userId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId || userId.startsWith('p_') || request.auth == null;
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                       request.resource.data.statusConta == "pendente" && 
+                       request.resource.data.aprovado == false;
+      allow update: if (isOwner(userId) && 
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["statusConta", "aprovado"])) || 
+                       isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /players/{playerId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.auth.uid == playerId && 
+                       request.resource.data.statusConta == "pendente" && 
+                       request.resource.data.aprovado == false;
+      allow update: if (isOwner(playerId) && 
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["statusConta", "aprovado"])) || 
+                       isAdmin();
+      allow delete: if isOwner(playerId) || isAdmin();
+    }
+
+    // Admin Notifications match
+    match /admin_notifications/{notiId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Audit logs match
+    match /auditoria/{logId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Config parameters match
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Real-time global, bases, and shift rankings collections
     match /rankings/global/players/{playerId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == playerId || playerId.startsWith('p_') || request.auth == null;
+      allow write: if isOwner(playerId) || isAdmin();
     }
 
     match /rankings/bases/all_bases/{baseId}/players/{playerId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == playerId || playerId.startsWith('p_') || request.auth == null;
+      allow write: if isOwner(playerId) || isAdmin();
     }
 
     match /rankings/turnos/all_turnos/{turnoId}/players/{playerId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == playerId || playerId.startsWith('p_') || request.auth == null;
+      allow write: if isOwner(playerId) || isAdmin();
     }
     
     // Real-time multiplayer rooms
     match /multiplayer_rooms/{roomId} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn();
     }
     
     // Direct player invitations
     match /invitations/{invitationId} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn();
     }
 
     // Player notifications
     match /notifications/{notificationId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource.data.recipientId == request.auth.uid || isAdmin());
+      allow write: if isSignedIn();
     }
     
     // Base/shift performance statistics
     match /stats/{document=**} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isSignedIn();
     }
     
     // Game history and duel logs
     match /duels/{duelId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isSignedIn();
     }
 
     // Active sessions for multi-device synchronization
     match /sessions/{sessionId} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn();
     }
   }
 }

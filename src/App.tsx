@@ -13,13 +13,14 @@ import { db } from './lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { getThemeSettings, applyTheme } from './lib/theme';
 import { createNotification } from './lib/notifications';
-import { Bell, Gamepad2, Shield, Trash2, Compass, RefreshCw } from 'lucide-react';
+import { Bell, Gamepad2, Shield, Trash2, Compass, RefreshCw, Clock, Ban, X } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 
 // Lazy load heavy or secondary components
 const Leaderboard = lazy(() => import('./components/Leaderboard').then(m => ({ default: m.Leaderboard })));
 const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
 const NotificationsPage = lazy(() => import('./components/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
+const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Quiz = lazy(() => import('./components/Quiz').then(m => ({ default: m.Quiz })));
 const Hangman = lazy(() => import('./components/Hangman').then(m => ({ default: m.Hangman })));
 const WordSearch = lazy(() => import('./components/WordSearch').then(m => ({ default: m.WordSearch })));
@@ -61,8 +62,21 @@ export default function App() {
     isMultiplayer: boolean;
     isTimeout: boolean;
     roundsPlayed: number;
+    isAbandoned?: boolean;
   } | null>(null);
   const [gameSessionId, setGameSessionId] = useState(0);
+
+  // Centralized real-time listener for administrator WhatsApp contact
+  const [adminSettings, setAdminSettings] = useState<{ whatsappAdmin?: string }>({ whatsappAdmin: '5511999999999' });
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'config', 'appSettings'), (snap) => {
+      if (snap.exists()) {
+        setAdminSettings(snap.data());
+      }
+    });
+    return unsub;
+  }, []);
 
   // Sync user profile state changes including edits and newly obtained avatars into saved profiles list for rapid 1-click access
   useEffect(() => {
@@ -478,6 +492,169 @@ export default function App() {
     );
   }
 
+  // Blocking check for non-approved accounts with real-time reactive support and custom WhatsApp formatting
+  const isUserAdmin = player?.email?.toLowerCase() === 'lgngregorio@icloud.com';
+  const playerStatus = player?.statusConta || (isUserAdmin ? 'aprovado' : 'aprovado');
+
+  if (player && playerStatus !== 'aprovado' && !isUserAdmin) {
+    const rawWhatsapp = adminSettings.whatsappAdmin || '5511999999999';
+    const whatsappMsg = `Olá, Administrador.
+Solicito aprovação de acesso para o meu cadastro no RodoPlay.
+Identificação/Apelido: ${player.displayName || ''}
+Email: ${player.email || ''}
+Base: ${player.base || ''}
+Turno: ${player.shift || ''}
+Data de Cadastro: ${player.createdAt ? new Date(player.createdAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}
+No aguardo da liberação corporativa.`;
+
+    const whatsappLink = `https://api.whatsapp.com/send?phone=${rawWhatsapp.replace(/\D/g, '')}&text=${encodeURIComponent(whatsappMsg)}`;
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden">
+        {/* Glowing particle sphere */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.08),transparent_50%)]" />
+        <div className="absolute inset-x-0 top-0 h-24 hazard-stripe opacity-50" />
+        
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-sm bg-slate-900/90 backdrop-blur-xl border-2 border-slate-800 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.6)] relative z-10 text-center space-y-6"
+        >
+          {playerStatus === 'pendente' && (
+            <>
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-yellow-400 rounded-full blur-xl opacity-30 animate-pulse" />
+                  <div className="w-16 h-16 rounded-2xl bg-yellow-450/10 border-2 border-yellow-450 text-yellow-400 flex items-center justify-center relative">
+                    <Clock size={32} className="stroke-[2.5]" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <span className="text-[10px] font-black bg-yellow-400/10 text-yellow-500 px-3 py-1 rounded-full uppercase tracking-widest border border-yellow-500/20">
+                  ⌛ CADASTRO EM ANÁLISE
+                </span>
+                <h2 className="text-xl font-black text-white uppercase italic tracking-tighter">AGUARDANDO LIBERAÇÃO</h2>
+                <p className="text-xs text-slate-400 leading-relaxed font-semibold uppercase">
+                  Seu cadastro foi enviado com sucesso para análise do administrador. Você será liberado para acessar o aplicativo em breve.
+                </p>
+              </div>
+
+              {/* Data Summary Grid */}
+              <div className="p-4 bg-slate-950/60 rounded-2xl border border-slate-800 text-left space-y-2 text-[11px] font-semibold text-slate-400">
+                <div className="flex justify-between">
+                  <span>Apelido:</span>
+                  <span className="font-bold text-white uppercase">{player.displayName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>E-mail:</span>
+                  <span className="font-bold text-white lowercase">{player.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Sua Base:</span>
+                  <span className="font-bold text-yellow-400 uppercase">{player.base}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Seu Turno:</span>
+                  <span className="font-bold text-yellow-400 uppercase">{player.shift}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <a
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition-all cursor-pointer active:scale-98"
+                >
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.058 5.386 5.396.048 11.971.048c3.186.001 6.182 1.24 8.435 3.496 2.253 2.256 3.491 5.253 3.491 8.438 0 6.585-5.338 11.924-11.916 11.924-2.001 0-3.974-.5-5.729-1.45L0 24zm6.59-4.846c1.6.95 3.473 1.452 5.378 1.453 5.485 0 9.94-4.46 9.943-9.949 0-2.658-1.034-5.158-2.91-7.038l-.001-.001C17.135 1.74 14.639.707 11.974.707c-5.486 0-9.94 4.46-9.943 9.95 0 1.996.52 3.945 1.503 5.679L2.52 21.46l5.127-1.306z"/>
+                  </svg>
+                  <span>Solicitar Aprovação Rápida</span>
+                </a>
+
+                <button
+                  onClick={() => logout()}
+                  className="w-full h-12 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                  </svg>
+                  <span>Sair da Conta</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {playerStatus === 'bloqueado' && (
+            <>
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-red-500 rounded-full blur-xl opacity-30 animate-pulse" />
+                  <div className="w-16 h-16 rounded-2xl bg-red-500/10 border-2 border-red-500 text-red-500 flex items-center justify-center relative">
+                    <Ban size={32} className="stroke-[2.5]" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <span className="text-[10px] font-black bg-red-400/10 text-red-500 px-3 py-1 rounded-full uppercase tracking-widest border border-red-500/20">
+                  🚫 ACESSO RESTRITO
+                </span>
+                <h2 className="text-xl font-black text-white uppercase italic tracking-tighter">CONTA BLOQUEADA</h2>
+                <p className="text-xs text-slate-400 leading-relaxed font-semibold uppercase">
+                  Seu login ao aplicativo corporativo RodoPlay foi temporariamente bloqueado pelo administrador. Entre em contato com a equipe de supervisão da sua base para regularização.
+                </p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={() => logout()}
+                  className="w-full h-14 bg-slate-800 hover:bg-slate-750 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>Voltar para Login</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {playerStatus === 'rejeitado' && (
+            <>
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-orange-500 rounded-full blur-xl opacity-30 animate-pulse" />
+                  <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border-2 border-orange-500 text-orange-400 flex items-center justify-center relative">
+                    <X size={32} className="stroke-[2.5]" strokeWidth={2.5} />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <span className="text-[10px] font-black bg-orange-400/10 text-orange-400 px-3 py-1 rounded-full uppercase tracking-widest border border-orange-500/20">
+                  ⚠️ CADASTRO REJEITADO
+                </span>
+                <h2 className="text-xl font-black text-white uppercase italic tracking-tighter">CADASTRO REJEITADO</h2>
+                <p className="text-xs text-slate-400 leading-relaxed font-semibold uppercase">
+                  Infelizmente o seu cadastro corporativo foi rejeitado pelo administrador. Você pode criar um novo cadastro revisando suas credenciais de base e turno ou falar com o suporte.
+                </p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={() => logout()}
+                  className="w-full h-14 bg-slate-800 hover:bg-slate-750 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>Criar Novo Cadastro</span>
+                </button>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
+
   const handleScoreUpdate = (points: number) => {
     setSessionScore(prev => prev + points);
   };
@@ -491,7 +668,8 @@ export default function App() {
     p2Score?: number,
     gameType?: string,
     isTimeout = false,
-    keepInGameSelection = false
+    keepInGameSelection = false,
+    isAbandoned = false
   ) => {
     if (roundsPlayed <= 0 || !player) {
       setSessionScore(0);
@@ -499,111 +677,121 @@ export default function App() {
       return;
     }
 
-    try {
-      const finalP1Score = isMultiplayer && p1Score !== undefined ? p1Score : score;
-      const xpGained = finalP1Score / 2;
-      
-      // New totals for accurate level calculation and persistence
-      const newXp = (player.xp || 0) + xpGained;
-      const newTotalScore = (player.totalScore || 0) + finalP1Score;
-      const newGamesPlayed = (player.gamesPlayed || 0) + roundsPlayed;
-      
-      const newCompletedGames = (player.completedGames || 0) + (isTimeout ? 0 : roundsPlayed);
-      const newTimedOutGames = (player.timedOutGames || 0) + (isTimeout ? roundsPlayed : 0);
-      
-      // Calculate new level based on progressive formula: XP_REQ = (L-1)*L/2 * 500
-      // Solving for L: L = (250 + sqrt(62500 + 1000*XP)) / 500
-      const newLevel = Math.floor((250 + Math.sqrt(62500 + 1000 * newXp)) / 500);
+    const finalP1Score = isMultiplayer && p1Score !== undefined ? p1Score : score;
+    const resolvedGameType = gameType || (Object.values(GameType).includes(view as any) ? view as string : 'TIC_TAC_TOE');
+    
+    // IMMEDIATE STATE UPDATE: Show the completion screen instantly!
+    setActivePatrolResult({
+      score: finalP1Score,
+      gameType: resolvedGameType,
+      isMultiplayer,
+      isTimeout,
+      roundsPlayed,
+      isAbandoned: isAbandoned || !!keepInGameSelection
+    });
+    setSessionScore(0);
 
-      // Aggregates specific points and patrols of all 15 grid games under gameStats
-      const gameKey = gameType || (Object.values(GameType).includes(view as any) ? view : 'TIC_TAC_TOE');
-      const currentStats = player.gameStats || {};
-      const gameStatObj = currentStats[gameKey] || { score: 0, completions: 0 };
-      const updatedGameStats = {
-        ...currentStats,
-        [gameKey]: {
-          score: gameStatObj.score + finalP1Score,
-          completions: gameStatObj.completions + (isTimeout ? 0 : roundsPlayed)
-        }
-      };
-
-      // Sincroniza dados instantaneamente no estado local / localStorage e depois na nuvem
-      await updateProfile({
-        totalScore: newTotalScore,
-        xp: newXp,
-        gamesPlayed: newGamesPlayed,
-        completedGames: newCompletedGames,
-        timedOutGames: newTimedOutGames,
-        level: newLevel,
-        gameStats: updatedGameStats,
-      });
-
-      // E envia uma notificação informando a conclusão desta patrulha e pontos obtidos!
+    // Run the persistence asynchronously in the background so there's NO visual delay!
+    (async () => {
       try {
-        const gameFriendly = getFriendlyGameName(gameType || (Object.values(GameType).includes(view as any) ? view : ''));
-        const notiId = `noti_${Date.now()}_complete`;
-        await setDoc(doc(db, 'notifications', notiId), {
-          id: notiId,
-          recipientId: player.uid,
-          title: "Patrulha Homologada! 📋✅",
-          message: `Inspecionada com sucesso!\n\n• Patrulha executada: ${gameFriendly}\n• Pontos adquiridos nesta partida: +${finalP1Score} pontos\n• XP ganho nesta partida: +${xpGained} XP\n\n📊 SALDO DE CARREIRA ATUALIZADO:\n• Pontuação Geral Acumulada: ${newTotalScore} pontos\n• Total de Patrulhas Executadas: ${newGamesPlayed} patrulhas\n\nA Central RodoPlay registrou suas métricas operacionais com sucesso. Continue rodando e preservando as vias!`,
-          type: "patrol",
-          timestamp: new Date().toISOString(),
-          read: false,
-          senderId: 'system',
-          senderName: 'Central RodoPlay'
+        const xpGained = finalP1Score / 2;
+        
+        // New totals for accurate level calculation and persistence
+        const newXp = (player.xp || 0) + xpGained;
+        const newTotalScore = (player.totalScore || 0) + finalP1Score;
+        const newGamesPlayed = (player.gamesPlayed || 0) + roundsPlayed;
+        
+        const newCompletedGames = (player.completedGames || 0) + (isTimeout ? 0 : roundsPlayed);
+        const newTimedOutGames = (player.timedOutGames || 0) + (isTimeout ? roundsPlayed : 0);
+        
+        // Calculate new level based on progressive formula: XP_REQ = (L-1)*L/2 * 500
+        const newLevel = Math.floor((250 + Math.sqrt(62500 + 1000 * newXp)) / 500);
+
+        // Aggregates specific points and patrols of all 15 grid games under gameStats
+        const gameKey = resolvedGameType;
+        const currentStats = player.gameStats || {};
+        const gameStatObj = currentStats[gameKey] || { score: 0, completions: 0 };
+        const updatedGameStats = {
+          ...currentStats,
+          [gameKey]: {
+            score: gameStatObj.score + finalP1Score,
+            completions: gameStatObj.completions + (isTimeout ? 0 : roundsPlayed)
+          }
+        };
+
+        // Sincroniza dados no estado local / localStorage e depois na nuvem
+        await updateProfile({
+          totalScore: newTotalScore,
+          xp: newXp,
+          gamesPlayed: newGamesPlayed,
+          completedGames: newCompletedGames,
+          timedOutGames: newTimedOutGames,
+          level: newLevel,
+          gameStats: updatedGameStats,
         });
 
-        // Caso tenha subido de nível, receba uma notificação de parabéns!
-        if (newLevel > (player.level || 1)) {
-          const lvlNotiId = `noti_${Date.now()}_levelup_${newLevel}`;
-          await setDoc(doc(db, 'notifications', lvlNotiId), {
-            id: lvlNotiId,
+        // E envia uma notificação informando a conclusão ou alteração operacionais!
+        try {
+          const gameFriendly = getFriendlyGameName(resolvedGameType);
+          const notiId = `noti_${Date.now()}_complete`;
+          const title = (isAbandoned || keepInGameSelection) ? "Patrulha Interrompida! ⚠️" : "Patrulha Homologada! 📋✅";
+          const message = (isAbandoned || keepInGameSelection)
+            ? `Operação suspensa voluntariamente!\n\n• Patrulha: ${gameFriendly}\n• Pontos parciais consolidados: +${finalP1Score} pontos\n• XP ganho: +${xpGained} XP\n\n📊 SALDO ATUALIZADO:\n• Pontuação Geral Acumulada: ${newTotalScore} pontos`
+            : `Inspecionada com sucesso!\n\n• Patrulha executada: ${gameFriendly}\n• Pontos adquiridos nesta partida: +${finalP1Score} pontos\n• XP ganho nesta partida: +${xpGained} XP\n\n📊 SALDO DE CARREIRA ATUALIZADO:\n• Pontuação Geral Acumulada: ${newTotalScore} pontos\n• Total de Patrulhas Executadas: ${newGamesPlayed} patrulhas\n\nA Central RodoPlay registrou suas métricas operacionais com sucesso. Continue rodando e preservando as vias!`;
+
+          await setDoc(doc(db, 'notifications', notiId), {
+            id: notiId,
             recipientId: player.uid,
-            title: "Promoção de Nível! ⭐🎉",
-            message: `Impressionante! Você progrediu para o Nível ${newLevel}. Continue rodando e inspecionando!`,
-            type: "points",
+            title,
+            message,
+            type: "patrol",
             timestamp: new Date().toISOString(),
             read: false,
             senderId: 'system',
             senderName: 'Central RodoPlay'
           });
-        }
-      } catch (notiErr) {
-        console.warn("Error creating patrol notifications:", notiErr);
-      }
 
-      // Se for multiplayer com parceiro, salve o resultado do duelo na coleção 'duels'
-      if (isMultiplayer && partner) {
-        // Apenas um dos jogadores (com o UID de menor valor lexicográfico) salva o log de duelo para evitar duplicidade
-        const shouldWriteDuel = player.uid < partner.uid;
-        if (shouldWriteDuel) {
-          await addDoc(collection(db, 'duels'), {
-            player1Id: player.uid,
-            player1Name: player.displayName,
-            player1Avatar: player.avatar || '',
-            player2Id: partner.uid,
-            player2Name: partner.displayName,
-            player2Avatar: partner.avatar || '',
-            p1Score: p1Score !== undefined ? p1Score : 0,
-            p2Score: p2Score !== undefined ? p2Score : 0,
-            gameType: gameType || 'TIC_TAC_TOE',
-            timestamp: new Date().toISOString()
-          });
+          // Caso tenha subido de nível, receba uma notificação de parabéns!
+          if (newLevel > (player.level || 1)) {
+            const lvlNotiId = `noti_${Date.now()}_levelup_${newLevel}`;
+            await setDoc(doc(db, 'notifications', lvlNotiId), {
+              id: lvlNotiId,
+              recipientId: player.uid,
+              title: "Promoção de Nível! ⭐🎉",
+              message: `Impressionante! Você progrediu para o Nível ${newLevel}. Continue rodando e inspecionando!`,
+              type: "points",
+              timestamp: new Date().toISOString(),
+              read: false,
+              senderId: 'system',
+              senderName: 'Central RodoPlay'
+            });
+          }
+        } catch (notiErr) {
+          console.warn("Error creating patrol notifications:", notiErr);
         }
+
+        // Se for multiplayer com parceiro, salve o resultado do duelo na coleção 'duels'
+        if (isMultiplayer && partner) {
+          const shouldWriteDuel = player.uid < partner.uid;
+          if (shouldWriteDuel) {
+            await addDoc(collection(db, 'duels'), {
+              player1Id: player.uid,
+              player1Name: player.displayName,
+              player1Avatar: player.avatar || '',
+              player2Id: partner.uid,
+              player2Name: partner.displayName,
+              player2Avatar: partner.avatar || '',
+              p1Score: p1Score !== undefined ? p1Score : 0,
+              p2Score: p2Score !== undefined ? p2Score : 0,
+              gameType: resolvedGameType,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      } catch (error) {
+        console.warn("[Firebase Error] Falha ao sincronizar dados do fim de partida:", error);
       }
-    } catch (error) {
-      console.warn("[Firebase Error] Falha ao sincronizar dados do fim de partida:", error);
-    } finally {
-      setSessionScore(0);
-      setActivePatrolResult({
-        score: isMultiplayer && p1Score !== undefined ? p1Score : score,
-        gameType: gameType || (Object.values(GameType).includes(view as any) ? view as string : 'TIC_TAC_TOE'),
-        isMultiplayer,
-        isTimeout,
-        roundsPlayed
-      });
-    }
+    })();
   };
 
   const getXpThreshold = (lvl: number) => ((lvl - 1) * lvl / 2) * 500;
@@ -652,6 +840,19 @@ export default function App() {
                     {unreadCount}
                   </span>
                 )}
+              </motion.button>
+            )}
+
+            {/* Exclusive Administrator Toggle Button badge */}
+            {isHome && player?.email?.toLowerCase() === 'lgngregorio@icloud.com' && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setView('admin' as any)}
+                className="absolute top-4 left-4 h-12 px-4 rounded-2xl bg-yellow-400 text-slate-950 hover:bg-yellow-300 transition-all cursor-pointer z-50 flex items-center justify-center gap-1.5 shadow-lg border border-yellow-500 font-extrabold text-[10px] uppercase tracking-wider"
+              >
+                <Shield size={14} className="stroke-[2.5]" />
+                <span>Painel Adm</span>
               </motion.button>
             )}
 
@@ -813,6 +1014,17 @@ export default function App() {
                 onAcceptInviteByDefault={handleAcceptInvite}
                 onDeclineInviteByDefault={handleDeclineInvite}
               />
+            </motion.div>
+          )}
+
+          {view === 'admin' && player?.email?.toLowerCase() === 'lgngregorio@icloud.com' && (
+            <motion.div
+              key="admin"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <AdminPanel player={player} onBack={() => setView('home')} />
             </motion.div>
           )}
 
@@ -1155,7 +1367,7 @@ export default function App() {
       </main>
 
       {/* Bottom Nav visible in non-game views */}
-      {!Object.values(GameType).includes(view as any) && (
+      {!Object.values(GameType).includes(view as any) && view !== 'admin' && (
         <BottomNav activeView={view} onViewChange={(v) => setView(v as any)} unreadCount={unreadCount} />
       )}
 
@@ -1251,27 +1463,43 @@ export default function App() {
 
               <div className="space-y-1">
                 <span className="inline-block bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2.5 py-0.5 font-black uppercase text-[8px] tracking-[0.2em] rounded-md leading-none">
-                  PATRULHA HOMOLOGADA! 📋
+                  {activePatrolResult.isAbandoned ? 'PATRULHA ABANDONADA! 🚨' : activePatrolResult.isTimeout ? 'TEMPO ESGOTADO! ⏱️' : 'PATRULHA HOMOLOGADA! 📋'}
                 </span>
-                <h3 className="text-xl font-black text-white uppercase italic tracking-tight">Inspeção Concluída</h3>
+                <h3 className="text-xl font-black text-white uppercase italic tracking-tight">
+                  {activePatrolResult.isAbandoned ? 'Vistoria Parcial' : activePatrolResult.isTimeout ? 'Inspeção Forçada' : 'Inspeção Concluída'}
+                </h3>
                 <p className="text-slate-400 text-[10px] leading-relaxed max-w-[250px] mx-auto">
-                  Métricas de vistoria e aptidão operacional urbana salvas na central de tráfego.
+                  {activePatrolResult.isAbandoned 
+                    ? 'Sua patrulha foi interrompida pelo operador. Pontos acumulados foram creditados com sucesso!' 
+                    : activePatrolResult.isTimeout 
+                      ? 'O tempo programado para esta patrulha expirou. As métricas operacionais foram enviadas até onde concluiu.'
+                      : 'Métricas de vistoria e aptidão operacional urbana salvas na central de tráfego.'}
                 </p>
               </div>
 
               {/* Showcase box */}
-              <div className="w-full grid grid-cols-2 gap-3 bg-slate-950/85 p-3.5 rounded-2xl border border-slate-800/80 font-mono">
-                <div className="text-left border-r border-slate-850 pr-1.5 flex flex-col justify-center">
-                  <span className="text-[7px] font-black text-slate-550 uppercase tracking-widest block mb-1">Setor Vistoriado</span>
-                  <span className="text-[10px] font-black text-slate-300 uppercase truncate block">
+              <div className="w-full space-y-2.5 bg-slate-950/40 p-4 rounded-2xl border border-slate-800/60 text-center font-sans">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-800/50">
+                  <span className="text-[9px] font-extrabold text-slate-550 uppercase tracking-widest">Setor Vistoriado</span>
+                  <span className="text-[11px] font-black text-white uppercase tracking-tight">
                     {getFriendlyGameName(activePatrolResult.gameType)}
                   </span>
                 </div>
-                <div className="text-right pl-1.5 flex flex-col justify-center">
-                  <span className="text-[7px] font-black text-slate-550 uppercase tracking-widest block mb-1">Pontos Faturados</span>
-                  <span className="text-base font-black text-yellow-400 block tracking-tight">
-                    +{activePatrolResult.score} XP
-                  </span>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 font-mono">
+                  <div className="bg-slate-950/90 border border-slate-850/80 p-3 rounded-xl text-center">
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Pontos Adquiridos</span>
+                    <span className="text-sm md:text-base font-black text-blue-400 block leading-none">
+                      +{activePatrolResult.score} PTS
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-950/90 border border-slate-850/80 p-3 rounded-xl text-center">
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">XP Ganho</span>
+                    <span className="text-sm md:text-base font-black text-yellow-400 block leading-none">
+                      +{activePatrolResult.score / 2} XP
+                    </span>
+                  </div>
                 </div>
               </div>
 

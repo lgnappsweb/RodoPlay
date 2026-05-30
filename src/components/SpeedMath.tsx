@@ -20,7 +20,8 @@ interface SpeedMathProps {
     p2Score?: number,
     gameType?: string,
     isTimeout?: boolean,
-    keepInGameSelection?: boolean
+    keepInGameSelection?: boolean,
+    isAbandoned?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -40,7 +41,7 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isTimeOut, setIsTimeOut] = useState(false);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
-  const totalRounds = 20;
+  const totalRounds = 10;
 
   // Multiplayer State
   const [multiplayerMode, setMultiplayerMode] = useState<'1p' | '2p'>('1p');
@@ -61,8 +62,8 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
   }, []);
 
   const generateProblem = () => {
-    // Progression: numbers grow every 10 rounds
-    const stage = Math.floor((currentRound - 1) / 10);
+    // Progression: numbers grow every 5 rounds
+    const stage = Math.floor((currentRound - 1) / 5);
     const rangeMultiplier = 1 + stage * 0.5;
     
     let range = 10;
@@ -92,8 +93,8 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     }
     setOptions(opts.sort(() => Math.random() - 0.5));
     
-    // Time decreases by 1s every 10 rounds, min 3s
-    const currentBaseTime = Math.max(3, baseTime - Math.floor((currentRound - 1) / 10));
+    // Time decreases by 1s every 5 rounds, min 3s
+    const currentBaseTime = Math.max(3, baseTime - Math.floor((currentRound - 1) / 5));
     setTimeLeft(currentBaseTime);
     setProblem({ a, b, op, answer });
     setIsRevealing(false);
@@ -122,7 +123,7 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     
     let points = 0;
     if (val === problem.answer) {
-      points = 100;
+      points = 200;
       if (multiplayerMode === '2p') {
         if (activePlayerTurn === 'p1') {
           setP1Score(s => s + points);
@@ -335,7 +336,8 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
               p2Score,
               'SPEED_MATH',
               false,
-              false
+              false,
+              true // isAbandoned = true
             );
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"

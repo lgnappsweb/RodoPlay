@@ -104,9 +104,54 @@
         "totalScore": { "type": "integer" },
         "playerCount": { "type": "integer" }
       }
+    },
+    "AdminNotification": {
+      "title": "Admin Notification",
+      "description": "A pending registration, support request, or edit request alert sent to admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uidUsuario": { "type": "string" },
+        "apelido": { "type": "string" },
+        "email": { "type": "string" },
+        "base": { "type": "string" },
+        "turno": { "type": "string" },
+        "status": { "type": "string" },
+        "dataCadastro": { "type": "string" },
+        "visualizado": { "type": "boolean" },
+        "type": { "type": "string" },
+        "message": { "type": "string" }
+      },
+      "required": ["id", "uidUsuario", "status", "dataCadastro", "visualizado"]
+    },
+    "AuditLog": {
+      "title": "Security Audit Log",
+      "description": "Ledger of administrative security actions like approval, rejection, block, deletion and updates.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "adminId": { "type": "string" },
+        "adminName": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "action", "timestamp"]
     }
   },
   "firestore": {
+    "/admin_notifications/{notificationId}": {
+      "schema": "AdminNotification",
+      "description": "Collection storing alerts of new registries, support, and edits for administration."
+    },
+    "/auditoria/{logId}": {
+      "schema": "AuditLog",
+      "description": "Audit records tracing security modifications and operations."
+    },
     "/players/{playerId}": {
       "schema": "Player",
       "description": "Store player profiles and individual scores."

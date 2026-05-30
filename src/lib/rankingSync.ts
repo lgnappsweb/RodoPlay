@@ -139,6 +139,10 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
     const shift = data.shift || (data as any).turno || existingProfile?.shift || existingProfile?.turno || cached?.shift || cached?.turno || 'Turno A - Diurno';
     const praca = (data as any).praca || (data as any).praça || existingProfile?.praca || existingProfile?.praça || cached?.praca || cached?.praça || 'Praça 01';
     
+    // Status and approval fields
+    const statusConta = data.statusConta || existingProfile?.statusConta || cached?.statusConta || (email.toLowerCase() === 'lgngregorio@icloud.com' ? 'aprovado' : 'pendente');
+    const aprovado = data.aprovado !== undefined ? data.aprovado : (existingProfile?.aprovado !== undefined ? existingProfile.aprovado : (cached?.aprovado !== undefined ? cached.aprovado : (email.toLowerCase() === 'lgngregorio@icloud.com' ? true : false)));
+    
     const displayName = finalApelido;
     
     // Performance and progression scores
@@ -244,7 +248,9 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
       rankingBase,
       rankingTurno,
       createdAt,
-      updatedAt
+      updatedAt,
+      statusConta,
+      aprovado
     };
 
     const batch = writeBatch(db);

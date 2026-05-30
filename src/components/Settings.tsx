@@ -49,6 +49,43 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
   const [avatarBatchIndex, setAvatarBatchIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
+
+  const [supportMessage, setSupportMessage] = useState('');
+  const [isSendingSupport, setIsSendingSupport] = useState(false);
+  const [supportSentSuccess, setSupportSentSuccess] = useState(false);
+  const [supportError, setSupportError] = useState('');
+
+  const handleSendSupportRequest = async () => {
+    if (!supportMessage.trim()) return;
+    setIsSendingSupport(true);
+    setSupportError('');
+    setSupportSentSuccess(false);
+    try {
+      const { setDoc, doc } = await import('firebase/firestore');
+      const supportId = `admin_noti_${Date.now()}_support_${player.uid}`;
+      await setDoc(doc(db, 'admin_notifications', supportId), {
+        id: supportId,
+        uidUsuario: player.uid,
+        apelido: player.displayName || '',
+        email: player.email || '',
+        base: player.base || 'Base 01',
+        turno: player.shift || 'Turno A',
+        status: 'Pendente',
+        dataCadastro: new Date().toISOString(),
+        visualizado: false,
+        type: 'Pedido de suporte',
+        message: `Pedido de suporte de ${player.displayName || 'Jogador'}: ${supportMessage.trim()}`
+      });
+      setSupportMessage('');
+      setSupportSentSuccess(true);
+      setTimeout(() => setSupportSentSuccess(false), 5000);
+    } catch (err: any) {
+      console.error("Failed sending support request:", err);
+      setSupportError("Não foi possível enviar a mensagem. " + (err.message || ""));
+    } finally {
+      setIsSendingSupport(false);
+    }
+  };
   
   const [sessions, setSessions] = useState<any[]>([]);
   const currentSessionIdLoc = localStorage.getItem('active_session_id') || '';
@@ -771,7 +808,45 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
           </div>
         </Card>
 
-
+        {/* Card de Fale Conosco / Suporte Corporativo */}
+        <Card className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden mt-4 p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-705 p-1 rounded-xl flex items-center justify-center bg-slate-700 text-slate-400">
+               <HelpCircle size={20} className="text-yellow-400 animate-pulse" />
+            </div>
+            <div>
+               <p className="text-xs font-black uppercase text-white">Suporte Corporativo</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Enviar Dúvida ou Solicitação</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <textarea
+              value={supportMessage}
+              onChange={(e) => setSupportMessage(e.target.value)}
+              placeholder="Digite aqui detalhadamente seu problema ou dúvida para o administrador..."
+              className="w-full h-24 bg-slate-900/60 border-2 border-slate-700 rounded-xl p-3 text-white text-xs outline-none focus:border-yellow-400 transition-all resize-none placeholder:text-slate-600 font-sans"
+            />
+            {supportSentSuccess && (
+              <p className="text-[10px] font-black uppercase text-emerald-400 text-center animate-bounce">✓ Mensagem enviada com sucesso ao administrador!</p>
+            )}
+            {supportError && (
+              <p className="text-[10px] font-black uppercase text-red-550 text-center">{supportError}</p>
+            )}
+            <button
+              onClick={handleSendSupportRequest}
+              disabled={isSendingSupport || !supportMessage.trim()}
+              className="w-full h-12 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-[10px] uppercase tracking-wider font-sans font-black active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isSendingSupport ? (
+                <Loader2 className="animate-spin" size={12} />
+              ) : (
+                <HelpCircle size={12} />
+              )}
+              <span>{isSendingSupport ? 'Enviando...' : 'Pedir Ajuda / Comunicar Suporte'}</span>
+            </button>
+          </div>
+        </Card>
 
         {/* Card de Gestão de Conta e Segurança */}
         <Card id="account-actions-card" className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden mt-4">

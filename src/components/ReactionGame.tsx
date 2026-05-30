@@ -20,7 +20,8 @@ interface ReactionGameProps {
     p2Score?: number,
     gameType?: string,
     isTimeout?: boolean,
-    keepInGameSelection?: boolean
+    keepInGameSelection?: boolean,
+    isAbandoned?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -370,9 +371,9 @@ export function ReactionGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
               multiplayerMode === '2p' ? p2Score : 0,
               'REACTION',
               false,
-              true // keepInGameSelection = true
+              false, // keepInGameSelection = false
+              true  // isAbandoned = true
             );
-            setShowAbandonModal(true);
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >

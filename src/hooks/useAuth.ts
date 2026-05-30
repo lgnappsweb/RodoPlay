@@ -14,7 +14,7 @@ import {
   EmailAuthProvider,
   User
 } from 'firebase/auth';
-import { doc, onSnapshot, getDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, deleteDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { Player } from '../types';
 import { writePlayerProfile } from '../lib/rankingSync';
@@ -334,6 +334,10 @@ export function useAuth() {
       const localThemePrimary = localStorage.getItem('app_theme_primary') || '#fbbf24';
       const localThemeSecondary = localStorage.getItem('app_theme_secondary') || '#6366f1';
 
+      const isAdminEmail = cleanedEmail.toLowerCase() === 'lgngregorio@icloud.com';
+      const statusConta = isAdminEmail ? 'aprovado' : 'pendente';
+      const aprovado = isAdminEmail ? true : false;
+
       const newPlayer: Player = {
         uid: uid,
         displayName: displayName.trim(),
@@ -353,7 +357,9 @@ export function useAuth() {
         lastActive: new Date().toISOString(),
         themeMode: localThemeMode,
         themePrimary: localThemePrimary,
-        themeSecondary: localThemeSecondary
+        themeSecondary: localThemeSecondary,
+        statusConta: statusConta,
+        aprovado: aprovado
       };
       
       // Store PT-BR attributes under exact keys
@@ -380,11 +386,50 @@ export function useAuth() {
           avatar: DEFAULT_AVATAR,
           base: base || 'Base 01',
           shift: shift || 'Turno A - Diurno',
-          praca: praca || 'Não Aplicável'
+          praca: praca || 'Não Aplicável',
+          statusConta: statusConta,
+          aprovado: aprovado
         });
         localStorage.setItem('roplay_saved_profiles', JSON.stringify(filteredList));
       } catch (errLocal) {
         console.warn("Failed saving profile to local list during register:", errLocal);
+      }
+
+      // Create Admin Notification and Audit Logs for regular users
+      try {
+        // Audit log
+        const auditId = `audit_${Date.now()}_reg_${uid}`;
+        await setDoc(doc(db, 'auditoria', auditId), {
+          id: auditId,
+          userId: uid,
+          userName: displayName.trim(),
+          userEmail: cleanedEmail,
+          adminId: '',
+          adminName: '',
+          adminEmail: '',
+          action: 'Cadastro realizado',
+          details: `Cadastro criado pelo usuário: ${displayName.trim()} (${cleanedEmail}) sob status pendente.`,
+          timestamp: new Date().toISOString()
+        });
+
+        if (!isAdminEmail) {
+          const notiId = `admin_noti_${Date.now()}_reg_${uid}`;
+          await setDoc(doc(db, 'admin_notifications', notiId), {
+            id: notiId,
+            uidUsuario: uid,
+            apelido: displayName.trim(),
+            email: cleanedEmail,
+            base: base || 'Base 01',
+            turno: shift || 'Turno A - Diurno',
+            status: 'Pendente',
+            dataCadastro: new Date().toISOString(),
+            visualizado: false,
+            type: 'Novo Cadastro',
+            message: `Novo cadastro aguardando aprovação: ${displayName.trim()} (${cleanedEmail})`
+          });
+        }
+      } catch (errAdmin) {
+        console.warn("Failed logging/notifying registry for admin:", errAdmin);
       }
 
       // 3. Persist atomically to rankings and default tables in background without blocking await
@@ -459,7 +504,64 @@ export function useAuth() {
   const updateProfile = async (data: Partial<Player>) => {
     if (!user || !player) return;
     try {
+      const basesChanged = data.base && data.base !== player.base;
+      const shiftsChanged = data.shift && data.shift !== player.shift;
+      const nameChanged = data.displayName && data.displayName !== player.displayName;
+
       await writePlayerProfile(user.uid, data);
+
+      if (basesChanged || shiftsChanged || nameChanged) {
+        const notiId = `admin_noti_${Date.now()}_edit_${user.uid}`;
+        await setDoc(doc(db, 'admin_notifications', notiId), {
+          id: notiId,
+          uidUsuario: user.uid,
+          apelido: data.displayName || player.displayName,
+          email: player.email || '',
+          base: data.base || player.base,
+          turno: data.shift || player.shift,
+          status: 'Pendente',
+          dataCadastro: new Date().toISOString(),
+          visualizado: false,
+          type: 'Alteração de perfil',
+          message: `Perfil alterado por ${player.displayName || 'Jogador'}: ${[
+            nameChanged ? `Nome: ${player.displayName} -> ${data.displayName}` : '',
+            basesChanged ? `Base: ${player.base} -> ${data.base}` : '',
+            shiftsChanged ? `Turno: ${player.shift} -> ${data.shift}` : ''
+          ].filter(Boolean).join(', ')}`
+        });
+
+        if (basesChanged) {
+          const auditId = `audit_${Date.now()}_edit_base_${user.uid}`;
+          await setDoc(doc(db, 'auditoria', auditId), {
+            id: auditId,
+            userId: user.uid,
+            userName: player.displayName || 'Jogador',
+            userEmail: player.email || '',
+            adminId: '',
+            adminName: '',
+            adminEmail: '',
+            action: 'Alteração de base',
+            details: `A base foi alterada de "${player.base}" para "${data.base}".`,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        if (shiftsChanged) {
+          const auditId = `audit_${Date.now()}_edit_shift_${user.uid}`;
+          await setDoc(doc(db, 'auditoria', auditId), {
+            id: auditId,
+            userId: user.uid,
+            userName: player.displayName || 'Jogador',
+            userEmail: player.email || '',
+            adminId: '',
+            adminName: '',
+            adminEmail: '',
+            action: 'Alteração de turno',
+            details: `O turno foi alterado de "${player.shift}" para "${data.shift}".`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
     } catch (e) {
       console.warn("Profile update failed:", e);
     }

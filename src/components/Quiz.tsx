@@ -23,7 +23,8 @@ interface QuizProps {
     p2Score?: number,
     gameType?: string,
     isTimeout?: boolean,
-    keepInGameSelection?: boolean
+    keepInGameSelection?: boolean,
+    isAbandoned?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -436,7 +437,6 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
             <div className="w-full flex justify-center mt-6">
               <Button 
                 onClick={() => {
-                  // Salva os pontos acumulados até o de agora e patrulha antes de mostrar o modal
                   onComplete(
                     multiplayerMode === '2p' ? p1Score : score,
                     1,
@@ -446,9 +446,9 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
                     p2Score,
                     'QUIZ',
                     false,
-                    true // keepInGameSelection = true
+                    false, // keepInGameSelection = false
+                    true  // isAbandoned = true
                   );
-                  setShowAbandonModal(true);
                 }}
                 className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
               >

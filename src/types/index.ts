@@ -37,6 +37,8 @@ export interface Player {
   lastActive: string;
   apelido?: string;
   turno?: string;
+  statusConta?: 'pendente' | 'aprovado' | 'rejeitado' | 'bloqueado';
+  aprovado?: boolean;
   
   // Custom multiplayer & statistics fields
   status?: 'online' | 'offline';

@@ -25,7 +25,8 @@ import {
 import { Player } from '../types';
 import { Button } from './ui/button';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
-import { CONTEXT_DICTIONARY_THEMES, PredefinedThemeInfo } from './contextoWordsData';
+import { PredefinedThemeInfo } from './contextoWordsData';
+import { WORD_SEARCH_THEMES } from '../data/wordSearchThemes';
 
 interface ContextoGameProps {
   onComplete: (
@@ -37,7 +38,8 @@ interface ContextoGameProps {
     p2Score?: number,
     gameType?: string,
     isTimeout?: boolean,
-    keepInGameSelection?: boolean
+    keepInGameSelection?: boolean,
+    isAbandoned?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -190,7 +192,54 @@ export const compileDynamicTheme = (info: PredefinedThemeInfo, secretWordOverrid
   };
 };
 
-const CONTEXT_THEMES: PredefinedTheme[] = CONTEXT_DICTIONARY_THEMES.map(info => 
+function getWordDifficultyScore(word: string): number {
+  let score = 0;
+  // Length: longer word is generally harder in Portuguese
+  score += word.length * 2;
+  
+  // Rare letters in Portuguese: Y, W, K, X, Z, H, J, Q
+  const rareLetters = ['y', 'w', 'k', 'x', 'z', 'h', 'j', 'q', 'ç', 'v', 'f', 'g'];
+  for (const char of word.toLowerCase()) {
+    if (rareLetters.includes(char)) {
+      score += 3;
+    }
+  }
+
+  // Accent letters make things a little wordplay tricky
+  const accentChars = ['á', 'à', 'â', 'ã', 'é', 'è', 'ê', 'í', 'ï', 'ó', 'ô', 'õ', 'ö', 'ú'];
+  for (const char of word.toLowerCase()) {
+    if (accentChars.includes(char)) {
+      score += 2;
+    }
+  }
+
+  return score;
+}
+
+const CONTEXT_THEME_INFOS: PredefinedThemeInfo[] = WORD_SEARCH_THEMES.map(theme => {
+  const parts = theme.name.split(' ');
+  const icon = parts[parts.length - 1]; // e.g. 🎒 or 🚗
+  const themeName = parts.slice(0, -1).join(' '); // e.g. "Veículos & Transportes"
+  
+  // Choose reasonable secret word candidates from theme.words
+  // Let's filter words of length 4 to 10 that are alphabet-only
+  const candidates = theme.words.filter(w => /^[a-zA-Záàâãéèêíïóôõöúçñ-]{4,10}$/i.test(w));
+  const finalCandidates = candidates.length > 5 ? candidates : theme.words.slice(0, 50);
+
+  return {
+    themeId: theme.id,
+    themeName: themeName,
+    icon: icon || '📝',
+    description: theme.description,
+    secretWordCandidates: finalCandidates,
+    words: theme.words.map(w => ({
+      word: w,
+      category: theme.id
+    }))
+  };
+});
+
+const CONTEXT_THEMES: PredefinedTheme[] = CONTEXT_THEME_INFOS.map(info => 
   compileDynamicTheme(info)
 );
 
@@ -365,7 +414,7 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
   // Start a fresh new Contexto gameplay session
   const startNewSession = (difficultyLevel: 'easy' | 'medium' | 'hard', themeSelection: PredefinedTheme) => {
     // 1. Get raw theme definitions
-    const themeInfo = CONTEXT_DICTIONARY_THEMES.find(t => t.themeId === themeSelection.themeId);
+    const themeInfo = CONTEXT_THEME_INFOS.find(t => t.themeId === themeSelection.themeId);
     
     let freshTheme = themeSelection;
     if (themeInfo) {
@@ -382,8 +431,29 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
         }));
       }
 
-      // Select a random secret word
-      const newSecretWord = unusedCandidates[Math.floor(Math.random() * unusedCandidates.length)];
+      // Sort unused candidates by difficulty score for graded difficulty selection
+      const sortedCandidates = [...unusedCandidates].sort((a, b) => getWordDifficultyScore(b) - getWordDifficultyScore(a));
+      
+      let poolToSelectFrom = sortedCandidates;
+      if (sortedCandidates.length > 5) {
+        if (difficultyLevel === 'hard') {
+          // Harder words (top 35% of difficulty scores)
+          const sliceEnd = Math.max(1, Math.ceil(sortedCandidates.length * 0.35));
+          poolToSelectFrom = sortedCandidates.slice(0, sliceEnd);
+        } else if (difficultyLevel === 'easy') {
+          // Easier words (bottom 35% of difficulty scores)
+          const sliceStart = Math.max(0, Math.floor(sortedCandidates.length * 0.65));
+          poolToSelectFrom = sortedCandidates.slice(sliceStart);
+        } else {
+          // Medium words (middle 30% of difficulty)
+          const sliceStart = Math.floor(sortedCandidates.length * 0.35);
+          const sliceEnd = Math.ceil(sortedCandidates.length * 0.65);
+          poolToSelectFrom = sortedCandidates.slice(sliceStart, sliceEnd);
+        }
+      }
+
+      // Select a random secret word from the filtered difficulty pool
+      const newSecretWord = poolToSelectFrom[Math.floor(Math.random() * poolToSelectFrom.length)] || unusedCandidates[0];
 
       // Register the secret word as used
       setUsedSecretWords(prev => {
@@ -698,7 +768,7 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
 
             {/* Predefined Category Grid Selection list */}
             <div id="theme-selector">
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-3 text-center">Selecione o Tema</p>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-3 text-center">Selecione o Tema da Patrulha</p>
               <div className="grid grid-cols-1 gap-3 max-h-[220px] overflow-y-auto pr-1">
                 {CONTEXT_THEMES.map((theme) => {
                   const isSelected = selectedTheme.themeId === theme.themeId;
@@ -707,7 +777,11 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
                       key={theme.themeId}
                       type="button"
                       onClick={() => setSelectedTheme(theme)}
-                      className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer ${isSelected ? 'bg-slate-800 border-yellow-400 shadow-[0_0_15px_-5px_rgba(234,179,8,0.2)]' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800/25'}`}
+                      className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        isSelected 
+                          ? 'bg-slate-850 border-yellow-400 shadow-[0_0_15px_-5px_rgba(234,179,8,0.2)]' 
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800/25'
+                      }`}
                     >
                       <span className="text-2xl select-none shrink-0" role="img" aria-label={theme.themeName}>
                         {theme.icon}
@@ -716,7 +790,7 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
                         <p className={isSelected ? 'text-[11.5px] font-black uppercase text-yellow-400' : 'text-[11.5px] font-extrabold uppercase text-slate-300'}>
                           {theme.themeName}
                         </p>
-                        <p className="text-[9px] text-slate-500 font-bold uppercase mt-1 truncate">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase mt-1 leading-relaxed">
                           {theme.description}
                         </p>
                       </div>
@@ -947,7 +1021,8 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
                   p2Score,
                   'CONTEXTO',
                   false,
-                  false
+                  false,
+                  true // isAbandoned = true
                 );
               }}
               className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider cursor-pointer flex items-center justify-center font-sans"

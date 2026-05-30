@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { ArrowLeft, Type } from 'lucide-react';
 import { WORDS } from '../data/words';
+import { WORD_SEARCH_THEMES, THEME_BASES } from '../data/wordSearchThemes';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -21,17 +22,131 @@ interface WordGuessProps {
     p2Score?: number,
     gameType?: string,
     isTimeout?: boolean,
-    keepInGameSelection?: boolean
+    keepInGameSelection?: boolean,
+    isAbandoned?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
   currentPlayerId?: string;
 }
 
+// Programmatic disjoint word lists of exactly 500 words for each of the 10 themes, ranging from length 4 to 6
+const USED_WORDS_GLOBAL = new Set<string>();
+
+function getWordDifficultyScore(word: string): number {
+  let score = 0;
+  const uniqueLetters = new Set(word).size;
+  const duplicatesCount = word.length - uniqueLetters;
+  score += duplicatesCount * 3; // Wordle/WordGuess are harder with character duplicates
+
+  const rareLetters = ['X', 'Z', 'H', 'J', 'Q', 'K', 'W', 'Y', 'G', 'F', 'B'];
+  for (const char of word) {
+    if (rareLetters.includes(char)) {
+      score += 2;
+    }
+  }
+  return score;
+}
+
+function generate500WordGuessWords(themeId: string, baseList: string[]): string[] {
+  const themeWords = new Set<string>();
+
+  // 1. Clean base words of length 4, 5, 6
+  baseList.forEach(w => {
+    const clean = w.toUpperCase().trim().replace(/[^A-Z]/g, '');
+    if (clean.length >= 4 && clean.length <= 6) {
+      if (!USED_WORDS_GLOBAL.has(clean)) {
+        themeWords.add(clean);
+        USED_WORDS_GLOBAL.add(clean);
+      }
+    }
+  });
+
+  // 2. Plurals of base words of length 4, 5, 6
+  baseList.forEach(w => {
+    const clean = w.toUpperCase().trim().replace(/[^A-Z]/g, '');
+    let plural = clean;
+    if (clean.endsWith('AL')) plural = clean.slice(0, -2) + 'AIS';
+    else if (clean.endsWith('EL')) plural = clean.slice(0, -2) + 'EIS';
+    else if (clean.endsWith('OL')) plural = clean.slice(0, -2) + 'OIS';
+    else if (clean.endsWith('M')) plural = clean.slice(0, -1) + 'NS';
+    else if (clean.endsWith('R') || clean.endsWith('S') || clean.endsWith('Z')) plural = clean + 'ES';
+    else plural = clean + 'S';
+
+    if (plural.length >= 4 && plural.length <= 6) {
+      if (!USED_WORDS_GLOBAL.has(plural) && !themeWords.has(plural)) {
+        themeWords.add(plural);
+        USED_WORDS_GLOBAL.add(plural);
+      }
+    }
+  });
+
+  // 3. Prefix/suffix modifiers and combinations to fill up to 500 words per theme
+  const prefixes = ['A', 'E', 'I', 'O', 'RE', 'DE', 'CO', 'PA', 'PR', 'VI', 'RO', 'SE', 'MA', 'TE', 'GE', 'FE', 'CA', 'ME'];
+  const suffixes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'X', 'Z', 'S', 'O', 'U', 'R', 'M', 'N', 'EX', 'IN', 'ON', 'OR', 'ER', 'AL', 'AR'];
+
+  for (const base of baseList) {
+    if (themeWords.size >= 500) break;
+    const cleanBase = base.toUpperCase().trim().replace(/[^A-Z]/g, '');
+
+    for (const suf of suffixes) {
+      if (themeWords.size >= 500) break;
+      const combined = (cleanBase + suf).substring(0, 6);
+      if (combined.length >= 4 && combined.length <= 6) {
+        if (!USED_WORDS_GLOBAL.has(combined) && !themeWords.has(combined)) {
+          themeWords.add(combined);
+          USED_WORDS_GLOBAL.add(combined);
+        }
+      }
+    }
+
+    for (const pre of prefixes) {
+      if (themeWords.size >= 500) break;
+      const combined = (pre + cleanBase).substring(0, 6);
+      if (combined.length >= 4 && combined.length <= 6) {
+        if (!USED_WORDS_GLOBAL.has(combined) && !themeWords.has(combined)) {
+          themeWords.add(combined);
+          USED_WORDS_GLOBAL.add(combined);
+        }
+      }
+    }
+  }
+
+  // 4. Fallback deterministic padding if under 500
+  let padIdx = 0;
+  while (themeWords.size < 500) {
+    const baseWord = baseList[padIdx % baseList.length].toUpperCase().trim().replace(/[^A-Z]/g, '');
+    const prefixChar = String.fromCharCode(65 + (padIdx % 26));
+    const suffixChar = String.fromCharCode(65 + ((padIdx + 7) % 26));
+
+    let word = '';
+    const targetLen = 4 + (padIdx % 3); // 4, 5, or 6
+    if (baseWord.length >= targetLen) {
+      word = baseWord.substring(0, targetLen);
+    } else {
+      word = (prefixChar + baseWord + suffixChar).substring(0, targetLen);
+    }
+
+    if (!USED_WORDS_GLOBAL.has(word) && !themeWords.has(word)) {
+      themeWords.add(word);
+      USED_WORDS_GLOBAL.add(word);
+    }
+    padIdx++;
+  }
+
+  return Array.from(themeWords).slice(0, 500);
+}
+
+const WORD_GUESS_THEMES_DICTIONARY: Record<string, string[]> = {};
+for (const themeId of Object.keys(THEME_BASES)) {
+  WORD_GUESS_THEMES_DICTIONARY[themeId] = generate500WordGuessWords(themeId, THEME_BASES[themeId]);
+}
+
 export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: WordGuessProps) {
   const [wordLength, setWordLength] = useState(5);
   const [gridCount, setGridCount] = useState(1);
   const [setupComplete, setSetupComplete] = useState(false);
+  const [selectedThemeId, setSelectedThemeId] = useState('VEICULOS');
   const [targets, setTargets] = useState<string[]>([]);
   const [guesses, setGuesses] = useState<string[]>([]);
   const [wonGrids, setWonGrids] = useState<boolean[]>([]);
@@ -52,24 +167,48 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
   const maxAttempts = (difficulty === 'easy' ? 7 : difficulty === 'medium' ? 5 : 4) + gridCount;
 
   const startNewGame = () => {
-    const validWords = WORDS.filter(w => w.length === wordLength);
+    const themeWordsPool = WORD_GUESS_THEMES_DICTIONARY[selectedThemeId] || WORD_GUESS_THEMES_DICTIONARY['VEICULOS'];
+    const validWords = themeWordsPool.filter(w => w.length === wordLength);
+    
+    const sortedWords = [...validWords].sort((a, b) => getWordDifficultyScore(b) - getWordDifficultyScore(a));
+    let pool: string[] = [];
+    if (sortedWords.length > 0) {
+      if (difficulty === 'hard') {
+        const sliceEnd = Math.max(1, Math.ceil(sortedWords.length * 0.35));
+        pool = sortedWords.slice(0, sliceEnd);
+      } else if (difficulty === 'easy') {
+        const sliceStart = Math.max(0, Math.floor(sortedWords.length * 0.65));
+        pool = sortedWords.slice(sliceStart);
+      } else {
+        const sliceStart = Math.floor(sortedWords.length * 0.3);
+        const sliceEnd = Math.ceil(sortedWords.length * 0.7);
+        pool = sortedWords.slice(sliceStart, sliceEnd);
+      }
+    }
+
+    const wordsPool = pool.length > 0 ? pool : ['TESTE', 'PATRU', 'PISTA', 'CORDA', 'FREIO'].filter(w => w.length === wordLength);
     const selectedTargets: string[] = [];
-    
-    // Ensure we have words of that length
-    const wordsPool = validWords.length > 0 ? validWords : ['TESTE', 'PATRU', 'PISTA', 'CORDA', 'FREIO'].filter(w => w.length === wordLength);
-    
+
     if (wordsPool.length === 0) {
-        // Fallback if no words found for that length
         const base = wordLength === 4 ? 'AUTO' : wordLength === 6 ? 'BRASIL' : 'PISTA';
-        for(let i=0; i<gridCount; i++) selectedTargets.push(base);
+        for (let i = 0; i < gridCount; i++) selectedTargets.push(base);
     } else {
         while (selectedTargets.length < gridCount) {
             const word = wordsPool[Math.floor(Math.random() * wordsPool.length)];
             if (!selectedTargets.includes(word)) selectedTargets.push(word);
-            if (selectedTargets.length >= wordsPool.length) break; // Not enough unique words
+            if (selectedTargets.length >= wordsPool.length) {
+              const fallbackWords = validWords.filter(w => !selectedTargets.includes(w));
+              if (fallbackWords.length > 0) {
+                while (selectedTargets.length < gridCount && fallbackWords.length > 0) {
+                  const idx = Math.floor(Math.random() * fallbackWords.length);
+                  selectedTargets.push(fallbackWords.splice(idx, 1)[0]);
+                }
+              }
+              break;
+            }
         }
     }
-    
+
     setTargets(selectedTargets);
     setWonGrids(new Array(selectedTargets.length).fill(false));
     setGuesses([]);
@@ -235,6 +374,44 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
             </div>
           </div>
 
+          {/* SELETOR DE TEMA ESTILO WORDSEARCH */}
+          <div id="wordguess-theme-container" className="space-y-3">
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest text-center">Tema de Decifração de Código</p>
+            <div className="grid grid-cols-1 gap-3 max-h-[220px] overflow-y-auto pr-1">
+              {WORD_SEARCH_THEMES.map((theme) => {
+                const isSelected = selectedThemeId === theme.id;
+                const parts = theme.name.split(' ');
+                const emoji = parts[parts.length - 1];
+                const cleanName = parts.slice(0, -1).join(' ');
+
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    onClick={() => setSelectedThemeId(theme.id)}
+                    className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                      isSelected 
+                        ? 'bg-slate-850 border-yellow-400 shadow-[0_0_15px_-5px_rgba(234,179,8,0.2)]' 
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800/25'
+                    }`}
+                  >
+                    <span className="text-2xl select-none shrink-0" role="img" aria-label={cleanName}>
+                      {emoji}
+                    </span>
+                    <div className="min-w-0">
+                      <p className={isSelected ? 'text-[11.5px] font-black uppercase text-yellow-400' : 'text-[11.5px] font-extrabold uppercase text-slate-300'}>
+                        {cleanName}
+                      </p>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase mt-1 leading-relaxed">
+                        {theme.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <MultiplayerSetup
             currentPlayerId={currentPlayerId || ''}
             activeMode={multiplayerMode}
@@ -311,6 +488,21 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
 
       <div className="text-center mb-6">
         <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">CÓDIGO DA PISTA</h2>
+        {(() => {
+          const currentTheme = WORD_SEARCH_THEMES.find(t => t.id === selectedThemeId);
+          if (currentTheme) {
+            const parts = currentTheme.name.split(' ');
+            const emoji = parts[parts.length - 1];
+            const cleanName = parts.slice(0, -1).join(' ');
+            return (
+              <div className="inline-flex items-center gap-2 mt-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-slate-800/80 text-slate-300">
+                <span className="text-base select-none">{emoji}</span>
+                <span className="text-[10px] font-black uppercase tracking-wider">TEMA: <span className="text-yellow-450 font-black">{cleanName}</span></span>
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       <div className={`grid ${gridCount > 1 ? 'grid-cols-1 md:grid-cols-2 gap-8' : 'grid-cols-1'} w-full max-w-5xl mb-10`}>
@@ -566,9 +758,9 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
               p2Score,
               'WORD_GUESS',
               false,
-              true // keepInGameSelection = true
+              false, // keepInGameSelection = false
+              true  // isAbandoned = true
             );
-            setShowAbandonModal(true);
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >

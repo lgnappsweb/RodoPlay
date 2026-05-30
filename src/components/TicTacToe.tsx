@@ -22,7 +22,8 @@ interface TicTacToeProps {
     p2Score?: number,
     gameType?: string,
     isTimeout?: boolean,
-    keepInGameSelection?: boolean
+    keepInGameSelection?: boolean,
+    isAbandoned?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -736,7 +737,8 @@ export function TicTacToe({
                 p2Score,
                 'TIC_TAC_TOE',
                 false,
-                false
+                false,
+                true // isAbandoned = true
               );
             }}
             className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"

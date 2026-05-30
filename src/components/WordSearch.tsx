@@ -20,7 +20,8 @@ interface WordSearchProps {
     p2Score?: number,
     gameType?: string,
     isTimeout?: boolean,
-    keepInGameSelection?: boolean
+    keepInGameSelection?: boolean,
+    isAbandoned?: boolean
   ) => void;
   onScoreUpdate?: (points: number) => void;
   onCancel: () => void;
@@ -39,6 +40,37 @@ const DIRECTIONS = [
   { r: -1, c: 1 },  // Diagonal Up-Right
   { r: -1, c: -1 }, // Diagonal Up-Left
 ];
+
+function isPluralOrDuplicate(w1: string, w2: string): boolean {
+  const u1 = w1.toUpperCase();
+  const u2 = w2.toUpperCase();
+  if (u1 === u2) return true;
+
+  const getSingularCandidate = (w: string) => {
+    if (w.endsWith('AIS')) return w.substring(0, w.length - 3) + 'AL';
+    if (w.endsWith('EIS')) return w.substring(0, w.length - 3) + 'EL';
+    if (w.endsWith('OIS')) return w.substring(0, w.length - 3) + 'OL';
+    if (w.endsWith('NS')) return w.substring(0, w.length - 2) + 'M';
+    if (w.endsWith('ES')) {
+      const stem = w.substring(0, w.length - 2);
+      if (stem.endsWith('R') || stem.endsWith('S') || stem.endsWith('Z')) return stem;
+    }
+    if (w.endsWith('S')) {
+      return w.substring(0, w.length - 1);
+    }
+    return w;
+  };
+
+  const s1 = getSingularCandidate(u1);
+  const s2 = getSingularCandidate(u2);
+  
+  if (s1 === s2 || s1 === u2 || s2 === u1) return true;
+  
+  if (u1.startsWith(u2) && (u1.slice(u2.length) === 'S' || u1.slice(u2.length) === 'ES')) return true;
+  if (u2.startsWith(u1) && (u2.slice(u1.length) === 'S' || u2.slice(u1.length) === 'ES')) return true;
+  
+  return false;
+}
 
 export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: WordSearchProps) {
   const [grid, setGrid] = useState<string[][]>([]);
@@ -93,7 +125,17 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       const idx = Math.floor(Math.random() * availableWords.length);
       const w = availableWords[idx].toUpperCase();
       availableWords.splice(idx, 1);
-      if (!selectedWords.includes(w)) selectedWords.push(w);
+      
+      let isDup = false;
+      for (const existing of selectedWords) {
+        if (isPluralOrDuplicate(w, existing)) {
+          isDup = true;
+          break;
+        }
+      }
+      if (!isDup) {
+        selectedWords.push(w);
+      }
     }
     setTargetWords(selectedWords);
 
@@ -469,7 +511,8 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               p2Score,
               'WORD_SEARCH',
               false,
-              false
+              false,
+              true // isAbandoned = true
             );
           }}
           className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
