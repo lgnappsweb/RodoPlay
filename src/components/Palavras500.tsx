@@ -6,9 +6,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
-import { ArrowLeft, RotateCcw, HelpCircle, Shuffle, Sparkles, CheckCircle, AlertTriangle, Play, HelpCircle as HelpIcon, Flame, Trophy } from 'lucide-react';
+import { ArrowLeft, RotateCcw, HelpCircle, Shuffle, Sparkles, Flame, Trophy } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
+import { PALAVRAS_THEMES, PalavrasTheme } from '../data/palavrasThemes';
 
 interface Palavras500Props {
   onComplete: (
@@ -113,6 +115,7 @@ const DICT = new Set(UNIQUE_PORTUGUESE_WORDS);
 export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Palavras500Props) {
   const [setupComplete, setSetupComplete] = useState(false);
   const [difficulty, setDifficulty] = useState<'Fácil' | 'Médio' | 'Difícil'>('Fácil');
+  const [selectedTheme, setSelectedTheme] = useState<PalavrasTheme>(PALAVRAS_THEMES[0]);
   const [levelIndex, setLevelIndex] = useState(0);
 
   // Active game setup elements
@@ -153,23 +156,26 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
     }
 
     const len = difficulty === 'Fácil' ? 4 : difficulty === 'Médio' ? 5 : 6;
-    const candidates = UNIQUE_PORTUGUESE_WORDS.filter(w => w.length === len);
+    
+    // Filter words based on the selected theme AND length
+    const candidates = selectedTheme.words.filter(w => normalizeWord(w).length === len).map(w => normalizeWord(w)).filter(w => w.length >= minLen);
     
     let poolLetters: string[] = [];
     let sortedTargets: string[] = [];
     
-    // Attempt to pick a dictionary candidate of the matching length 
-    // that yields an appropriate amount of formable words (between 3 and 10) for elegant layout
+    // Attempt to pick a dictionary candidate of the matching length
     let attempts = 0;
+    const wordList = candidates.length > 0 ? candidates : UNIQUE_PORTUGUESE_WORDS.filter(w => w.length === len);
+
     while (attempts < 120) {
-      const candidate = candidates[Math.floor(Math.random() * candidates.length)];
+      const candidate = wordList[Math.floor(Math.random() * wordList.length)];
       if (candidate) {
         const letters = candidate.split('').map(l => normalizeWord(l));
         const formable = UNIQUE_PORTUGUESE_WORDS.filter(word => 
           word.length >= minLen && canFormWord(word, letters)
         );
         
-        if (formable.length >= 3 && formable.length <= 10) {
+        if (formable.length >= 5 && formable.length <= 8) {
           poolLetters = letters;
           sortedTargets = Array.from(new Set(formable)).sort((a, b) => {
             if (a.length !== b.length) return a.length - b.length;
@@ -180,6 +186,9 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
       }
       attempts++;
     }
+    
+    // Fallback if loop failed...
+    // [Keep the remaining fallback logic in the file, just adjust the start]
     
     // Relaxed loop fallback
     if (poolLetters.length === 0) {
@@ -328,6 +337,16 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
       }
 
       handleClear();
+
+      // Trigger visual sfx and audio feedback
+      const isWon = nextDiscovered.size === targetWords.length || nextScore >= 500;
+      if (isWon) {
+        playGameSfx('win');
+      } else {
+        playGameSfx('match');
+      }
+      triggerGameConfetti();
+
       checkWinCondition(nextDiscovered, nextScore);
       return;
     }
@@ -351,12 +370,23 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
       }
 
       handleClear();
+
+      // Trigger visual sfx and audio feedback
+      const isWon = nextScore >= 500;
+      if (isWon) {
+        playGameSfx('win');
+      } else {
+        playGameSfx('correct');
+      }
+      triggerGameConfetti();
+
       checkWinCondition(discoveredWords, nextScore);
       return;
     }
 
     // Invalida
     setErrorMessage('PALAVRA NÃO CONSTA DA PATRULHA! ❌');
+    playGameSfx('incorrect');
     handleClear();
 
     // Toggle turn in 2-Player mode on invalid attempt to share the board
@@ -542,6 +572,34 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
             </div>
           </div>
 
+          <div id="theme-selector">
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-3 text-center">Selecione o Tema da Patrulha</p>
+            <div className="grid grid-cols-1 gap-2 max-h-[220px] overflow-y-auto pr-1">
+              {PALAVRAS_THEMES.map((theme) => {
+                const isSelected = selectedTheme.id === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    onClick={() => setSelectedTheme(theme)}
+                    className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                      isSelected 
+                        ? 'bg-slate-850 border-yellow-400 shadow-[0_0_15px_-5px_rgba(234,179,8,0.2)]' 
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800/25'
+                    }`}
+                  >
+                    <span className="text-xl" role="img">{theme.icon}</span>
+                    <div className="min-w-0">
+                      <p className={isSelected ? 'text-[11px] font-black uppercase text-yellow-400' : 'text-[11px] font-extrabold uppercase text-slate-300'}>
+                        {theme.name}
+                      </p>
+                      <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">{theme.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <MultiplayerSetup
             currentPlayerId={currentPlayerId || ''}
             activeMode={multiplayerMode}
@@ -581,7 +639,24 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
       <div className="w-full flex items-center mb-1 max-w-lg">
         <button 
           id="palavras-back-btn"
-          onClick={() => setSetupComplete(false)}
+          onClick={() => {
+            if (gameState === 'playing') {
+              onComplete(
+                multiplayerMode === '2p' ? p1Score : score,
+                1,
+                multiplayerMode === '2p',
+                selectedPartner,
+                p1Score,
+                p2Score,
+                'PALAVRAS_500',
+                false,
+                false,
+                true // isAbandoned = true
+              );
+            } else {
+              setSetupComplete(false);
+            }
+          }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
           <ArrowLeft size={20} />
@@ -589,6 +664,10 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
         <div className="ml-4 flex flex-col">
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Patrulha Ativa</span>
           <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter mt-1">Palavras 500 | Nível {difficulty.toUpperCase()}</span>
+        </div>
+        <div className="ml-auto text-right flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-xl">
+          <span className="text-sm">{selectedTheme.icon}</span>
+          <span className="text-[8px] font-bold text-slate-300 uppercase">{selectedTheme.name}</span>
         </div>
       </div>
 
@@ -625,6 +704,12 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
           <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Alvo Encontrado</p>
           <p className="text-xl font-black text-white font-mono">{discoveredWords.size} / {targetWords.length}</p>
         </div>
+      </div>
+
+      {/* Theme Header */}
+      <div className="w-full flex justify-center items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2 rounded-2xl max-w-lg">
+          <span className="text-lg">{selectedTheme.icon}</span>
+          <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{selectedTheme.name}</span>
       </div>
 
       {/* Visual Progress Bar for Target Score Meta 500 Pts - modified from remaining time per user request */}

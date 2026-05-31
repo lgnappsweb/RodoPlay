@@ -7,11 +7,12 @@ import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { Player } from '../types';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { LogOut, User, Camera, Shield, Check, RefreshCw, Upload, Sun, Moon, Palette, Smartphone, Monitor, Laptop, HelpCircle, Activity, Trash2, X, FileText, Loader2, ArrowLeft, ChevronLeft, ChevronRight, MoveHorizontal } from 'lucide-react';
+import { LogOut, User, Camera, Shield, Check, RefreshCw, Upload, Sun, Moon, Palette, Smartphone, Monitor, Laptop, HelpCircle, Activity, Trash2, X, FileText, Loader2, ArrowLeft, ChevronLeft, ChevronRight, MoveHorizontal, Volume2, VolumeX, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BASE_OPTIONS, SHIFT_OPTIONS } from '../constants';
 import { ALL_AVATARS, DEFAULT_AVATAR } from '../data/avatars';
 import { getThemeSettings, saveThemeSettings, applyTheme } from '../lib/theme';
+import { isAudioEnabled, setAudioEnabled, isVisualEffectsEnabled, setVisualEffectsEnabled, playGameSfx } from '../lib/gameEffects';
 import { db, auth } from '../lib/firebase';
 import { collection, query, where, onSnapshot, doc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { sanitizeId } from '../lib/rankingSync';
@@ -49,6 +50,24 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
   const [avatarBatchIndex, setAvatarBatchIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showGuidelines, setShowGuidelines] = useState(false);
+
+  const [audioEnabled, setAudioEnabledState] = useState(isAudioEnabled());
+  const [visualEffectsEnabled, setVisualEffectsEnabledState] = useState(isVisualEffectsEnabled());
+
+  const handleToggleAudio = (val: boolean) => {
+    setAudioEnabledState(val);
+    setAudioEnabled(val);
+    if (val) {
+      setTimeout(() => {
+        playGameSfx('correct');
+      }, 50);
+    }
+  };
+
+  const handleToggleVisual = (val: boolean) => {
+    setVisualEffectsEnabledState(val);
+    setVisualEffectsEnabled(val);
+  };
 
   const [supportMessage, setSupportMessage] = useState('');
   const [isSendingSupport, setIsSendingSupport] = useState(false);
@@ -804,6 +823,65 @@ export function Settings({ player, onUpdate, onLogout, onDeleteProfile, onBack }
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Efeitos de Som e Visuais das Partidas */}
+        <Card id="configuracoes-efeitos-partidas" className="bg-slate-800/50 border-slate-700/50 rounded-[2rem] overflow-hidden p-6 space-y-6">
+          <div className="flex items-center gap-3 border-b border-slate-700/50 pb-4">
+            <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-slate-400">
+               <Sparkles size={20} className="text-yellow-405 animate-pulse" />
+            </div>
+            <div>
+               <p className="text-xs font-black uppercase text-white">Efeitos das Partidas</p>
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-1">Configurar Áudio e Efeitos Visuais ao Acertar</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Efeitos Sonoros */}
+            <div className="flex items-center justify-between bg-slate-900/40 p-4 rounded-2xl border border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${audioEnabled ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-800 text-slate-500'}`}>
+                  {audioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase text-white">Efeitos Sonoros</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mt-0.5">Sons ao encontrar palavras ou acertar</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggleAudio(!audioEnabled)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${audioEnabled ? 'bg-yellow-400' : 'bg-slate-750'}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-slate-950 shadow ring-0 transition duration-200 ease-in-out ${audioEnabled ? 'translate-x-5' : 'translate-x-0'}`}
+                />
+              </button>
+            </div>
+
+            {/* Efeitos Visuais (Confete) */}
+            <div className="flex items-center justify-between bg-slate-900/40 p-4 rounded-2xl border border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${visualEffectsEnabled ? 'bg-indigo-500/10 text-indigo-400' : 'bg-slate-800 text-slate-500'}`}>
+                  <Sparkles size={16} className={visualEffectsEnabled ? 'animate-pulse' : ''} />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase text-white">Efeitos Visuais de Explosão</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mt-0.5">Explosão de confetes ao ganhar pontos</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggleVisual(!visualEffectsEnabled)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${visualEffectsEnabled ? 'bg-yellow-400' : 'bg-slate-750'}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-slate-950 shadow ring-0 transition duration-200 ease-in-out ${visualEffectsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
+                />
+              </button>
             </div>
           </div>
         </Card>

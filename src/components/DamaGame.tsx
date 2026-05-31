@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { ArrowLeft, Gamepad2, Award, Users, Bot, Zap, Shield, Swords, RotateCcw } from 'lucide-react';
 import { Player } from '../types';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 
 interface DamaGameProps {
   onComplete: (
@@ -139,8 +140,13 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
     let finalScore = 150; // default draw
     if (outcome === 'victory') {
       finalScore = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
+      playGameSfx('win');
+      triggerGameConfetti();
     } else if (outcome === 'failed') {
       finalScore = 100; // consolation
+      playGameSfx('incorrect');
+    } else {
+      playGameSfx('incorrect');
     }
     const is2P = multiplayerMode === '2p';
     const partnerToSend = selectedPartner?.id === 'local' ? null : selectedPartner;
@@ -207,12 +213,13 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
   useEffect(() => {
     if (!setupComplete || gameState !== 'playing' || multiplayerMode === '2p' || turn !== 'red') return;
 
+    // Trigger AI move if it's the AI's turn
     const timer = setTimeout(() => {
       executeAIMove();
     }, 850);
 
     return () => clearTimeout(timer);
-  }, [turn, setupComplete, gameState]);
+  }, [turn, consecutiveJumpPiece, setupComplete, gameState]);
 
   // Retrieve coordinates of a piece by id
   function findPieceCoordinate(pieceId: string, currentBoard: (DamaPiece | null)[][]): Coordinate | null {
@@ -228,6 +235,12 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
 
   // Get all valid moves for a turn
   function getTurnMoves(color: 'yellow' | 'red', currentBoard: (DamaPiece | null)[][]): Move[] {
+    // If consecutive jump is in progress, ONLY look for moves from that specific piece
+    if (consecutiveJumpPiece) {
+      const pieceMoves = getPieceMoves(consecutiveJumpPiece, currentBoard);
+      return pieceMoves.filter(m => m.captured !== undefined);
+    }
+
     const list: Move[] = [];
     const captureList: Move[] = [];
 
@@ -373,8 +386,11 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
       wasCapture = true;
       if (movingPiece.color === 'yellow') {
         setYellowCaptures(prev => prev + 1);
+        playGameSfx('correct');
+        triggerGameConfetti();
       } else {
         setRedCaptures(prev => prev + 1);
+        playGameSfx('incorrect');
       }
       setLastCaptureMove(moveCount + 1);
     }
@@ -399,6 +415,8 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
         setConsecutiveJumpPiece(move.to);
         return;
       }
+    } else {
+      playGameSfx('click');
     }
 
     // Reset selection and toggle turn
@@ -646,7 +664,20 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
       <div className="w-full flex items-center mb-1 max-w-lg">
         <button 
           id="dama-back-btn"
-          onClick={() => setSetupComplete(false)}
+          onClick={() => {
+            onComplete(
+              0, 
+              1,
+              multiplayerMode === '2p',
+              selectedPartner.id === 'local' ? null : selectedPartner,
+              0,
+              0,
+              'DAMA',
+              false,
+              false,
+              true // isAbandoned = true
+            );
+          }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700 cursor-pointer"
         >
           <ArrowLeft size={20} />
@@ -806,7 +837,8 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
         </div>
       </div>
 
-      <div className="w-full flex justify-center">
+      {/* Command Actions Bar */}
+      <div className="w-full flex flex-col gap-3">
         <Button 
           id="dama-abandon-btn"
           onClick={() => {
@@ -823,7 +855,7 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
               true // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 mx-auto rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
           ABANDONAR PATRULHA
         </Button>

@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Button } from './ui/button';
 import { Calculator, ArrowLeft } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -122,7 +123,8 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     setIsRevealing(true);
     
     let points = 0;
-    if (val === problem.answer) {
+    const isCorrect = val === problem.answer;
+    if (isCorrect) {
       points = 200;
       if (multiplayerMode === '2p') {
         if (activePlayerTurn === 'p1') {
@@ -134,12 +136,18 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
         setScore(s => s + points);
       }
       if (onScoreUpdate) onScoreUpdate(points);
+      
+      triggerGameConfetti();
+      playGameSfx('correct');
+    } else {
+      playGameSfx('incorrect');
     }
 
     setTimeout(() => {
       if (currentRound >= totalRounds) {
         const finalP1 = activePlayerTurn === 'p1' ? p1Score + points : p1Score;
         const finalP2 = activePlayerTurn === 'p2' ? p2Score + points : p2Score;
+        playGameSfx('win');
         onComplete(
           multiplayerMode === '2p' ? finalP1 : score + points,
           1,
@@ -249,7 +257,20 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       {/* Top Bar with Back Button */}
       <div className="w-full flex items-center mb-6">
         <button 
-          onClick={() => setGameState('selection')}
+          onClick={() => {
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'SPEED_MATH',
+              false,
+              false,
+              true // isAbandoned = true
+            );
+          }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
           <ArrowLeft size={20} />

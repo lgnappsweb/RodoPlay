@@ -4,7 +4,7 @@
  */
 
 import { GameType } from '../types';
-import { HelpCircle, Shield, Search, Type, Gamepad2, Brain, Zap, Calculator, Info, Map, Hash, Car, Compass, Grid, Trophy, Sparkles, Crown, Flame, ArrowLeft, Construction, Skull, Radio } from 'lucide-react';
+import { HelpCircle, Shield, Search, Type, Gamepad2, Brain, Zap, Calculator, Info, Map, Hash, Car, Compass, Grid, Trophy, Sparkles, Crown, Flame, ArrowLeft, Construction, Skull, Radio, Activity } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface GamesGridProps {
@@ -26,6 +26,19 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
     bgIconSize: string;
     isPromotedText?: string;
   }> = [
+    {
+      type: GameType.QUIZ_MASTER_APH,
+      friendlyName: 'Quiz Master APH',
+      title: 'QUIZ APH',
+      desc: 'Desafio de Operações & Salvamento',
+      bgIcon: Activity,
+      mainIcon: Activity,
+      iconClass: 'bg-gradient-to-r from-red-600 to-amber-500 text-white animate-pulse',
+      borderClass: 'border-amber-550 border-2',
+      rotateClass: 'group-hover:scale-110',
+      bgIconSize: 'w-14 h-14',
+      isPromotedText: 'POPULAR ✨',
+    },
     {
       type: GameType.WORD_SEARCH,
       friendlyName: 'Caça-Palavras',

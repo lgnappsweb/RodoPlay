@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Player } from '../types';
 import { Button } from './ui/button';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { PredefinedThemeInfo } from './contextoWordsData';
 import { WORD_SEARCH_THEMES } from '../data/wordSearchThemes';
@@ -532,6 +533,18 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
     setAttempts(prev => prev + 1);
 
     // Notify sound-like micro-points or visual success feedback
+    if (guessRank === 1) {
+      playGameSfx('win');
+      triggerGameConfetti();
+    } else if (guessRank < 100) {
+      playGameSfx('correct');
+      triggerGameConfetti();
+    } else if (guessRank < 500) {
+      playGameSfx('correct');
+    } else {
+      playGameSfx('incorrect');
+    }
+
     if (guessRank < 500) {
       // Real-time minor score feedback for cool hot guesses
       const scoreTier = guessRank === 1 ? 500 : Math.max(5, Math.floor(100 / guessRank));
@@ -838,7 +851,20 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
         {/* Top Header Navigation */}
           <div className="flex items-center justify-between border-b border-slate-800/70 pb-2 mb-4">
               <button
-                onClick={() => setGameState('selection')}
+                onClick={() => {
+                  onComplete(
+                    multiplayerMode === '2p' ? p1Score + p2Score : score,
+                    1,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    p1Score,
+                    p2Score,
+                    'CONTEXTO',
+                    false,
+                    false,
+                    true // isAbandoned = true
+                  );
+                }}
                 className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-400 hover:text-white bg-slate-950/60 px-3 py-1.5 rounded-full border border-slate-800/80 transition-all cursor-pointer"
               >
                 <ArrowLeft size={12} /> VOLTAR
@@ -1007,11 +1033,10 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
           </div>
           
           {/* Abandonar Patrulha Button */}
-          <div className="w-full flex justify-center mt-6">
+          <div className="w-full flex flex-col gap-3 mt-8">
             <button
               id="contexto-abandon-btn"
               onClick={() => {
-                // Salva os pontos acumulados até agora e incrementa 1 patrulha de forma imediata antes de abrir o modal
                 onComplete(
                   multiplayerMode === '2p' ? p1Score + p2Score : score,
                   1,
@@ -1025,7 +1050,7 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
                   true // isAbandoned = true
                 );
               }}
-              className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider cursor-pointer flex items-center justify-center font-sans"
+              className="w-full max-w-xs h-12 mx-auto rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider cursor-pointer flex items-center justify-center font-sans"
             >
               ABANDONAR PATRULHA
             </button>

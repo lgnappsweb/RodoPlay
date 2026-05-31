@@ -20,7 +20,8 @@ export enum GameType {
   PALAVRAS_500 = 'PALAVRAS_500',
   CONTEXTO = 'CONTEXTO',
   SUDOKU = 'SUDOKU',
-  DAMA = 'DAMA'
+  DAMA = 'DAMA',
+  QUIZ_MASTER_APH = 'QUIZ_MASTER_APH'
 }
 
 export interface Player {

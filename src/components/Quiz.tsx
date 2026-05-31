@@ -10,6 +10,7 @@ import { Progress } from './ui/progress';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, HelpCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -44,6 +45,7 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
   const [setupComplete, setSetupComplete] = useState(false);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [showAbandonModal, setShowAbandonModal] = useState(false);
+  const [questionCount, setQuestionCount] = useState<number>(10);
 
   // Multiplayer State
   const [multiplayerMode, setMultiplayerMode] = useState<'1p' | '2p'>('1p');
@@ -58,30 +60,20 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
   };
 
   // Helper to get questions for dynamic theme selections
-  const getQuestionsSubset = useCallback((themeId: string) => {
+  const getQuestionsSubset = useCallback((themeId: string, count: number) => {
     const themeQuestions = QUESTIONS.filter(q => q.themeId === themeId);
-    
-    // Pick 2 random questions from each difficulty level (1 to 5) for a total of 10
-    const qByDifficulty = [1, 2, 3, 4, 5].flatMap(diff => {
-      const filtered = themeQuestions.filter(q => (q.difficulty || 1) === diff);
-      return filtered.sort(() => Math.random() - 0.5).slice(0, 2);
-    });
-
-    if (qByDifficulty.length < 10) {
-      return themeQuestions.sort(() => Math.random() - 0.5).slice(0, 10);
-    }
-    
-    return qByDifficulty.sort(() => Math.random() - 0.5);
+    // Shuffle the entire pool of 500 questions and slice the requested count
+    return [...themeQuestions].sort(() => Math.random() - 0.5).slice(0, count);
   }, []);
 
   useEffect(() => {
-    const qSubset = getQuestionsSubset(selectedThemeId);
+    const qSubset = getQuestionsSubset(selectedThemeId, questionCount);
     setSessionQuestions(qSubset);
     setIsTimeOut(false);
-  }, [selectedThemeId, getQuestionsSubset]);
+  }, [selectedThemeId, questionCount, getQuestionsSubset]);
 
   const restartQuiz = () => {
-    const qSubset = getQuestionsSubset(selectedThemeId);
+    const qSubset = getQuestionsSubset(selectedThemeId, questionCount);
     setSessionQuestions(qSubset);
     setCurrentIdx(0);
     setScore(0);
@@ -100,7 +92,9 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
     setSelectedIdx(idx);
     setIsAnswered(true);
 
-    if (idx === question.correctAnswer) {
+    const isCorrect = idx === question.correctAnswer;
+
+    if (isCorrect) {
       const timeBonus = 0;
       const diffMultiplier = question.difficulty || 1;
       const points = (100 * diffMultiplier) + timeBonus;
@@ -124,20 +118,14 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
       setCorrectCount(c => c + 1);
       if (onScoreUpdate) onScoreUpdate(points);
 
-      // Computa os pontos imediatamente no faturamento geral de patrulhas e perfil
-      onComplete(
-        multiplayerMode === '2p' ? finalP1 : finalScore,
-        1,
-        multiplayerMode === '2p',
-        selectedPartner,
-        finalP1,
-        finalP2,
-        'QUIZ',
-        false,
-        true
-      );
+      // Trigger identical correct sound and visual effects as APH Quiz
+      triggerGameConfetti();
+      playGameSfx('correct');
+    } else {
+      // Trigger incorrect sound
+      playGameSfx('incorrect');
     }
-  }, [isAnswered, question, timeLeft, onScoreUpdate, multiplayerMode, activePlayerTurn, p1Score, p2Score, score, selectedPartner, onComplete]);
+  }, [isAnswered, question, score, p1Score, p2Score, multiplayerMode, activePlayerTurn, onScoreUpdate]);
 
   // Timer is disabled per user request
   useEffect(() => {
@@ -155,13 +143,15 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
       }
     } else {
       const finalScore = multiplayerMode === '2p' ? p1Score + p2Score : score;
-      if (finalScore > 1000) {
+      const visualEnabled = !localStorage || localStorage.getItem('game_visual_effects_enabled') !== 'false';
+      if (finalScore > 1000 && visualEnabled) {
         confetti({
           particleCount: 150,
           spread: 70,
           origin: { y: 0.6 }
         });
       }
+      playGameSfx('win');
       onComplete(
         multiplayerMode === '2p' ? p1Score : score,
         1,
@@ -263,6 +253,20 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
             </div>
           </div>
 
+          <div className="space-y-3">
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest text-center">Quantidade de Questões</p>
+            <select 
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+              className="w-full p-4 bg-slate-900 border-2 border-slate-800 rounded-2xl text-slate-200 text-xs font-mono outline-none focus:border-yellow-400 text-center uppercase tracking-wider cursor-pointer"
+            >
+              <option value={10}>10 PERGUNTAS</option>
+              <option value={20}>20 PERGUNTAS</option>
+              <option value={50}>50 PERGUNTAS</option>
+              <option value={100}>100 PERGUNTAS</option>
+            </select>
+          </div>
+
           <MultiplayerSetup
             currentPlayerId={currentPlayerId || ''}
             activeMode={multiplayerMode}
@@ -276,7 +280,7 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
           <Button 
             disabled={multiplayerMode === '2p' && !selectedPartner}
             onClick={() => {
-              const qSubset = getQuestionsSubset(selectedThemeId);
+              const qSubset = getQuestionsSubset(selectedThemeId, questionCount);
               setSessionQuestions(qSubset);
               setTimeLeft(getInitialTimeLimit(difficulty));
               setCurrentIdx(0);
@@ -315,13 +319,18 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
       <div className="w-full flex items-center mb-6 relative z-10">
         <button 
           onClick={() => {
-            setSetupComplete(false);
-            setCurrentIdx(0);
-            setScore(0);
-            setSelectedIdx(null);
-            setIsAnswered(false);
-            setCorrectCount(0);
-            setIsTimeOut(false);
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'QUIZ',
+              false,
+              false,
+              true // isAbandoned = true
+            );
           }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
@@ -358,11 +367,6 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
         </div>
       </div>
 
-      {/* Level Info */}
-      <div className="mb-4 px-4 relative z-10 flex flex-col items-center">
-        <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-full">Nível de Dificuldade: {question.difficulty}</span>
-      </div>
-
       {/* Question Card */}
       <div className="flex-1 max-w-2xl mx-auto w-full relative z-10">
         <AnimatePresence mode="wait">
@@ -373,11 +377,15 @@ export function Quiz({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: Q
             exit={{ opacity: 0, scale: 1.1 }}
             className="space-y-4"
           >
-            <div className="bg-slate-800/80 p-5 md:p-6 rounded-[2rem] border border-slate-700 shadow-2xl relative overflow-hidden group">
-               <div className="absolute top-0 left-0 w-1.5 h-full bg-yellow-400" />
-               <h2 className="text-lg md:text-xl font-black text-white leading-snug italic uppercase whitespace-normal break-words">
-                {question.text}
-              </h2>
+            <div className="bg-slate-905 border-2 border-yellow-500/80 shadow-[0_0_25px_rgba(234,179,8,0.15)] p-6 rounded-[2rem] space-y-3 relative overflow-hidden group">
+               <div className="absolute top-0 left-0 w-2 h-full bg-yellow-500" />
+               <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono tracking-widest uppercase">
+                 <span className="font-extrabold text-yellow-500 flex items-center gap-1">❓ PERGUNTA DE INSPEÇÃO</span>
+                 <span className="px-2.5 py-1 rounded-full bg-slate-800/90 text-yellow-400 font-black tracking-wider text-[9px] border border-yellow-500/25">NÍVEL: {question.difficulty?.toString().toUpperCase()}</span>
+               </div>
+               <h2 className="text-white font-black leading-relaxed text-sm md:text-base uppercase tracking-tight pl-2 whitespace-normal break-words">
+                 {question.text}
+               </h2>
             </div>
 
             <div className="grid gap-3">

@@ -11,6 +11,7 @@ import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 
 interface TicTacToeProps {
   onComplete: (
@@ -188,6 +189,8 @@ export function TicTacToe({
 
   const handleCellClick = async (index: number) => {
     if (board[index] || gameState !== 'playing' || isTimeOut || isAiThinking) return;
+
+    playGameSfx('click');
 
     if (room) {
       const isCreator = player?.uid === room.creatorId;
@@ -406,10 +409,14 @@ export function TicTacToe({
         finalP1 = p1Score + pointsGained;
         setP1Score(finalP1);
         if (onScoreUpdate) onScoreUpdate(pointsGained);
+        playGameSfx('win');
+        triggerGameConfetti();
       } else if (winnerToken === 'O') {
         finalP2 = p2Score + pointsGained;
         setP2Score(finalP2);
         if (onScoreUpdate) onScoreUpdate(pointsGained);
+        playGameSfx('win');
+        triggerGameConfetti();
       } else {
         // Draw rewards 50 XP to both
         finalP1 = p1Score + 50;
@@ -417,6 +424,7 @@ export function TicTacToe({
         setP1Score(finalP1);
         setP2Score(finalP2);
         if (onScoreUpdate) onScoreUpdate(50);
+        playGameSfx('correct');
       }
     } else {
       // 1P Mode points rules
@@ -424,13 +432,17 @@ export function TicTacToe({
         singleScore = score + pointsGained;
         setScore(singleScore);
         if (onScoreUpdate) onScoreUpdate(pointsGained);
+        playGameSfx('win');
+        triggerGameConfetti();
       } else if (winnerToken === (playerSymbol === 'X' ? 'O' : 'X')) {
         // Lost - no points
+        playGameSfx('incorrect');
       } else {
         // Draw: minor bonus
         singleScore = score + 40;
         setScore(singleScore);
         if (onScoreUpdate) onScoreUpdate(40);
+        playGameSfx('correct');
       }
     }
 
@@ -620,11 +632,18 @@ export function TicTacToe({
         <button 
           id="ttt-back-btn"
           onClick={() => {
-            if (room && onLeaveRoom) {
-              onLeaveRoom();
-            } else {
-              setSetupComplete(false);
-            }
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              completedRounds || 1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'TIC_TAC_TOE',
+              false,
+              false,
+              true // isAbandoned = true
+            );
           }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
@@ -723,30 +742,29 @@ export function TicTacToe({
         })}
       </div>
 
-      {setupComplete && gameState === 'playing' && (
-        <div className="w-full flex justify-center mt-6">
-          <Button 
-            id="ttt-abandon-btn"
-            onClick={() => {
-              onComplete(
-                multiplayerMode === '2p' ? p1Score : score,
-                completedRounds || 1,
-                multiplayerMode === '2p',
-                selectedPartner,
-                p1Score,
-                p2Score,
-                'TIC_TAC_TOE',
-                false,
-                false,
-                true // isAbandoned = true
-              );
-            }}
-            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
-          >
-            ABANDONAR PATRULHA
-          </Button>
-        </div>
-      )}
+      {/* Command Actions Bar */}
+      <div className="w-full flex flex-col gap-3 mt-6">
+        <Button 
+          id="ttt-abandon-btn"
+          onClick={() => {
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              completedRounds || 1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'TIC_TAC_TOE',
+              false,
+              false,
+              true // isAbandoned = true
+            );
+          }}
+          className="w-full max-w-xs h-12 mx-auto rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+        >
+          ABANDONAR PATRULHA
+        </Button>
+      </div>
     </div>
   );
 }

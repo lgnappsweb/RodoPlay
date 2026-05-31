@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { Map, ArrowLeft, Plus, Minus, Check, Timer, Sparkles, Play } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -248,6 +249,7 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
 
     if (point.value !== nextValue) {
       setWrongPointId(id);
+      playGameSfx('incorrect');
       setTimeout(() => setWrongPointId(null), 400);
       setTimeLeft(t => Math.max(1, t - 1));
       return;
@@ -273,6 +275,8 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     if (nextValue === pointsToComplete) {
       setIsRevealing(true);
       if (currentRound >= totalRounds) {
+        playGameSfx('win');
+        triggerGameConfetti();
         setTimeout(() => onComplete(
           multiplayerMode === '2p' ? p1Score + award : score + award,
           1,
@@ -285,6 +289,8 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           false
         ), 800);
       } else {
+        playGameSfx('correct');
+        triggerGameConfetti();
         setTimeout(() => {
           if (multiplayerMode === '2p') {
             setActivePlayerTurn(prev => prev === 'p1' ? 'p2' : 'p1');
@@ -293,6 +299,7 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         }, 1000);
       }
     } else {
+      playGameSfx('correct');
       setNextValue(v => v + 1);
     }
   };
@@ -479,7 +486,20 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         {/* Top Header */}
         <div className="w-full flex items-center mb-6">
           <button 
-            onClick={() => setGameState('selection')}
+            onClick={() => {
+              onComplete(
+                multiplayerMode === '2p' ? p1Score + 0 : score + 0, // Simplified for now; adjusted score calculation if needed in actual abandon logic
+                1,
+                multiplayerMode === '2p',
+                selectedPartner,
+                p1Score,
+                p2Score,
+                'ROUTE_ORDER',
+                false,
+                false,
+                true // isAbandoned = true
+              );
+            }}
             className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
           >
             <ArrowLeft size={20} />

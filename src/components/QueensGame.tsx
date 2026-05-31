@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { Crown, ArrowLeft, RotateCcw, AlertTriangle, CheckCircle, HelpCircle, Shuffle, Sparkles, Users } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -266,6 +267,9 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       const speedBonus = 0;
       const finalAward = basePoints + speedBonus;
       
+      playGameSfx('win');
+      triggerGameConfetti();
+
       setGameState('playing'); // We bypass local overlays and show the system-wide completion modal directly!
 
       if (multiplayerMode === '2p') {
@@ -316,6 +320,8 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
 
   const handleCellClick = (r: number, c: number) => {
     if (gameState !== 'playing' || !boardData) return;
+
+    playGameSfx('click');
 
     setMoves(prev => prev + 1);
     
@@ -564,7 +570,24 @@ export function QueensGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       <div className="w-full flex items-center mb-2 max-w-lg">
         <button 
           id="queens-back-btn"
-          onClick={() => setSetupComplete(false)}
+          onClick={() => {
+            if (gameState === 'playing') {
+              onComplete(
+                multiplayerMode === '2p' ? p1Score : score,
+                1,
+                multiplayerMode === '2p',
+                selectedPartner,
+                p1Score,
+                p2Score,
+                'QUEENS',
+                false,
+                false,
+                true // isAbandoned = true
+              );
+            } else {
+              setSetupComplete(false);
+            }
+          }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
           <ArrowLeft size={20} />

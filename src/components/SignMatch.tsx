@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { ArrowLeft, Timer, Award, HelpCircle, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -48,46 +49,43 @@ const SIGNS: TrafficSignData[] = [
   { code: 'R-6b', name: 'Estacionamento Regulamentado', category: 'regulamentação', type: 'estacionamento_reg' },
   { code: 'R-6c', name: 'Proibido Parar e Estacionar', category: 'regulamentação', type: 'proibido_parar_estacionar' },
   { code: 'R-7', name: 'Proibido Ultrapassar', category: 'regulamentação', type: 'proibido_ultrapassar' },
-  { code: 'R-8a', name: 'Proibido Mudar de Faixa da Esquerda para Direita', category: 'regulamentação', type: 'proibido_mudar_faixa_esq_dir' },
-  { code: 'R-8b', name: 'Proibido Mudar de Faixa da Direita para Esquerda', category: 'regulamentação', type: 'proibido_mudar_faixa_dir_esq' },
+  { code: 'R-8a', name: 'Proibido Mudar de Faixa/Pista da Esquerda para a Direita', category: 'regulamentação', type: 'proibido_mudar_faixa_esq_dir' },
+  { code: 'R-8b', name: 'Proibido Mudar de Faixa/Pista da Direita para a Esquerda', category: 'regulamentação', type: 'proibido_mudar_faixa_dir_esq' },
   { code: 'R-9', name: 'Proibido Trânsito de Caminhões', category: 'regulamentação', type: 'proibido_caminhoes' },
   { code: 'R-10', name: 'Proibido Trânsito de Veículos Automotores', category: 'regulamentação', type: 'proibido_automotores' },
   { code: 'R-11', name: 'Proibido Trânsito de Veículos de Tração Animal', category: 'regulamentação', type: 'proibido_tracao_animal' },
   { code: 'R-12', name: 'Proibido Trânsito de Bicicletas', category: 'regulamentação', type: 'proibido_bicicletas' },
-  { code: 'R-13', name: 'Proibido Trânsito de Tratores e Máquinas Agrícolas', category: 'regulamentação', type: 'proibido_tratores' },
-  { code: 'R-14', name: 'Peso Máximo Permitido por Eixo (2 t)', category: 'regulamentação', type: 'peso_max_eixo_2t' },
-  { code: 'R-15', name: 'Altura Máxima Permitida (4,3 m)', category: 'regulamentação', type: 'altura_max_43m' },
-  { code: 'R-16', name: 'Largura Máxima Permitida (2,5 m)', category: 'regulamentação', type: 'largura_max_25m' },
-  { code: 'R-17', name: 'Peso Máximo Total Permitido (10 t)', category: 'regulamentação', type: 'peso_max_total_10t' },
-  { code: 'R-18', name: 'Comprimento Máximo Permitido (10 m)', category: 'regulamentação', type: 'comprimento_max_10m' },
-  { code: 'R-19_30', name: 'Velocidade Máxima (30 km/h)', category: 'regulamentação', type: 'speed_30' },
-  { code: 'R-19_60', name: 'Velocidade Máxima (60 km/h)', category: 'regulamentação', type: 'speed_60' },
-  { code: 'R-19_80', name: 'Velocidade Máxima (80 km/h)', category: 'regulamentação', type: 'speed_80' },
-  { code: 'R-19_110', name: 'Velocidade Máxima (110 km/h)', category: 'regulamentação', type: 'speed_110' },
-  { code: 'R-20', name: 'Proibido Buzina ou Sinal Sonoro', category: 'regulamentação', type: 'proibido_buzina' },
+  { code: 'R-13', name: 'Proibido Trânsito de Tratores e Máquinas de Obras', category: 'regulamentação', type: 'proibido_tratores' },
+  { code: 'R-14', name: 'Peso Máximo Permitido por Eixo (2 t)', category: 'regulamentação', type: 'axle_2t' },
+  { code: 'R-15', name: 'Altura Máxima Permitida (4,3 m)', category: 'regulamentação', type: 'height_4.3m' },
+  { code: 'R-16', name: 'Largura Máxima Permitida (2,5 m)', category: 'regulamentação', type: 'width_2.5m' },
+  { code: 'R-17', name: 'Peso Máximo Permitido (10 t)', category: 'regulamentação', type: 'weight_10t' },
+  { code: 'R-18', name: 'Comprimento Máximo Permitido (10 m)', category: 'regulamentação', type: 'length_10m' },
+  { code: 'R-19', name: 'Velocidade Máxima Permitida', category: 'regulamentação', type: 'speed_60' },
+  { code: 'R-20', name: 'Proibido Acionar Buzina ou Sinal Sonoro', category: 'regulamentação', type: 'proibido_buzina' },
   { code: 'R-21', name: 'Alfândega', category: 'regulamentação', type: 'alfandega' },
-  { code: 'R-22', name: 'Uso Obrigatório de Corrente', category: 'regulamentação', type: 'uso_correntes' },
+  { code: 'R-22', name: 'Uso Obrigatório de Correntes', category: 'regulamentação', type: 'uso_correntes' },
   { code: 'R-23', name: 'Conserve-se à Direita', category: 'regulamentação', type: 'conserve_direita' },
-  { code: 'R-24a', name: 'Sentido de Circulação da Via', category: 'regulamentação', type: 'sentido_circular' },
+  { code: 'R-24a', name: 'Sentido de Circulação da Via/Pista', category: 'regulamentação', type: 'sentido_circular' },
   { code: 'R-24b', name: 'Passagem Obrigatória', category: 'regulamentação', type: 'passagem_obrigatoria' },
   { code: 'R-25a', name: 'Vire à Esquerda', category: 'regulamentação', type: 'vire_esquerda' },
   { code: 'R-25b', name: 'Vire à Direita', category: 'regulamentação', type: 'vire_direita' },
-  { code: 'R-25c', name: 'Siga em Frente ou à Esquerda', category: 'regulamentação', type: 'siga_frente_esquerda' },
-  { code: 'R-25d', name: 'Siga em Frente ou à Direita', category: 'regulamentação', type: 'siga_frente_direita' },
+  { code: 'R-25c', name: 'Siga em Frente ou Vire à Esquerda', category: 'regulamentação', type: 'siga_frente_esquerda' },
+  { code: 'R-25d', name: 'Siga em Frente ou Vire à Direita', category: 'regulamentação', type: 'siga_frente_direita' },
   { code: 'R-26', name: 'Siga em Frente', category: 'regulamentação', type: 'siga_frente' },
-  { code: 'R-27', name: 'Ônibus, Caminhões e Veículos de Grande Porte, Conservem-se à Direita', category: 'regulamentação', type: 'veiculos_grandes_direita' },
+  { code: 'R-27', name: 'Ônibus, Caminhões e Veículos de Grande Porte, Mantenha-se à Direita', category: 'regulamentação', type: 'veiculos_grandes_direita' },
   { code: 'R-28', name: 'Duplo Sentido de Circulação', category: 'regulamentação', type: 'duplo_sentido' },
   { code: 'R-29', name: 'Proibido Trânsito de Pedestres', category: 'regulamentação', type: 'proibido_pedestres' },
-  { code: 'R-30', name: 'Pedestre, Ande pela Direita', category: 'regulamentação', type: 'pedestre_direita' },
-  { code: 'R-31', name: 'Pedestre, Ande pela Esquerda', category: 'regulamentação', type: 'pedestre_esquerda' },
-  { code: 'R-32', name: 'Proibido Trânsito de Motocicletas, Motonetas e Ciclomotores', category: 'regulamentação', type: 'proibido_motos' },
-  { code: 'R-33', name: 'Sentido Circular na Rotatória', category: 'regulamentação', type: 'rotatoria_regulamento' },
+  { code: 'R-30', name: 'Pedestre, Mantenha-se à Direita', category: 'regulamentação', type: 'pedestre_direita' },
+  { code: 'R-31', name: 'Pedestre, Mantenha-se à Esquerda', category: 'regulamentação', type: 'pedestre_esquerda' },
+  { code: 'R-32', name: 'Circulação Exclusiva de Ônibus', category: 'regulamentação', type: 'exclusivo_onibus' },
+  { code: 'R-33', name: 'Sentido de Circulação na Rotatória', category: 'regulamentação', type: 'rotatoria_regulamento' },
   { code: 'R-34', name: 'Circulação Exclusiva de Bicicletas', category: 'regulamentação', type: 'exclusivo_bicicleta' },
-  { code: 'R-35a', name: 'Ciclista, Transite à Esquerda', category: 'regulamentação', type: 'ciclista_esquerda' },
-  { code: 'R-35b', name: 'Ciclista, Transite à Direita', category: 'regulamentação', type: 'ciclista_direita' },
-  { code: 'R-36a', name: 'Ciclistas à Esquerda, Pedestres à Direita', category: 'regulamentação', type: 'ciclista_pedestre' },
-  { code: 'R-36b', name: 'Pedestres à Esquerda, Ciclistas à Direita', category: 'regulamentação', type: 'pedestre_ciclista' },
-  { code: 'R-37', name: 'Proibido Trânsito de Motocicletas', category: 'regulamentação', type: 'proibido_motocicletas' },
+  { code: 'R-35a', name: 'Ciclista, Mantenha-se à Esquerda', category: 'regulamentação', type: 'ciclista_esquerda' },
+  { code: 'R-35b', name: 'Ciclista, Mantenha-se à Direita', category: 'regulamentação', type: 'ciclista_direita' },
+  { code: 'R-36a', name: 'Ciclista à Esquerda, Pedestre à Direita', category: 'regulamentação', type: 'ciclista_pedestre' },
+  { code: 'R-36b', name: 'Pedestre à Esquerda, Ciclista à Direita', category: 'regulamentação', type: 'pedestre_ciclista' },
+  { code: 'R-37', name: 'Proibido Trânsito de Motocicletas, Motonetas e Ciclomotores', category: 'regulamentação', type: 'proibido_motos' },
   { code: 'R-38', name: 'Proibido Trânsito de Ônibus', category: 'regulamentação', type: 'proibido_onibus' },
   { code: 'R-39', name: 'Circulação Exclusiva de Caminhões', category: 'regulamentação', type: 'exclusivo_caminhoes' },
   { code: 'R-40', name: 'Trânsito Proibido de Carros de Mão', category: 'regulamentação', type: 'proibido_carros_mao' },
@@ -127,7 +125,7 @@ const SIGNS: TrafficSignData[] = [
   { code: 'A-21c', name: 'Estreitamento de Pista à Direita', category: 'advertência', type: 'estreitamento_direita_adv' },
   { code: 'A-22', name: 'Alargamento de Pista', category: 'advertência', type: 'alargamento_pista_adv' },
   { code: 'A-23', name: 'Ponte Estreita', category: 'advertência', type: 'ponte_estreita_adv' },
-  { code: 'A-24', name: 'Início de Pista Dupla', category: 'advertência', type: 'inicio_pista_dupla_adv' },
+  { code: 'A-24', name: 'Ponte Móvel', category: 'advertência', type: 'ponte_movel_adv' },
   { code: 'A-25', name: 'Mão Dupla Adiante', category: 'advertência', type: 'mao_dupla_adv' },
   { code: 'A-26a', name: 'Sentido Único', category: 'advertência', type: 'sentido_unico_adv' },
   { code: 'A-26b', name: 'Sentido Duplo', category: 'advertência', type: 'sentido_duplo_adv' },
@@ -145,8 +143,8 @@ const SIGNS: TrafficSignData[] = [
   { code: 'A-34', name: 'Área de Recreação Infantil', category: 'advertência', type: 'recreacao_infantil_adv' },
   { code: 'A-35', name: 'Animais', category: 'advertência', type: 'animais_adv' },
   { code: 'A-36', name: 'Animais Selvagens', category: 'advertência', type: 'animais_selvagens_adv' },
-  { code: 'A-37', name: 'Altura Limitada', category: 'advertência', type: 'altura_limitada_adv' },
-  { code: 'A-38', name: 'Largura Limitada', category: 'advertência', type: 'largura_limitada_adv' },
+  { code: 'A-37', name: 'Altura Limitada (4,0 m)', category: 'advertência', type: 'height_4.0m_adv' },
+  { code: 'A-38', name: 'Largura Limitada (3,0 m)', category: 'advertência', type: 'width_3.0m_adv' },
   { code: 'A-39', name: 'Passagem de Nível sem Barreira', category: 'advertência', type: 'passagem_nivel_sem_adv' },
   { code: 'A-40', name: 'Passagem de Nível com Barreira', category: 'advertência', type: 'passagem_nivel_com_adv' },
   { code: 'A-41', name: 'Cruz de Santo André', category: 'advertência', type: 'cruz_santo_andre_adv' },
@@ -156,6 +154,9 @@ const SIGNS: TrafficSignData[] = [
   { code: 'A-43', name: 'Aeroporto', category: 'advertência', type: 'aeroporto_adv' },
   { code: 'A-44', name: 'Vento Lateral', category: 'advertência', type: 'vento_lateral_adv' },
   { code: 'A-45', name: 'Rua Sem Saída', category: 'advertência', type: 'rua_sem_saida_adv' },
+  { code: 'A-46', name: 'Peso Limitado por Eixo (2,0 t)', category: 'advertência', type: 'axle_2.0t_adv' },
+  { code: 'A-47', name: 'Peso Bruto Total Limitado (10,0 t)', category: 'advertência', type: 'weight_10.0t_adv' },
+  { code: 'A-48', name: 'Comprimento Limitado (10,0 m)', category: 'advertência', type: 'length_10.0m_adv' },
 
   // --- INDICAÇÃO & SERVIÇOS ---
   { code: 'I-1', name: 'Pronto-Socorro', category: 'indicação', type: 'pronto_socorro' },
@@ -210,7 +211,7 @@ function renderSymbol(type: string, color: string) {
   }
 
   if (type.startsWith('height_')) {
-    const val = type.split('_')[1].replace('m', ' m');
+    const val = type.split('_')[1].replace('_adv', '').replace('m', ' m').replace('.', ',');
     return (
       <g>
         <path d="M50,28 L50,15 M43,23 L50,14 L57,23" stroke={color} strokeWidth="3.5" fill="none" />
@@ -221,12 +222,44 @@ function renderSymbol(type: string, color: string) {
   }
 
   if (type.startsWith('width_')) {
-    const val = type.split('_')[1].replace('m', ' m');
+    const val = type.split('_')[1].replace('_adv', '').replace('m', ' m').replace('.', ',');
     return (
       <g>
         <path d="M15,50 L30,50 M22,43 L14,50 L22,57" stroke={color} strokeWidth="3.5" fill="none" />
         <path d="M85,50 L70,50 M78,43 L86,50 L78,57" stroke={color} strokeWidth="3.5" fill="none" />
         <text x="50" y="56" fill={color} fontSize="17.5" fontWeight="950" textAnchor="middle">{val}</text>
+      </g>
+    );
+  }
+
+  if (type.startsWith('weight_')) {
+    const val = type.replace('weight_', '').replace('_adv', '').replace('t', ' t').replace('.', ',');
+    return (
+      <text x="50" y="59" fill={color} fontSize="21" fontWeight="950" textAnchor="middle">{val}</text>
+    );
+  }
+
+  if (type.startsWith('length_')) {
+    const val = type.replace('length_', '').replace('_adv', '').replace('m', ' m').replace('.', ',');
+    return (
+      <g>
+        <path d="M15,65 L85,65" stroke={color} strokeWidth="3" />
+        <path d="M22,58 L14,65 L22,72" stroke={color} strokeWidth="3" fill="none" />
+        <path d="M78,58 L86,65 L78,72" stroke={color} strokeWidth="3" fill="none" />
+        <text x="50" y="47" fill={color} fontSize="17.5" fontWeight="950" textAnchor="middle">{val}</text>
+      </g>
+    );
+  }
+
+  if (type.startsWith('axle_')) {
+    const val = type.replace('axle_', '').replace('_adv', '').replace('t', ' t').replace('.', ',');
+    return (
+      <g>
+        <line x1="25" y1="62" x2="75" y2="62" stroke={color} strokeWidth="5" />
+        <circle cx="25" cy="62" r="6" fill={color} />
+        <circle cx="75" cy="62" r="6" fill={color} />
+        <path d="M50,22 L50,42 M43,35 L50,43 L57,35" stroke={color} strokeWidth="3.5" fill="none" />
+        <text x="50" y="53" fill={color} fontSize="16" fontWeight="950" textAnchor="middle">{val}</text>
       </g>
     );
   }
@@ -432,6 +465,7 @@ function renderSymbol(type: string, color: string) {
     case 'ciclistas_adv':
     case 'ciclista_esquerda':
     case 'ciclista_direita':
+    case 'passagem_ciclistas_adv':
       return (
         <g transform="translate(0, 5)">
           <circle cx="34" cy="50" r="10" fill="none" stroke={color} strokeWidth="3.5" />
@@ -470,12 +504,14 @@ function renderSymbol(type: string, color: string) {
         </g>
       );
     case 'animais_selvagens_adv':
+    case 'animais_adv':
       return (
         <g transform="translate(-2, 3)">
           <path d="M26,50 Q32,36 46,36 Q56,36 61,42 L76,38 L71,48 L76,55 L65,55 L58,62 M30,50 L18,54 M46,55 L40,69 M56,55 L61,69" stroke={color} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </g>
       );
     case 'aeroporto_adv':
+    case 'aeroporto_servico':
       return (
         <g transform="translate(50,50) rotate(-45) translate(-50,-50)">
           <path d="M50,15 L50,85 M20,50 L80,50 M35,72 L65,72 M47,15 L53,15" stroke={color} strokeWidth="8.5" strokeLinecap="round" />
@@ -580,6 +616,7 @@ function renderSymbol(type: string, color: string) {
         </g>
       );
     case 'monumento_tur':
+    case 'monumento_ind':
       return (
         <g>
           <polygon points="44,75 56,75 52,24 48,24" fill="none" stroke={color} strokeWidth="4" />
@@ -587,6 +624,7 @@ function renderSymbol(type: string, color: string) {
         </g>
       );
     case 'museu_tur':
+    case 'museu_ind':
       return (
         <g>
           <polygon points="20,32 50,18 80,32" fill="none" stroke={color} strokeWidth="4" />
@@ -740,6 +778,17 @@ function renderSymbol(type: string, color: string) {
     case 'ponte_estreita_adv':
       return (
         <path d="M28,75 L28,52 Q28,45 40,43 L40,25 M72,75 L72,52 Q72,45 60,43 L60,25" stroke={color} strokeWidth="6" fill="none" strokeLinecap="round" />
+      );
+    case 'ponte_movel_adv':
+      return (
+        <g transform="translate(0, 5)">
+          <path d="M20,68 Q35,63 50,68 Q65,73 80,68" stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M25,74 Q40,69 55,74 Q70,79 85,74" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" />
+          <rect x="18" y="55" width="10" height="15" fill={color} />
+          <rect x="72" y="55" width="10" height="15" fill={color} />
+          <line x1="28" y1="52" x2="45" y2="35" stroke={color} strokeWidth="5.5" strokeLinecap="round" />
+          <line x1="55" y1="52" x2="72" y2="52" stroke={color} strokeWidth="5.5" strokeLinecap="round" />
+        </g>
       );
     case 'inicio_pista_dupla_adv':
     case 'pista_dupla_adv':
@@ -925,6 +974,87 @@ function renderSymbol(type: string, color: string) {
         </g>
       );
 
+    case 'proibido_ultrapassar':
+      return (
+        <g transform="translate(0, 5)">
+          {/* Right car */}
+          <rect x="52" y="44" width="18" height="24" rx="4" fill="none" stroke={color} strokeWidth="3.5" />
+          <circle cx="56" cy="40" r="3.5" fill={color} />
+          <circle cx="66" cy="40" r="3.5" fill={color} />
+          {/* Left car (red for CTB prohibited overtaking R-7) */}
+          <rect x="30" y="44" width="18" height="24" rx="4" fill="none" stroke="#dc2626" strokeWidth="3.5" />
+          <circle cx="34" cy="40" r="3.5" fill="#dc2626" />
+          <circle cx="44" cy="40" r="3.5" fill="#dc2626" />
+        </g>
+      );
+    case 'ciclistas_pedestres_adv':
+      return (
+        <g>
+          <g transform="translate(-18, 5) scale(0.8)">
+            <circle cx="34" cy="50" r="10" fill="none" stroke={color} strokeWidth="3.5" />
+            <circle cx="66" cy="50" r="10" fill="none" stroke={color} strokeWidth="3.5" />
+            <path d="M34,50 L50,50 L56,34 L40,34 M50,50 L44,34 M56,34 L66,50" stroke={color} strokeWidth="3.5" fill="none" />
+          </g>
+          <g transform="translate(18, 2) scale(0.8)">
+            <circle cx="50" cy="27" r="4.5" fill={color} />
+            <line x1="50" y1="32.5" x2="50" y2="52" stroke={color} strokeWidth="5" strokeLinecap="round" />
+            <path d="M50,52 L42,70 M50,52 L58,70 M40,38 L50,41 L60,37" stroke={color} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </g>
+        </g>
+      );
+    case 'proibido_motos':
+      return (
+        <g transform="translate(0, 5)">
+          <circle cx="28" cy="54" r="8" fill="none" stroke={color} strokeWidth="3.5" />
+          <circle cx="72" cy="54" r="8" fill="none" stroke={color} strokeWidth="3.5" />
+          <path d="M28,54 L44,42 L58,42 L72,54 M44,42 L50,54" stroke={color} strokeWidth="3.5" fill="none" />
+          <line x1="58" y1="42" x2="62" y2="30" stroke={color} strokeWidth="3.5" />
+          <line x1="38" y1="42" x2="48" y2="42" stroke={color} strokeWidth="3.5" />
+        </g>
+      );
+    case 'proibido_onibus':
+    case 'ponto_onibus_ind':
+    case 'transporte_coletivo_ind':
+    case 'rodoviaria_ind':
+      return (
+        <g transform="translate(0, 4)">
+          <rect x="28" y="25" width="44" height="42" rx="6" fill="none" stroke={color} strokeWidth="5" />
+          <rect x="33" y="30" width="34" height="15" rx="2" fill="none" stroke={color} strokeWidth="3" />
+          <circle cx="36" cy="56" r="3" fill={color} />
+          <circle cx="64" cy="56" r="3" fill={color} />
+          <rect x="32" y="67" width="10" height="7" rx="1.5" fill={color} />
+          <rect x="58" y="67" width="10" height="7" rx="1.5" fill={color} />
+          <line x1="42" y1="56" x2="58" y2="56" stroke={color} strokeWidth="3" />
+        </g>
+      );
+    case 'ferroviaria_ind':
+      return (
+        <g transform="translate(0, 4)">
+          <rect x="32" y="30" width="36" height="32" rx="4" fill="none" stroke={color} strokeWidth="5" />
+          <circle cx="50" cy="40" r="4.5" fill={color} />
+          <path d="M25,68 L75,68 M35,68 L42,62 L58,62 L65,68" stroke={color} strokeWidth="3" strokeLinecap="round" fill="none" />
+          <rect x="28" y="52" width="44" height="5" fill={color} />
+        </g>
+      );
+    case 'caravanas_ind':
+      return (
+        <g transform="translate(-2, 4)">
+          <path d="M26,36 L62,36 Q74,36 74,48 L74,62 L32,62 L26,56 Z" fill="none" stroke={color} strokeWidth="4.5" />
+          <rect x="44" y="42" width="16" height="10" rx="2" fill="none" stroke={color} strokeWidth="3" />
+          <circle cx="52" cy="62" r="6" fill="none" stroke={color} strokeWidth="3.5" />
+          <line x1="26" y1="56" x2="16" y2="56" stroke={color} strokeWidth="4" />
+        </g>
+      );
+    case 'farol_ind':
+      return (
+        <g transform="translate(0, 2)">
+          <polygon points="44,72 56,72 53,30 47,30" fill="none" stroke={color} strokeWidth="4.5" />
+          <rect x="42" y="26" width="16" height="4" fill={color} />
+          <path d="M45,26 A5,5 0 0,1 55,26" fill={color} />
+          <path d="M36,22 L18,14 M64,22 L82,14 M34,30 L16,28 M66,30 L84,28" stroke={color} strokeWidth="3.5" strokeLinecap="round" />
+        </g>
+      );
+
     default:
       return (
         <text x="50" y="58" fill={color} fontSize="17" fontWeight="950" textAnchor="middle" fontFamily="monospace">🚦</text>
@@ -933,7 +1063,17 @@ function renderSymbol(type: string, color: string) {
 }
 
 function TrafficSignSvg({ type, category, code }: { type: string; category?: string; code?: string }) {
-  const isBlueReg = type.includes('siga_frente') || type.includes('sentido_circular') || type.includes('passagem_obrigatoria') || type.includes('exclusivo_') || type.includes('vire_') || type.includes('conserve_') || type.includes('obrigatoria');
+  const isBlueReg = 
+    type.includes('siga_frente') || 
+    type.includes('sentido_circular') || 
+    type.includes('passagem_obrigatoria') || 
+    type.includes('exclusivo_') || 
+    type.includes('vire_') || 
+    type.includes('conserve_') || 
+    type.includes('obrigatoria') ||
+    type === 'veiculos_grandes_direita' ||
+    type.includes('pedestre_') ||
+    type.includes('ciclista_');
   const isTur = type.endsWith('_tur');
   
   let shapeContent;
@@ -963,14 +1103,14 @@ function TrafficSignSvg({ type, category, code }: { type: string; category?: str
         )}
         
         {renderSymbol(type, isBlueReg ? '#ffffff' : '#000000')}
-
+ 
         {type.includes('proibido_parar') && (
           <>
             <line x1="22" y1="22" x2="78" y2="78" stroke="#dc2626" strokeWidth="9" strokeLinecap="round" />
             <line x1="78" y1="22" x2="22" y2="78" stroke="#dc2626" strokeWidth="9" strokeLinecap="round" />
           </>
         )}
-        {type.startsWith('proibido_') && !type.includes('proibido_parar') && (
+        {(type.startsWith('proibido_') || type === 'sentido_proibido') && !type.includes('proibido_parar') && (
           <line x1="22" y1="22" x2="78" y2="78" stroke="#dc2626" strokeWidth="9" strokeLinecap="round" />
         )}
       </>
@@ -1027,7 +1167,7 @@ export function SignMatch({ onComplete, onScoreUpdate, onCancel, currentPlayerId
   const [isTimeOut, setIsTimeOut] = useState(false);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
   
-  const totalRounds = 20;
+  const totalRounds = 10;
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -1093,7 +1233,7 @@ export function SignMatch({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     setActivePlayerTurn('p1');
     setIsTimeOut(false);
 
-    // Shuffle and extract a set of 20 unique traffic signs for the session
+    // Shuffle and extract a set of 10 unique traffic signs for the session
     let eligibleSigns = [...SIGNS];
     if (mode === 'easy') {
       // Basic Regulation and Warning only - exclude "indicação"
@@ -1123,7 +1263,7 @@ export function SignMatch({ onComplete, onScoreUpdate, onCancel, currentPlayerId
 
     if (isCorrect) {
       // Dynamic score matching math game speed multiplier - removed per user request
-      earnedPoints = 100;
+      earnedPoints = 200;
       if (multiplayerMode === '2p') {
         if (activePlayerTurn === 'p1') {
           setP1Score(prev => prev + earnedPoints);
@@ -1134,6 +1274,11 @@ export function SignMatch({ onComplete, onScoreUpdate, onCancel, currentPlayerId
         setScore(s => s + earnedPoints);
       }
       if (onScoreUpdate) onScoreUpdate(earnedPoints);
+
+      playGameSfx('correct');
+      triggerGameConfetti();
+    } else {
+      playGameSfx('incorrect');
     }
 
     // Transit to next round or end game after 1.5s
@@ -1141,6 +1286,7 @@ export function SignMatch({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       if (currentRound >= totalRounds) {
         const finalP1 = activePlayerTurn === 'p1' ? p1Score + earnedPoints : p1Score;
         const finalP2 = activePlayerTurn === 'p2' ? p2Score + earnedPoints : p2Score;
+        playGameSfx('win');
         onComplete(
           multiplayerMode === '2p' ? finalP1 : score + earnedPoints,
           1,
@@ -1254,7 +1400,21 @@ export function SignMatch({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       {/* Top Bar with Back Selection */}
       <div className="w-full flex items-center mb-6">
         <button 
-          onClick={() => setGameState('selection')}
+          onClick={() => {
+            // Salva os pontos acumulados até agora e incrementa a patrulha de forma imediata enviando à central
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'SIGN_MATCH',
+              false,
+              false,
+              true // isAbandoned = true
+            );
+          }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
           <ArrowLeft size={20} />

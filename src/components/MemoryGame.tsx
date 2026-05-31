@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { Brain, ArrowLeft } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -140,6 +141,14 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           }
           if (onScoreUpdate) onScoreUpdate(totalEarned);
 
+          // Play effects
+          if (isFinished) {
+            playGameSfx('win');
+          } else {
+            playGameSfx('match');
+          }
+          triggerGameConfetti();
+
           // Computa os pontos imediatamente no faturamento geral de patrulhas e perfil
           onComplete(
             multiplayerMode === '2p' ? finalP1 : finalScore,
@@ -168,6 +177,7 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           }
         }, 500);
       } else {
+        playGameSfx('incorrect');
         const hideTimeout = difficulty === 'Fácil' ? 1000 : difficulty === 'Médio' ? 700 : 400;
         setTimeout(() => {
           const resetBoard = [...board];
@@ -295,8 +305,21 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       <div className="w-full flex items-center mb-6">
         <button 
           id="mem-back-btn"
-          onClick={() => setSetupComplete(false)}
-          className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
+          onClick={() => {
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'MEMORY',
+              false,
+              false,
+              true // isAbandoned = true
+            );
+          }}
+          className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700 hover:border-slate-500"
         >
           <ArrowLeft size={20} />
         </button>
@@ -317,7 +340,7 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         />
       )}
 
-      <div className="w-full flex justify-between items-center mb-6">
+      <div className="w-full flex justify-between items-center mb-4 sm:mb-6">
         <div className="text-left w-24">
           <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Memória</p>
           <p className="text-xl font-black text-yellow-400">Score: {score}</p>
@@ -352,7 +375,7 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         ))}
       </div>
 
-      <div className="w-full flex justify-center mt-6">
+      <div className="w-full flex justify-center mt-4 sm:mt-6">
         <Button 
           id="abandon-mem-btn"
           onClick={() => {

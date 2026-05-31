@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { ArrowLeft, Type } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { WORDS } from '../data/words';
 import { WORD_SEARCH_THEMES, THEME_BASES } from '../data/wordSearchThemes';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
@@ -234,6 +235,8 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
 
     if (newWonGrids.every(w => w)) {
       setStatus('won');
+      playGameSfx('win');
+      triggerGameConfetti();
       const points = (maxAttempts - newGuesses.length) * 100 * gridCount;
       let finalScore = score;
       let finalP1 = p1Score;
@@ -266,7 +269,10 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       );
     } else if (newGuesses.length >= maxAttempts) {
       setStatus('lost');
+      playGameSfx('incorrect');
     } else {
+      // Correct feedback sound for non-winning submission
+      playGameSfx('correct');
       if (multiplayerMode === '2p') {
         setActivePlayerTurn(prev => prev === 'p1' ? 'p2' : 'p1');
       }
@@ -453,7 +459,20 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       <div className="w-full flex items-center mb-6">
         <button 
           id="back-btn-ingame"
-          onClick={onCancel}
+          onClick={() => {
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'WORD_GUESS',
+              false,
+              false, // keepInGameSelection = false
+              true  // isAbandoned = true
+            );
+          }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
           <ArrowLeft size={20} />

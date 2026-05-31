@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { ArrowLeft, Timer, Award, Check, X, ShieldAlert, Sparkles, Hash } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -185,6 +186,7 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
     // Check correctness
     if (index !== sequence[nextUserSeq.length - 1]) {
       setStatus('lost');
+      playGameSfx('incorrect');
       return;
     }
 
@@ -208,8 +210,12 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
       // Match consists of exactly 10 rounds
       if (level === 10) {
         setStatus('match_won');
+        playGameSfx('win');
+        triggerGameConfetti();
       } else {
         setStatus('won');
+        playGameSfx('correct');
+        triggerGameConfetti();
       }
     }
   };
@@ -374,7 +380,24 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
       <div className="w-full flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center">
           <button 
-            onClick={() => setGameState('selection')}
+            onClick={() => {
+              if (gameState === 'playing') {
+                onComplete(
+                  multiplayerMode === '2p' ? p1Score : score,
+                  1,
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'NUMBER_GUESS',
+                  false,
+                  false,
+                  true // isAbandoned = true
+                );
+              } else {
+                setGameState('selection');
+              }
+            }}
             disabled={isPlaying}
             className={`w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700 text-slate-400 active:scale-95 transition-all ${isPlaying ? 'opacity-30' : 'hover:text-white'}`}
           >

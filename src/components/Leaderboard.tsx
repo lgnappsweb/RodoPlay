@@ -519,6 +519,7 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
   // Utility to map code GameType identifiers to local user friendly names
   const getFriendlyGameName = (type: string) => {
     switch (type) {
+      case 'QUIZ_MASTER_APH': return 'Quiz Master APH';
       case 'TIC_TAC_TOE': return 'Jogo da Velha';
       case 'QUIZ': return 'Super Quiz';
       case 'HANGMAN': return 'Forca';
@@ -1486,7 +1487,7 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
             )}
 
             {/* 2. REGULAR SCALAR TABLELIST */}
-            <div className="space-y-2.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredPlayers.length > 0 ? (
                 // Display remaining or all (if search query hides podium)
                 filteredPlayers.map((p, idx) => {
@@ -1503,7 +1504,7 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       onClick={() => setExpandedPlayerUid(expandedPlayerUid === p.uid ? null : p.uid)}
-                      className={`relative overflow-hidden group flex flex-col p-4 rounded-2xl border transition-all cursor-pointer hover:border-slate-800 ${isMe ? 'bg-yellow-400/5 border-yellow-400/50 hover:border-yellow-400' : 'bg-slate-950 border-slate-900'} w-full gap-3`}
+                      className={`relative overflow-hidden group flex flex-col p-4 md:p-6 rounded-2xl border transition-all cursor-pointer hover:border-slate-800 ${isMe ? 'bg-yellow-400/5 border-yellow-400/50 hover:border-yellow-400' : 'bg-slate-950 border-slate-900'} w-full gap-3 ${idx < 2 ? 'lg:col-span-3' : 'lg:col-span-1'}`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
                         {/* Left Group */}
@@ -1530,7 +1531,7 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
                           {/* Profile identifiers */}
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap text-left">
-                              <h4 className={`font-black uppercase italic text-xs md:text-sm leading-tight truncate max-w-[130px] md:max-w-[220px] ${isMe ? 'text-yellow-400' : 'text-slate-100'}`}>
+                              <h4 className={`font-black uppercase italic text-xs md:text-sm leading-tight truncate md:max-w-none ${isMe ? 'text-yellow-400' : 'text-slate-100'}`}>
                                 {p.displayName}
                               </h4>
                               {isMe && <span className="text-[7.5px] bg-yellow-400 text-slate-950 uppercase px-1.5 font-bold rounded">Eu</span>}

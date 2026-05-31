@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { ArrowLeft, RotateCcw, AlertTriangle, CheckCircle, HelpCircle, Sparkles, Grid, Trash2, Check } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 
 interface SudokuGameProps {
   onComplete: (
@@ -195,6 +196,7 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
 
     if (num !== 0 && !isCorrect) {
       // Infraction check!
+      playGameSfx('incorrect');
       const newErrors = errors + 1;
       setErrors(newErrors);
       if (newErrors >= maxErrors) {
@@ -224,12 +226,19 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
 
       if (isFilledCorrectly) {
         handleVictoryAction();
+      } else {
+        if (num !== 0) {
+          playGameSfx('correct');
+          triggerGameConfetti();
+        }
       }
     }
   };
 
   const handleVictoryAction = () => {
     setGameState('victory');
+    playGameSfx('win');
+    triggerGameConfetti();
     
     // Reward settings based on difficulty
     const finalScore = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
@@ -400,7 +409,20 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         <button 
           id="sudoku-game-back-btn"
           onClick={() => {
-            setSetupComplete(false);
+            const finalScore = gameState === 'victory' ? (difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700) : 0;
+            // Salva os pontos acumulados até agora e incrementa a patrulha de forma imediata enviando à central
+            onComplete(
+              finalScore,
+              1,
+              false,
+              null,
+              0,
+              0,
+              'SUDOKU',
+              false,
+              false,
+              true // isAbandoned = true
+            );
           }}
           className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-700 transition-all cursor-pointer"
         >

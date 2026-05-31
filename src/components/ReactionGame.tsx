@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Button } from './ui/button';
 import { Zap, ArrowLeft } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -82,6 +83,7 @@ export function ReactionGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
   const handleClick = () => {
     if (gameState === 'waiting') {
       setGameState('too-early');
+      playGameSfx('incorrect');
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
       // Removed automatic startRound(2000)
@@ -96,6 +98,13 @@ export function ReactionGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
       }
 
       const points = Math.max(0, 1000 - time);
+      if (points > 500) {
+        playGameSfx('win');
+        triggerGameConfetti();
+      } else {
+        playGameSfx('correct');
+        triggerGameConfetti();
+      }
       
       if (multiplayerMode === '2p') {
         if (activePlayerTurn === 'p1') {
@@ -220,7 +229,23 @@ export function ReactionGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
       {/* Top Bar with Back Button */}
       <div className="w-full flex items-center mb-6">
         <button 
-          onClick={onCancel}
+          onClick={() => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            const scoreNum = multiplayerMode === '2p' ? p1Score : (reactionTime > 0 ? Math.max(0, 1000 - reactionTime) : 0);
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : scoreNum,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              multiplayerMode === '2p' ? p2Score : 0,
+              'REACTION',
+              false,
+              false,
+              true // isAbandoned = true
+            );
+          }}
           className="group relative flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 hover:border-red-500/50 transition-all active:scale-95 overflow-hidden"
         >
           <div className="flex gap-1">

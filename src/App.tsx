@@ -23,6 +23,7 @@ const Settings = lazy(() => import('./components/Settings').then(m => ({ default
 const NotificationsPage = lazy(() => import('./components/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Quiz = lazy(() => import('./components/Quiz').then(m => ({ default: m.Quiz })));
+const QuizMasterAPH = lazy(() => import('./components/QuizMasterAPH').then(m => ({ default: m.QuizMasterAPH })));
 const Hangman = lazy(() => import('./components/Hangman').then(m => ({ default: m.Hangman })));
 const WordSearch = lazy(() => import('./components/WordSearch').then(m => ({ default: m.WordSearch })));
 const WordGuess = lazy(() => import('./components/WordGuess').then(m => ({ default: m.WordGuess })));
@@ -296,6 +297,7 @@ export default function App() {
 
   const getFriendlyGameName = (game: string) => {
     switch (game) {
+      case 'QUIZ_MASTER_APH': return 'Quiz Master APH';
       case 'TIC_TAC_TOE': return 'Jogo da Velha';
       case 'QUIZ': return 'Super Quiz';
       case 'HANGMAN': return 'Forca';
@@ -1059,6 +1061,26 @@ No aguardo da liberação corporativa.`;
               exit={{ opacity: 0, y: -20 }}
             >
               <AdminPanel player={player} onBack={() => setView('home')} />
+            </motion.div>
+          )}
+
+          {view === GameType.QUIZ_MASTER_APH && (
+            <motion.div
+              key={`quiz_master_aph_${gameSessionId}`}
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <QuizMasterAPH
+                currentPlayerId={player?.uid}
+                onComplete={handleGameComplete}
+                onScoreUpdate={handleScoreUpdate}
+                player={player}
+                onCancel={() => {
+                  setSessionScore(0);
+                  setView('home');
+                }}
+              />
             </motion.div>
           )}
 

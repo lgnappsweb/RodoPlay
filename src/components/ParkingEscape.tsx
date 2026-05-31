@@ -8,6 +8,7 @@ import { Button } from './ui/button';
 import { motion, AnimatePresence } from 'motion/react';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { 
   Car, 
   ArrowLeftRight, 
@@ -585,7 +586,24 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
       {/* Top Header Controls */}
       <div className="w-full max-w-sm flex items-center justify-between mb-4">
         <button 
-          onClick={() => setGameState('selection')}
+          onClick={() => {
+            if (gameState === 'playing') {
+              onComplete(
+                gameState === 'lost' ? 0 : (multiplayerMode === '2p' ? p1Score : score),
+                1,
+                multiplayerMode === '2p',
+                selectedPartner,
+                gameState === 'lost' ? 0 : p1Score,
+                gameState === 'lost' ? 0 : p2Score,
+                'PARKING_ESCAPE',
+                gameState === 'lost',
+                false,
+                true // isAbandoned = true
+              );
+            } else {
+              setGameState('selection');
+            }
+          }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
           <ChevronLeft className="w-5 h-5" />

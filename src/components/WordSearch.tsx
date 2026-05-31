@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { ArrowLeft, Search } from 'lucide-react';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 import { MultiplayerSetup, MultiplayerGameplayBar } from './MultiplayerSetup';
 import { Player } from '../types';
 
@@ -248,8 +249,17 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       }
       if (onScoreUpdate) onScoreUpdate(points);
 
+      // Trigger visual effects and custom sound
+      const isWon = nextFoundWords.length === targetWords.length && targetWords.length > 0;
+      if (isWon) {
+        playGameSfx('win');
+      } else {
+        playGameSfx('match');
+      }
+      triggerGameConfetti();
+
       // Se todas as palavras foram localizadas, computa e salva a patrulha e pontos imediatamente
-      if (nextFoundWords.length === targetWords.length && targetWords.length > 0) {
+      if (isWon) {
         onComplete(
           multiplayerMode === '2p' ? finalP1 : finalScore,
           1,
@@ -410,7 +420,20 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       <div className="w-full flex items-center mb-6">
         <button 
           id="ws-back-button"
-          onClick={onCancel}
+          onClick={() => {
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : score,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'WORD_SEARCH',
+              false,
+              false,
+              true // isAbandoned = true
+            );
+          }}
           className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
         >
           <ArrowLeft size={20} />
@@ -514,11 +537,11 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         </div>
       </div>
 
-      <div className="w-full flex justify-center mt-6">
+      {/* Command Actions Bar */}
+      <div className="w-full flex flex-col gap-3 mt-8">
         <Button 
           id="ws-abandon-btn"
           onClick={() => {
-            // Salva os pontos acumulados até agora e incrementa a patrulha de forma imediata enviando à central
             onComplete(
               multiplayerMode === '2p' ? p1Score : score,
               1,
@@ -532,7 +555,7 @@ export function WordSearch({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               true // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 mx-auto rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
         >
           ABANDONAR PATRULHA
         </Button>

@@ -29,6 +29,8 @@ interface HangmanProps {
 }
 
 import { WORDS } from '../data/words';
+import { HANGMAN_THEMES, HangmanTheme } from '../data/hangmanThemes';
+import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
 
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -41,6 +43,7 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
   const [totalScore, setTotalScore] = useState(0);
   const [setupComplete, setSetupComplete] = useState(false);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const [selectedTheme, setSelectedTheme] = useState<HangmanTheme>(HANGMAN_THEMES[0]);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
 
   // Multiplayer State
@@ -53,17 +56,18 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
   const maxMistakes = difficulty === 'easy' ? 8 : difficulty === 'medium' ? 6 : 4;
 
   useEffect(() => {
-    startNewLevel();
+    // startNewLevel handled after setup
   }, []);
 
   const startNewLevel = () => {
+    const targetWords = selectedTheme.words;
     let randomWord = word;
-    if (WORDS.length > 1) {
+    if (targetWords.length > 1) {
       while (randomWord === word) {
-        randomWord = WORDS[Math.floor(Math.random() * WORDS.length)];
+        randomWord = targetWords[Math.floor(Math.random() * targetWords.length)];
       }
     } else {
-      randomWord = WORDS[Math.floor(Math.random() * WORDS.length)];
+      randomWord = targetWords[Math.floor(Math.random() * targetWords.length)];
     }
     setWord(randomWord);
     setGuessedLetters([]);
@@ -85,6 +89,9 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
         const next = prev + 1;
         if (next >= maxMistakes) {
           setStatus('lost');
+          playGameSfx('incorrect');
+        } else {
+          playGameSfx('incorrect');
         }
         return next;
       });
@@ -96,6 +103,8 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
       const isWon = word.split('').every(l => [...guessedLetters, letter].includes(l) || !alphabet.includes(l));
       if (isWon) {
         setStatus('won');
+        playGameSfx('win');
+        triggerGameConfetti();
         const levelScore = 100 * level - mistakes * 10;
         let finalScore = totalScore;
         let finalP1 = p1Score;
@@ -126,6 +135,9 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
           false,
           true
         );
+      } else {
+        // Correct guess but not won yet
+        playGameSfx('correct');
       }
     }
   };
@@ -203,6 +215,34 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
             </div>
           </div>
 
+          <div id="theme-selector">
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-3 text-center">Selecione o Tema da Patrulha</p>
+            <div className="grid grid-cols-1 gap-2 max-h-[220px] overflow-y-auto pr-1">
+              {HANGMAN_THEMES.map((theme) => {
+                const isSelected = selectedTheme.id === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    onClick={() => setSelectedTheme(theme)}
+                    className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                      isSelected 
+                        ? 'bg-slate-850 border-yellow-400 shadow-[0_0_15px_-5px_rgba(234,179,8,0.2)]' 
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:bg-slate-800/25'
+                    }`}
+                  >
+                    <span className="text-xl" role="img">{theme.icon}</span>
+                    <div className="min-w-0">
+                      <p className={isSelected ? 'text-[11px] font-black uppercase text-yellow-400' : 'text-[11px] font-extrabold uppercase text-slate-300'}>
+                        {theme.name}
+                      </p>
+                      <p className="text-[8px] text-slate-500 font-bold uppercase mt-0.5">{theme.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <MultiplayerSetup
             currentPlayerId={currentPlayerId || ''}
             activeMode={multiplayerMode}
@@ -215,7 +255,10 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
 
           <Button 
             disabled={multiplayerMode === '2p' && !selectedPartner}
-            onClick={() => setSetupComplete(true)} 
+            onClick={() => {
+              setSetupComplete(true);
+              startNewLevel();
+            }} 
             className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all disabled:opacity-50"
           >
             {multiplayerMode === '2p' && !selectedPartner ? 'SELECIONE O JOGADOR 2 👥' : 'INICIAR PATRULHA 🚀'}
@@ -238,18 +281,32 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
       {/* Top Bar with Back Button */}
       <div className="w-full flex items-center mb-6">
         <button 
+          id="back-btn-ingame"
           onClick={() => {
-            setSetupComplete(false);
-            setTotalScore(0);
-            setLevel(1);
+            onComplete(
+              multiplayerMode === '2p' ? p1Score : totalScore,
+              1,
+              multiplayerMode === '2p',
+              selectedPartner,
+              p1Score,
+              p2Score,
+              'HANGMAN',
+              false,
+              false, // keepInGameSelection
+              true // isAbandoned = true
+            );
           }}
-          className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700"
+          className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors border border-slate-700 hover:border-slate-500"
         >
           <ArrowLeft size={20} />
         </button>
         <div className="ml-4 flex flex-col">
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Patrulha de Resgate</span>
           <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter mt-1">DIFICULDADE: {difficulty === 'easy' ? 'FÁCIL' : difficulty === 'medium' ? 'MÉDIO' : 'DIFÍCIL'} | Nível {level}</span>
+          <div className="flex items-center gap-2 bg-slate-900/50 mt-2 px-2 py-0.5 rounded-lg border border-slate-800">
+             <span className="text-[10px]">{selectedTheme.icon}</span>
+             <span className="text-[8px] font-bold text-slate-300 uppercase">{selectedTheme.name}</span>
+          </div>
         </div>
       </div>
 
@@ -264,7 +321,7 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
         />
       )}
 
-      <div className="w-full flex justify-between items-center mb-10">
+      <div className="w-full flex justify-between items-center mb-6 sm:mb-10">
         <div className="text-left">
           <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Enforcado</p>
           <p className="text-xl font-black text-yellow-400">Score: {totalScore}</p>
@@ -498,8 +555,9 @@ export function Hangman({ onComplete, onScoreUpdate, onCancel, currentPlayerId }
         </div>
       )}
 
-      <div className="w-full flex justify-center mt-6">
+      <div className="w-full flex justify-center mt-4 sm:mt-6">
         <Button 
+          id="hangman-abandon-btn"
           onClick={() => {
             // Salva os pontos acumulados até o momento e registra a patrulha
             onComplete(
