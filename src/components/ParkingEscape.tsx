@@ -56,6 +56,9 @@ interface ParkingEscapeProps {
 
 export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: ParkingEscapeProps) {
   const [level, setLevel] = useState(1);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [roundFinished, setRoundFinished] = useState(false);
+  const [accumulatedScore, setAccumulatedScore] = useState(0);
   const [score, setScore] = useState(0);
 
   // Multiplayer State
@@ -259,6 +262,10 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
 
   // Start continuous gameplay timer
   const startGame = () => {
+    setLevel(1);
+    setCurrentRound(1);
+    setRoundFinished(false);
+    setAccumulatedScore(0);
     setMoves(0);
     setSelectedVehicleId(null);
     setScore(0);
@@ -368,23 +375,25 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
   const handleLevelComplete = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     
+    // Play SFX & trigger confetti
+    playGameSfx('win');
+    triggerGameConfetti();
+
     // Performance score calculations
     const basePts = 300;
     const speedBonus = 0;
     const roundScore = basePts + speedBonus;
     
-    const finalScore = multiplayerMode === '2p' ? p1Score + roundScore : score + roundScore;
-    onComplete(
-      finalScore,
-      1,
-      multiplayerMode === '2p',
-      selectedPartner,
-      multiplayerMode === '2p' ? p1Score + roundScore : score + roundScore,
-      p2Score,
-      'PARKING_ESCAPE',
-      false,
-      false
-    );
+    setAccumulatedScore(prev => prev + roundScore);
+    setScore(prev => prev + roundScore);
+    if (multiplayerMode === '2p') {
+      if (activePlayerTurn === 'p1') {
+        setP1Score(prev => prev + roundScore);
+      } else {
+        setP2Score(prev => prev + roundScore);
+      }
+    }
+    setRoundFinished(true);
   };
 
   const handleNextLevel = () => {
@@ -392,6 +401,8 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
       setActivePlayerTurn(prev => prev === 'p1' ? 'p2' : 'p1');
     }
     setLevel(prev => prev + 1);
+    setCurrentRound(1);
+    setRoundFinished(false);
     setGameState('playing');
     setTimeLeft(getDifficultyTime(difficulty));
     generateLevel(gridSize, targetSize);
@@ -400,7 +411,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
   const handleFinishDeployment = () => {
     onComplete(
       gameState === 'lost' ? 0 : (multiplayerMode === '2p' ? p1Score : score),
-      1,
+      10,
       multiplayerMode === '2p',
       selectedPartner,
       gameState === 'lost' ? 0 : p1Score,
@@ -564,7 +575,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
           <Button 
             disabled={multiplayerMode === '2p' && !selectedPartner}
             onClick={startGame} 
-            className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all disabled:opacity-50"
+            className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all disabled:opacity-50"
           >
             {multiplayerMode === '2p' && !selectedPartner ? 'SELECIONE O JOGADOR 2 👥' : 'INICIAR OPERAÇÃO 🚀'}
           </Button>
@@ -577,6 +588,160 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
             VOLTAR À CENTRAL DE JOGOS
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'won') {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center pt-10 pb-20 select-none overflow-y-auto w-full">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6"
+        >
+          {/* Trophy Header */}
+          <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+            <Trophy className="w-10 h-10 text-yellow-400" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-yellow-400 uppercase italic tracking-tighter">Patrulha Concluída!</h2>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Parabéns! Você finalizou a operação de pátio com sucesso.</p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 text-left w-full">
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+              <span className="text-xs font-black text-white uppercase italic text-center block w-full">{difficulty === 'easy' ? 'Fácil' : difficulty === 'medium' ? 'Médio' : 'Difícil'}</span>
+            </div>
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Movimentos Realizados</span>
+              <span className="text-xs font-black text-yellow-400 font-mono text-center block w-full">{moves} 🚘</span>
+            </div>
+
+            {multiplayerMode === '2p' ? (
+              <div className="bg-slate-955 p-3.5 rounded-2xl border border-indigo-500/30 col-span-2 space-y-2">
+                <p className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Resultado da Dupla (Versus)</p>
+                <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1">Você (P1): <span className="text-white font-black font-mono">{p1Score} pts</span></span>
+                  {p1Score > p2Score && <span className="text-[9px] bg-yellow-400 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase">Vencedor</span>}
+                </div>
+                <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1">{selectedPartner?.displayName || 'P2'}: <span className="text-white font-black font-mono">{p2Score} pts</span></span>
+                  {p2Score > p1Score && <span className="text-[9px] bg-indigo-500 text-white font-black px-1.5 py-0.5 rounded uppercase">Vencedor</span>}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center">
+                <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontuação Total Acumulada</span>
+                <span className="text-4xl font-extrabold text-yellow-400 font-mono tracking-tighter">{score} <span className="text-xs uppercase text-slate-500">pts</span></span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-2">
+            <Button
+              onClick={() => {
+                handleFinishDeployment();
+                onCancel();
+              }}
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+            >
+              FINALIZAR PARTIDA 🏁
+            </Button>
+
+            <Button
+              onClick={handleNextLevel}
+              className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 cursor-pointer border-none"
+            >
+              PRÓXIMO NÍVEL ⚡
+            </Button>
+
+            <Button
+              onClick={() => {
+                handleFinishDeployment();
+                onCancel();
+              }}
+              variant="outline"
+              className="w-full h-12 border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+            >
+              Voltar à Central de Jogos
+            </Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (gameState === 'lost') {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center pt-10 pb-20 select-none overflow-y-auto w-full">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-slate-900 border-2 border-red-500 rounded-3xl p-6 shadow-xl shadow-red-500/10 text-center space-y-6"
+        >
+          {/* Danger/Alarm Header */}
+          <div className="w-20 h-20 bg-red-400/10 border-2 border-red-500 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-red-500/20">
+            <span className="text-4xl animate-pulse">⏱️</span>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-red-550 uppercase italic tracking-tighter">Patrulha Expirada!</h2>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">O tempo para concluir esta patrulha terminou.</p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 text-left w-full">
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+              <span className="text-xs font-black text-white uppercase italic text-center block w-full">{difficulty === 'easy' ? 'Fácil' : difficulty === 'medium' ? 'Médio' : 'Difícil'}</span>
+            </div>
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Movimentos Realizados</span>
+              <span className="text-xs font-black text-red-400 font-mono text-center block w-full">{moves} 🚘</span>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center">
+              <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontos Ganhos</span>
+              <span className="text-4xl font-extrabold text-red-500 font-mono tracking-tighter">0 <span className="text-xs uppercase text-slate-500">pts</span></span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-2">
+            <Button
+              onClick={() => {
+                handleFinishDeployment();
+                onCancel();
+              }}
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+            >
+              FINALIZAR PARTIDA 🏁
+            </Button>
+
+            <Button
+              onClick={startGame}
+              className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 cursor-pointer border-none"
+            >
+              TENTAR NOVAMENTE 🔁
+            </Button>
+
+            <Button
+              onClick={() => {
+                handleFinishDeployment();
+                onCancel();
+              }}
+              variant="outline"
+              className="w-full h-12 border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+            >
+              Voltar à Central de Jogos
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -612,7 +777,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
         <div className="flex bg-slate-900/80 border border-slate-800 rounded-2xl px-3 py-1 items-center gap-2">
           <Gauge className="w-4 h-4 text-slate-400" />
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
-            DIFICULDADE: {difficulty === 'easy' ? 'FÁCIL' : difficulty === 'medium' ? 'MÉDIO' : 'DIFÍCIL'} | Nível {level}
+            DIFICULDADE: {difficulty === 'easy' ? 'FÁCIL' : difficulty === 'medium' ? 'MÉDIO' : 'DIFÍCIL'} | Nível {level} | Rodada {currentRound}/10
           </span>
         </div>
 
@@ -914,70 +1079,82 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
         ) : gameState === 'won' ? (
           <motion.div 
             key="won"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="w-full max-w-sm bg-slate-900 border-2 border-emerald-500/20 p-8 rounded-[2.5rem] flex flex-col items-center justify-center space-y-6 text-center shadow-[0_0_30px_rgba(16,185,129,0.1)] animate-fade-in"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="w-full max-w-md bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6"
           >
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center border-2 border-emerald-500/30">
-              <Trophy className="w-8 h-8 text-emerald-400" />
+            {/* Trophy Header */}
+            <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+              <Trophy className="w-10 h-10 text-yellow-400" />
             </div>
-            
+
             <div className="space-y-2">
-              <h2 className="text-3xl font-black text-emerald-400 uppercase leading-none italic">Fuga Concluída!</h2>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Viatura Principal Resgatada</p>
+              <h2 className="text-2xl font-black text-yellow-400 uppercase italic tracking-tighter">Patrulha Concluída!</h2>
+              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Parabéns! Você finalizou a operação de pátio com sucesso.</p>
             </div>
 
-            {/* Performance board card */}
-            <div className="w-full bg-slate-950/60 rounded-2xl border border-slate-850 p-4">
-              <div className="flex justify-between text-xs py-1">
-                <span className="text-slate-400">Total de Movimentos:</span>
-                <span className="font-bold text-white">{moves}</span>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-3 text-left w-full">
+              <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+                <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+                <span className="text-xs font-black text-white uppercase italic">
+                  {difficulty === 'easy' ? 'Fácil' : difficulty === 'medium' ? 'Médio' : 'Difícil'}
+                </span>
               </div>
-              <div className="flex justify-between text-xs py-1">
-                <span className="text-slate-400">Bônus de Tempo:</span>
-                <span className="font-bold text-yellow-400">+0 pts</span>
+              <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+                <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Movimentos Realizados</span>
+                <span className="text-xs font-black text-yellow-400 font-mono">{moves} 🚘</span>
               </div>
-              <div className="border-t border-slate-800 my-2 pt-2 flex justify-between text-xs font-bold uppercase">
-                <span className="text-emerald-400">Pontuação de Carreira:</span>
-                <span className="font-extrabold text-white">{multiplayerMode === '2p' ? p1Score + p2Score : score} pts</span>
-              </div>
+
+              {multiplayerMode === '2p' ? (
+                <div className="bg-slate-955 p-3.5 rounded-2xl border border-indigo-500/30 col-span-2 space-y-2">
+                  <p className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Resultado da Dupla (Versus)</p>
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                    <span className="flex items-center gap-1">Você (P1): <span className="text-white font-black font-mono">{p1Score} pts</span></span>
+                    {p1Score > p2Score && <span className="text-[9px] bg-yellow-400 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase">Vencedor</span>}
+                  </div>
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                    <span className="flex items-center gap-1">{selectedPartner?.displayName || 'P2'}: <span className="text-white font-black font-mono">{p2Score} pts</span></span>
+                    {p2Score > p1Score && <span className="text-[9px] bg-indigo-500 text-white font-black px-1.5 py-0.5 rounded uppercase">Vencedor</span>}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center">
+                  <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontuação Total Acumulada</span>
+                  <span className="text-4xl font-extrabold text-yellow-400 font-mono tracking-tighter">{score} <span className="text-xs uppercase text-slate-500">pts</span></span>
+                </div>
+              )}
             </div>
 
-            {/* Standard Score Box (Pontos Ganhos) */}
-            <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-850">
-               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1 font-sans">Pontos Ganhos</span>
-               <span className="text-3xl font-black text-emerald-400 font-mono block">+300 XP</span>
-            </div>
-
-            <div className="w-full flex flex-col gap-3">
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-3 pt-2">
               <Button
-                onClick={handleNextLevel}
-                className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black uppercase text-xs rounded-2xl tracking-wider active:scale-95 transition-all"
+                onClick={() => {
+                  handleFinishDeployment();
+                  onCancel();
+                }}
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
               >
-                PRÓXIMO NÍVEL 🚀
+                FINALIZAR PARTIDA 🏁
               </Button>
 
               <Button
-                onClick={handleFinishDeployment}
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+                onClick={handleNextLevel}
+                className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 cursor-pointer border-none"
               >
-                VOLTAR À CENTRAL DE JOGOS
+                PRÓXIMO NÍVEL ⚡
               </Button>
 
               <Button
                 onClick={() => {
-                  setLevel(1);
-                  setScore(0);
-                  setP1Score(0);
-                  setP2Score(0);
-                  setMoves(0);
-                  setGameState('selection');
+                  handleFinishDeployment();
+                  onCancel();
                 }}
                 variant="outline"
-                className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
               >
-                TENTAR NOVAMENTE 🔁
+                Voltar à Central de Jogos
               </Button>
             </div>
           </motion.div>
@@ -1011,9 +1188,23 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
             </div>
 
             <div className="w-full flex flex-col gap-3">
+              <Button 
+                id="parking-finish-btn-lost"
+                onClick={() => {
+                  handleFinishDeployment();
+                  onCancel();
+                }}
+                className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans select-none"
+              >
+                FINALIZAR PARTIDA 🏁
+              </Button>
+
               <Button
-                onClick={handleFinishDeployment}
-                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+                onClick={() => {
+                  handleFinishDeployment();
+                  onCancel();
+                }}
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans border-none cursor-pointer"
               >
                 VOLTAR À CENTRAL DE JOGOS
               </Button>
@@ -1089,7 +1280,89 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
         </div>
       )}
 
-      <div className="mt-8 w-full max-w-sm flex flex-col items-center">
+      <AnimatePresence>
+        {roundFinished && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 text-center"
+          >
+            <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 max-w-sm w-full text-center relative overflow-hidden shadow-2xl space-y-6">
+              <div className="bg-yellow-500/20 border-2 border-yellow-500 w-20 h-20 rounded-[2rem] flex items-center justify-center text-4xl mx-auto shadow-glow shadow-yellow-500/40 font-sans">🚘</div>
+              <h2 className="text-3xl font-black text-white italic uppercase font-sans">Rodada {currentRound}/10 Concluída!</h2>
+              
+              <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 w-full mb-4">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Resultado</span>
+                <span className="text-xl font-black block uppercase text-emerald-400">
+                  Viatura Principal Resgatada ✔️
+                </span>
+                <span className="text-sm font-black text-yellow-400 font-mono block mt-2">+300 XP</span>
+              </div>
+
+              {currentRound < 10 ? (
+                <div className="flex flex-col gap-3 pt-2">
+                  <Button
+                    onClick={() => {
+                      setCurrentRound(prev => prev + 1);
+                      setRoundFinished(false);
+                      // Reset moves and generate new layout
+                      setMoves(0);
+                      generateLevel(gridSize, targetSize);
+                      setGameState('playing');
+                    }}
+                    className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                  >
+                    PRÓXIMA RODADA ({currentRound + 1}/10) 🚀
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score : score,
+                        currentRound,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'PARKING_ESCAPE',
+                        false,
+                        false
+                      );
+                      onCancel();
+                    }}
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                  >
+                    FINALIZAR PARTIDA 🏁
+                  </Button>
+
+                  <Button
+                    onClick={onCancel}
+                    variant="outline"
+                    className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                  >
+                    Voltar à Central de Jogos
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 pt-2">
+                  <Button
+                    onClick={() => {
+                      setRoundFinished(false);
+                      setGameState('won');
+                    }}
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans border-none cursor-pointer"
+                  >
+                    VER RESULTADOS 🏆
+                  </Button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="mt-8 w-full max-w-sm flex justify-center">
         {gameState === 'playing' ? (
           <Button 
             onClick={() => {
@@ -1108,7 +1381,7 @@ export function ParkingEscape({ onComplete, onScoreUpdate, onCancel, currentPlay
                 true // isAbandoned = true
               );
             }}
-            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans"
           >
             ABANDONAR PATRULHA
           </Button>

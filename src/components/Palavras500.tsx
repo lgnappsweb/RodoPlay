@@ -118,6 +118,13 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
   const [selectedTheme, setSelectedTheme] = useState<PalavrasTheme>(PALAVRAS_THEMES[0]);
   const [levelIndex, setLevelIndex] = useState(0);
 
+  // Decoupled word length and round state variables
+  const [wordLength, setWordLength] = useState<number>(4);
+  const [currentRound, setCurrentRound] = useState<number>(1);
+  const [roundFinished, setRoundFinished] = useState<boolean>(false);
+  const [accumulatedScore, setAccumulatedScore] = useState<number>(0);
+  const [roundScore, setRoundScore] = useState<number>(0);
+
   // Active game setup elements
   const [letterPool, setLetterPool] = useState<string[]>([]);
   const [targetWords, setTargetWords] = useState<string[]>([]);
@@ -155,7 +162,7 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
       limit = 95;
     }
 
-    const len = difficulty === 'Fácil' ? 4 : difficulty === 'Médio' ? 5 : 6;
+    const len = wordLength;
     
     // Filter words based on the selected theme AND length
     const candidates = selectedTheme.words.filter(w => normalizeWord(w).length === len).map(w => normalizeWord(w)).filter(w => w.length >= minLen);
@@ -175,12 +182,12 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
           word.length >= minLen && canFormWord(word, letters)
         );
         
-        if (formable.length >= 5 && formable.length <= 8) {
+        if (formable.length >= 4) {
           poolLetters = letters;
           sortedTargets = Array.from(new Set(formable)).sort((a, b) => {
             if (a.length !== b.length) return a.length - b.length;
             return a.localeCompare(b);
-          });
+          }).slice(0, 6);
           break;
         }
       }
@@ -401,41 +408,23 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
     const reachedTargetScore = curTotalScore >= 500;
 
     if (allDiscovered || reachedTargetScore) {
-      setGameState('playing');
-
       const baseAward = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
       const speedBonus = 0;
       const finalAward = baseAward + speedBonus;
 
       if (multiplayerMode === '2p') {
-        const p1Final = activePlayerTurn === 'p1' ? p1Score + finalAward : p1Score;
-        const p2Final = activePlayerTurn === 'p2' ? p2Score + finalAward : p2Score;
-        
-        onComplete(
-          p1Final,
-          1,
-          true,
-          selectedPartner,
-          p1Final,
-          p2Final,
-          'PALAVRAS_500',
-          false,
-          false
-        );
+        if (activePlayerTurn === 'p1') {
+          setP1Score(prev => prev + finalAward);
+        } else {
+          setP2Score(prev => prev + finalAward);
+        }
       } else {
-        const finalScore = score + finalAward;
-        onComplete(
-          finalScore,
-          1,
-          false,
-          null,
-          finalScore,
-          undefined,
-          'PALAVRAS_500',
-          false,
-          false
-        );
+        setScore(prev => prev + finalAward);
       }
+
+      setRoundScore(finalAward);
+      setAccumulatedScore(prev => prev + finalAward);
+      setRoundFinished(true);
     }
   };
 
@@ -541,7 +530,6 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
             <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-3 text-center">Nível de Dificuldade</p>
             <div className="grid grid-cols-1 gap-3">
               {(['Fácil', 'Médio', 'Difícil'] as const).map(level => {
-                const lettersCount = level === 'Fácil' ? '4 Letras' : level === 'Médio' ? '5 Letras' : '6 Letras';
                 const reward = level === 'Fácil' ? '+300 XP BP' : level === 'Médio' ? '+450 XP BP' : '+700 XP BP';
                 return (
                   <button
@@ -555,7 +543,7 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
                     }`}
                   >
                     <div className="flex flex-col text-left">
-                      <span className="font-black uppercase text-sm italic">{level} ({lettersCount})</span>
+                      <span className="font-black uppercase text-sm italic">{level}</span>
                       <span className={`text-[8px] font-bold uppercase tracking-tighter mt-0.5 ${difficulty === level ? 'text-slate-900/60' : 'text-slate-600'}`}>
                         {reward} • Meta: Alcançar 500 Pts ou desvendar o círculo de anagramas
                       </span>
@@ -569,6 +557,26 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          <div id="word-length-selector">
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-3 text-center">Tamanho das Palavras no Círculo</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([4, 5, 6] as const).map(len => (
+                <button
+                  id={`btn-word-length-${len}`}
+                  key={len}
+                  onClick={() => setWordLength(len)}
+                  className={`h-12 rounded-xl font-black text-xs uppercase tracking-wider transition-all border ${
+                    wordLength === len 
+                      ? 'bg-yellow-400 border-yellow-400 text-slate-950 scale-[1.03] shadow-lg shadow-yellow-500/10 font-black' 
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  {len} Letras
+                </button>
+              ))}
             </div>
           </div>
 
@@ -638,12 +646,12 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
       {/* Top Header Navigation */}
       <div className="w-full flex items-center mb-1 max-w-lg">
         <button 
-          id="palavras-back-btn"
+          id="palavras-back-btn" 
           onClick={() => {
             if (gameState === 'playing') {
               onComplete(
                 multiplayerMode === '2p' ? p1Score : score,
-                1,
+                10,
                 multiplayerMode === '2p',
                 selectedPartner,
                 p1Score,
@@ -661,9 +669,9 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="ml-4 flex flex-col">
+        <div className="ml-4 flex flex-col font-sans">
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Patrulha Ativa</span>
-          <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter mt-1">Palavras 500 | Nível {difficulty.toUpperCase()}</span>
+          <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter mt-1">Palavras 500 | Nível {difficulty.toUpperCase()} | Tamanho: {wordLength} Letras | Rodada {currentRound}/10</span>
         </div>
         <div className="ml-auto text-right flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-xl">
           <span className="text-sm">{selectedTheme.icon}</span>
@@ -878,7 +886,7 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
             // Salva os pontos acumulados até agora e incrementa a patrulha de forma imediata enviando à central
             onComplete(
               multiplayerMode === '2p' ? p1Score : score,
-              1,
+              10,
               multiplayerMode === '2p',
               selectedPartner,
               p1Score,
@@ -889,14 +897,193 @@ export function Palavras500({ onComplete, onScoreUpdate, onCancel, currentPlayer
               true // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider font-sans"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider font-sans"
         >
           ABANDONAR PATRULHA
         </Button>
       </div>
 
-      {/* Modals & Gameplay Overlays inside Canvas view */}
-      <AnimatePresence />
+           <AnimatePresence>
+        {roundFinished && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 text-center select-none overflow-y-auto w-full"
+          >
+            <div className="bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6 w-full max-w-sm">
+              <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <span className="text-4xl">🏆</span>
+              </div>
+
+              {currentRound < 10 ? (
+                <>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter text-yellow-405 font-sans">Rodada {currentRound}/10 Concluída!</h2>
+                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Círculo Resolvido ✔️</p>
+                  </div>
+
+                  <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center font-sans">
+                    <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontos Ganhos Nesta Rodada</span>
+                    <span className="text-2xl font-extrabold text-yellow-400 font-mono">+{roundScore} <span className="text-[10px] uppercase text-slate-500">pts</span></span>
+                  </div>
+
+                  <div className="flex flex-col gap-3 pt-2">
+                    <Button
+                      onClick={() => {
+                        setCurrentRound(prev => prev + 1);
+                        setRoundFinished(false);
+                        setScore(0);
+                        initLevel();
+                      }}
+                      className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                    >
+                      PRÓXIMA RODADA ({currentRound + 1}/10) 🚀
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        onComplete(
+                          multiplayerMode === '2p' ? p1Score : score,
+                          currentRound,
+                          multiplayerMode === '2p',
+                          selectedPartner,
+                          p1Score,
+                          p2Score,
+                          'PALAVRAS_500',
+                          false,
+                          false
+                        );
+                        onCancel();
+                      }}
+                      className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                    >
+                      FINALIZAR PARTIDA 🏁
+                    </Button>
+
+                    <Button
+                      onClick={onCancel}
+                      variant="outline"
+                      className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                    >
+                      Voltar à Central de Jogos
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-400 font-sans">Palavras 500 Superada!</h2>
+                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Excelente vocabulário operacional!</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-left w-full font-sans">
+                    <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+                      <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+                      <span className="text-xs font-black text-white uppercase italic">{difficulty}</span>
+                    </div>
+                    <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+                      <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Rodadas Suportadas</span>
+                      <span className="text-xs font-black text-yellow-400 font-mono">10 / 10 ⚡</span>
+                    </div>
+
+                    {multiplayerMode === '2p' ? (
+                      <div className="bg-slate-950 p-3.5 rounded-2xl border border-indigo-500/30 col-span-2 space-y-2">
+                        <p className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Resultado da Dupla (Versus)</p>
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                          <span className="flex items-center gap-1">Você (P1): <span className="text-white font-black font-mono">{p1Score} pts</span></span>
+                          {p1Score > p2Score && <span className="text-[9px] bg-yellow-400 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase font-sans">Vencedor</span>}
+                        </div>
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                          <span className="flex items-center gap-1">{selectedPartner?.displayName || 'P2'}: <span className="text-white font-black font-mono">{p2Score} pts</span></span>
+                          {p2Score > p1Score && <span className="text-[9px] bg-indigo-500 text-white font-black px-1.5 py-0.5 rounded font-sans">Vencedor</span>}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center font-sans">
+                        <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontuação Total Acumulada</span>
+                        <span className="text-4xl font-extrabold text-yellow-400 font-mono tracking-tighter">{score} <span className="text-xs uppercase text-slate-500">pts</span></span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3 pt-2">
+                    <Button
+                      onClick={() => {
+                        onComplete(
+                          multiplayerMode === '2p' ? p1Score : score,
+                          10,
+                          multiplayerMode === '2p',
+                          selectedPartner,
+                          p1Score,
+                          p2Score,
+                          'PALAVRAS_500',
+                          false,
+                          true // keepInGameSelection
+                        );
+                        
+                        // Promotion
+                        const nextDiff = difficulty === 'Fácil' ? 'Médio' : (difficulty === 'Médio' ? 'Difícil' : 'Fácil');
+                        setDifficulty(nextDiff);
+                        setCurrentRound(1);
+                        setScore(0);
+                        setP1Score(0);
+                        setP2Score(0);
+                        setRoundFinished(false);
+                        initLevel();
+                      }}
+                      className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                    >
+                      PRÓXIMO NÍVEL ⚡
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        onComplete(
+                          multiplayerMode === '2p' ? p1Score : score,
+                          10,
+                          multiplayerMode === '2p',
+                          selectedPartner,
+                          p1Score,
+                          p2Score,
+                          'PALAVRAS_500',
+                          false,
+                          false
+                        );
+                        onCancel();
+                      }}
+                      className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                    >
+                      FINALIZAR PARTIDA 🏁
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        onComplete(
+                          multiplayerMode === '2p' ? p1Score : score,
+                          10,
+                          multiplayerMode === '2p',
+                          selectedPartner,
+                          p1Score,
+                          p2Score,
+                          'PALAVRAS_500',
+                          false,
+                          false
+                        );
+                        onCancel();
+                      }}
+                      variant="outline"
+                      className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                    >
+                      Voltar à Central de Jogos
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

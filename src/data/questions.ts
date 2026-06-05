@@ -14,7 +14,7 @@ export interface QuizTheme {
 
 export const QUIZ_THEMES: QuizTheme[] = [
   { id: 'sinalizacao', name: 'Sinalização & Placas', icon: '🛑', description: 'Placas de regulamentação, advertência, indicações e marcas viárias.' },
-  { id: 'defensiva', name: 'Direção Defensiva', icon: '🛡️', description: 'Técnicas de prevenção de acidentes, postura do condutor e regras de cuidado.' },
+  { id: 'defensiva', name: 'Direção Defensiva', icon: '🛡️', description: 'Técnicas de prevenção de acidentes, postura do operador e regras de cuidado.' },
   { id: 'socorros', name: 'Primeiros Socorros', icon: '🏥', description: 'Atendimento inicial a acidentados, controle de pânico e acionamento de resgate.' },
   { id: 'legislacao', name: 'Legislação & Código (CTB)', icon: '⚖️', description: 'Normas de circulação, habilitação, validade de documentos e leis gerais de trânsito.' },
   { id: 'mecanica', name: 'Mecânica Básica & Manutenção', icon: '🔧', description: 'Funcionamento do motor, sistema de freios, suspensão e painel de instrumentos.' },
@@ -117,10 +117,10 @@ function getTemplatesForTheme(themeId: string): string[] {
     case 'sinalizacao':
       return [
         "Qual o significado da placa de regulamentação {A} ao conduzir um {B} sob {C}?",
-        "Ao passar por uma {C}, você vê a placa de advertência {A}. Como condutor de {B}, qual a conduta legal?",
+        "Ao passar por uma {C}, você vê a placa de advertência {A}. Como operador de {B}, qual a conduta legal?",
         "A marca de demarcação transversal {A} sob pista {C} estabelece que o veículo {B} deve...",
         "Qual é o comportamento esperado ao avistar a placa de indicação {A} a {C} metros pilotando {B}?",
-        "Sob sinal de apito do agente de trânsito ({A}), o condutor de um {B} em via {C} é obrigado a...",
+        "Sob sinal de apito do agente de trânsito ({A}), o operador de um {B} em via {C} é obrigado a...",
         "Ao notar o gesto de braço do agente de trânsito ({A}) sob {C}, o motorista de {B} deve realizar...",
         "A linha longitudinal pintada na pista na cor {A} sob {C} proíbe que o {B} execute qual manobra?",
         "A placa de serviços auxiliares {A} indica que há {B} a {C} metros à frente.",
@@ -129,14 +129,14 @@ function getTemplatesForTheme(themeId: string): string[] {
       ];
     case 'defensiva':
       return [
-        "Se o condutor defensivo de um {B} depara-se com {A} sob {C}, qual deve ser a primeira ação preventiva?",
+        "Se o operador defensivo de um {B} depara-se com {A} sob {C}, qual deve ser a primeira ação preventiva?",
         "A regra dos dois segundos para manter distância de {B} à frente sob {C} deve ser ampliada para {A} se...",
         "Ao realizar uma ultrapassagem segura de {B} sob {C}, a atenção com relação a {A} deve ser...",
-        "Para compensar a fadiga física ao dirigir um {B} por mais de {A} horas sob {C}, o condutor deve...",
+        "Para compensar a fadiga física ao dirigir um {B} por mais de {A} horas sob {C}, o operador deve...",
         "O ponto cego do retrovisor em {B} esconde outros veículos, especialmente {A} sob {C}. Para mitigar, deve-se...",
         "Diante de um animal de grande porte ({A}) na pista molhada sob {C}, qual a manobra recomendável para {B}?",
         "Se o pedal de freio de seu {B} perder pressão ao trafegar sob {C}, a primeira ação defensiva relacionada a {A} é...",
-        "A força centrífuga tende a empurrar {B} para fora de curvas em {C}. O condutor evita derrapar ao {A}...",
+        "A força centrífuga tende a empurrar {B} para fora de curvas em {C}. O operador evita derrapar ao {A}...",
         "Se um motorista agressivo colado à traseira de seu {B} sob {C} insistir em passar, a atitude defensiva {A} é...",
         "A aquaplanagem é a perda de aderência de {B} por película de água. Ao notar isso sob {C}, o motorista deve {A}..."
       ];
@@ -156,7 +156,7 @@ function getTemplatesForTheme(themeId: string): string[] {
     case 'legislacao':
       return [
         "Conforme o CTB, conduzir {B} sob {C} com Carteira de Habilitação {A} vencida há mais de 30 dias é infração...",
-        "A renovação da CNH de condutor do {B} com idade {A} deve ser realizada sob {C} a cada...",
+        "A renovação da CNH de operador do {B} com idade {A} deve ser realizada sob {C} a cada...",
         "Habilitado na categoria {A} conduzindo um {B} sob {C} comete infração de trânsito se...",
         "A prioridade de passagem legal no trânsito urbano sob {C} pertence ao {B} destinado a {A}...",
         "Dirigir {B} sob efeito de bebida alcoólica verificado por {A} sob {C} impõe como medida penal...",
@@ -190,29 +190,29 @@ function getTemplatesForTheme(themeId: string): string[] {
         "Para descarte ecologicamente correto de pneus desgastados de {B} sob {C}, a lei {A} determina...",
         "O monóxido de carbono emitido por {B} sob {C} reage na atmosfera contribuindo para o fenômeno {A}...",
         "A queima incompleta de combustíveis fósseis por {B} gera partículas de {A} visíveis sob {C} chamadas...",
-        "A cidadania no trânsito exige que o condutor de {B} sob {C} evite jogar na pista materiais como {A} para..."
+        "A cidadania no trânsito exige que o operador de {B} sob {C} evite jogar na pista materiais como {A} para..."
       ];
     case 'obras':
       return [
         "Ao se deparar com placas cor {A} indicando obras de via na {C}, o motorista de {B} deve...",
         "A barreira de sinalização canalizadora pintada em {A} sinaliza estreitamento de faixa para {B} sob {C}...",
-        "A placa provisória de {A} a {C} metros adverte o condutor de {B} que...",
+        "A placa provisória de {A} a {C} metros adverte o operador de {B} que...",
         "Em trecho sob reforma com asfalto fresado na {C}, a condução de {B} exige que {A} seja...",
-        "O operário sinalizador empunhando bandeira {A} na via {C} ordena que o condutor de {B} realize...",
+        "O operário sinalizador empunhando bandeira {A} na via {C} ordena que o operador de {B} realize...",
         "A sinalização temporária de {A} instalada em {C} restringe o limite físico de peso para {B} a...",
         "Dispositivos delimitadores como cones reflexivos em cores {A} sob {C} guiam {B} de forma a...",
-        "A presença de brita solta de pavimentação na via {C} sob reformas exige que o condutor de {B} evite {A}...",
+        "A presença de brita solta de pavimentação na via {C} sob reformas exige que o operador de {B} evite {A}...",
         "Placas portáteis de regulamentação de velocidade em obras indicam {A} para proteger {B} sob {C}.",
         "A sinalização noturna de obras feita com sinalizadores de luz {A} em {C} adverte {B} sobre..."
       ];
     case 'adversa':
       return [
         "Sob chuva torrencial em {C}, o perigo de aquaplanagem aumenta para {B}, sendo correto {A}...",
-        "A neblina espessa reduz a visibilidade horizontal de {B} em {C}. O condutor deve ligar faróis baixos e {A}...",
+        "A neblina espessa reduz a visibilidade horizontal de {B} em {C}. O operador deve ligar faróis baixos e {A}...",
         "Se houver vento lateral muito forte ao pilotar {B} em {C}, a reação defensiva para estabilizar o veículo é {A}...",
         "Durante a noite escura em pista de {C} sem iluminação, o farol alto de {B} deve ser substituído por baixo ao {A}...",
-        "Se a pista estiver escorregadia devido a lama ou geada em {C}, o condutor de {B} deve {A} para evitar derrapagens.",
-        "O ofuscamento de visão gerado por sol forte ao entardecer em {C} exige que o condutor de {B} utilize {A}...",
+        "Se a pista estiver escorregadia devido a lama ou geada em {C}, o operador de {B} deve {A} para evitar derrapagens.",
+        "O ofuscamento de visão gerado por sol forte ao entardecer em {C} exige que o operador de {B} utilize {A}...",
         "O cansaço físico extremo ao conduzir {B} sob condições de {C} reduz reflexos. A conduta defensiva adequada é {A}...",
         "O ponto cego em curvas acentuadas sob neblina em {C} requer que o motorista de {B} adote a conduta de {A}...",
         "Sob fumaça densa emanada de queimadas nas margens da rodovia {C}, o motorista de {B} deve imediatamente {A}...",
@@ -220,12 +220,12 @@ function getTemplatesForTheme(themeId: string): string[] {
       ];
     case 'multas':
       return [
-        "A infração de natureza {A} por exceder a velocidade máxima em {C} impõe ao condutor de {B} a pontuação de...",
+        "A infração de natureza {A} por exceder a velocidade máxima em {C} impõe ao operador de {B} a pontuação de...",
         "Recusar-se a realizar o teste do bafômetro sob {C} ao dirigir {B} gera multa de valor {A} além de...",
         "Estacionar o {B} em guia de calçada rebaixada para entrada de carros sob {C} acarreta multa de nível {A} e...",
         "A infração gravíssima de transitar com {B} pelo acostamento sob {C} tem fator multiplicador {A}, resultando em multa de...",
         "Conduzir {B} sem os equipamentos obrigatórios de segurança ativa ou com eles ineficientes sob {C} é infração de nível {A} e...",
-        "Para interpor recurso contra auto de infração decorrente de condução de {B} sob {C}, o condutor deve respeitar {A}...",
+        "Para interpor recurso contra auto de infração decorrente de condução de {B} sob {C}, o operador deve respeitar {A}...",
         "A multa por uso de celular ao volante conduzindo {B} na via {C} é tipificada como de nível {A} e gera...",
         "O acúmulo de pontos na habilitação por infrações cometidas dirigindo {B} sob {C} causa suspensão da CNH quando atinge {A}...",
         "Dirigir o {B} com os faróis apagados em rodovias sob {C} de pista simples é infração tipificada como de nível {A} e...",
@@ -361,7 +361,7 @@ function getOptionsForTheme(
         return {
           correct: "Aumentar o cuidado operacional, observando o fluxo transversal para agir de acordo com a legalidade viária.",
           wrongs: [
-            "Ligar os faróis de milha e sinalizador sonoro para exigir que outros condutores abram passagem rápida.",
+            "Ligar os faróis de milha e sinalizador sonoro para exigir que outros operadores abram passagem rápida.",
             "Manter-se exatamente na mesma faixa sem fazer escaneamento visual ao redor.",
             "Descer do automóvel para verificar o significado exato da marcação horizontal de calçada."
           ]
@@ -422,11 +422,11 @@ function getOptionsForTheme(
     case 'legislacao':
       if (scenarioIdx === 0) {
         return {
-          correct: "Comete infração de trânsito de natureza gravíssima, punível com multa pesada e retenção do veículo até apresentação de condutor habilitado.",
+          correct: "Comete infração de trânsito de natureza gravíssima, punível com multa pesada e retenção do veículo até apresentação de operador habilitado.",
           wrongs: [
             "Constitui mera infração leve que gera apenas notificação verbal educativa simples no trânsito.",
             "É considerado crime federal hediondo com prisão em flagrante sem direito a fiança imediata.",
-            "É permitido legalmente se o condutor estiver prestando ajuda comunitária local de baixa velocidade."
+            "É permitido legalmente se o operador estiver prestando ajuda comunitária local de baixa velocidade."
           ]
         };
       } else {
@@ -485,7 +485,7 @@ function getOptionsForTheme(
       return {
         correct: "Aumentar a margem de segurança operacional, diminuindo a velocidade de fluxo e ligando as luzes adequadas recomendadas.",
         wrongs: [
-          "Colar na traseira do automóvel condutor da frente para usar seus faróis traseiros como guias cegos.",
+          "Colar na traseira do automóvel operador da frente para usar seus faróis traseiros como guias cegos.",
           "Ativar o pisca-alerta em via rápida com o veículo rodando velozmente debaixo de temporal.",
           "Acelerar nas poças profundas para realizar frenagem dinâmica por hidroplanagem mecânica."
         ]
@@ -496,7 +496,7 @@ function getOptionsForTheme(
         correct: "Estar ciente de que as multas servem para coibir infrações e gerar conscientização, acumulando penalidades severas em prontuário.",
         wrongs: [
           "Saber que as infrações cometidas sob chuva ou de madrugada estão isentas de aplicação de pontuação pela lei.",
-          "Indicar condutores falecidos ou falsos nos recursos para livrar-se de suspensões de habilitação.",
+          "Indicar operadores falecidos ou falsos nos recursos para livrar-se de suspensões de habilitação.",
           "Continuar dirigindo legalmente com a CNH suspensa até que ocorra uma abordargem física policial."
         ]
       };

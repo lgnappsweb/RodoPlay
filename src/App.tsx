@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, lazy, Suspense, useEffect } from 'react';
+import { useState, lazy, Suspense, useEffect, useRef } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { Home } from './components/Home';
 import { BottomNav } from './components/BottomNav';
@@ -31,7 +31,6 @@ const NumberColorGame = lazy(() => import('./components/NumberColorGame').then(m
 const MemoryGame = lazy(() => import('./components/MemoryGame').then(m => ({ default: m.MemoryGame })));
 const ReactionGame = lazy(() => import('./components/ReactionGame').then(m => ({ default: m.ReactionGame })));
 const SpeedMath = lazy(() => import('./components/SpeedMath').then(m => ({ default: m.SpeedMath })));
-const SignMatch = lazy(() => import('./components/SignMatch').then(m => ({ default: m.SignMatch })));
 const RouteOrder = lazy(() => import('./components/RouteOrder').then(m => ({ default: m.RouteOrder })));
 const ParkingEscape = lazy(() => import('./components/ParkingEscape').then(m => ({ default: m.ParkingEscape })));
 const TicTacToe = lazy(() => import('./components/TicTacToe').then(m => ({ default: m.TicTacToe })));
@@ -76,6 +75,11 @@ export default function App() {
       if (snap.exists()) {
         setAdminSettings(snap.data());
       }
+    }, (err) => {
+      console.warn("Error listening to appSettings config:", err);
+      if (err instanceof Error && err.message.toLowerCase().includes('quota')) {
+        localStorage.setItem('firestore_quota_exceeded', 'true');
+      }
     });
     return unsub;
   }, []);
@@ -83,6 +87,43 @@ export default function App() {
   useEffect(() => {
     setSessionScore(0);
   }, [player?.uid]);
+
+  // Monitor when view changes to a game type, in order to increment patrols count on entry!
+  const lastIncrementedViewRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (player && view && Object.values(GameType).includes(view as any)) {
+      if (lastIncrementedViewRef.current !== view) {
+        lastIncrementedViewRef.current = view;
+
+        const gameKey = view as string;
+        const currentStats = player.gameStats || {};
+        const gameStatObj = currentStats[gameKey] || { score: 0, completions: 0 };
+        const newGamesPlayed = (player.gamesPlayed || 0) + 1;
+        
+        const updatedGameStats = {
+          ...currentStats,
+          [gameKey]: {
+            ...gameStatObj,
+            completions: (gameStatObj.completions || 0) + 1
+          }
+        };
+
+        (async () => {
+          try {
+            await updateProfile({
+              gamesPlayed: newGamesPlayed,
+              gameStats: updatedGameStats
+            });
+          } catch (err) {
+            console.warn("Failed to increment patrol count on game enter:", err);
+          }
+        })();
+      }
+    } else if (view && !Object.values(GameType).includes(view as any)) {
+      lastIncrementedViewRef.current = null;
+    }
+  }, [view, player?.uid, updateProfile]);
 
   // Sync user profile state changes including edits and newly obtained avatars into saved profiles list for rapid 1-click access
   useEffect(() => {
@@ -121,6 +162,21 @@ export default function App() {
     completedGames: 0,
     timedOutGames: 0
   });
+
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const checkQuota = () => {
+      setIsQuotaExceeded(localStorage.getItem('firestore_quota_exceeded') === 'true');
+    };
+    checkQuota();
+    const interval = setInterval(checkQuota, 3000);
+    window.addEventListener('storage', checkQuota);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', checkQuota);
+    };
+  }, []);
 
   // Global Realtime listener for aggregated players' metrics
   useEffect(() => {
@@ -307,7 +363,6 @@ export default function App() {
       case 'MEMORY': return 'Memória';
       case 'REACTION': return 'Reflexo';
       case 'SPEED_MATH': return 'Cálculo Rápido';
-      case 'SIGN_MATCH': return 'Placas';
       case 'ROUTE_ORDER': return 'Trajeto';
       case 'PARKING_ESCAPE': return 'Escape';
       case 'QUEENS': return 'Queens';
@@ -701,28 +756,31 @@ No aguardo da liberação corporativa.`;
     const resolvedGameType = gameType || (Object.values(GameType).includes(view as any) ? view as string : 'TIC_TAC_TOE');
     
     // IMMEDIATE STATE UPDATE: Show the completion screen instantly!
-    setActivePatrolResult({
-      score: finalP1Score,
-      gameType: resolvedGameType,
-      isMultiplayer,
-      isTimeout,
-      roundsPlayed,
-      isAbandoned: isAbandoned || !!keepInGameSelection
-    });
+    if (!keepInGameSelection) {
+      setActivePatrolResult({
+        score: finalP1Score,
+        gameType: resolvedGameType,
+        isMultiplayer,
+        isTimeout,
+        roundsPlayed,
+        isAbandoned: isAbandoned
+      });
+    }
     setSessionScore(0);
 
     // Run the persistence asynchronously in the background so there's NO visual delay!
     (async () => {
       try {
         const xpGained = finalP1Score / 2;
-        
-        // New totals for accurate level calculation and persistence
         const newXp = (player.xp || 0) + xpGained;
         const newTotalScore = (player.totalScore || 0) + finalP1Score;
-        const newGamesPlayed = (player.gamesPlayed || 0) + roundsPlayed;
         
-        const newCompletedGames = (player.completedGames || 0) + (isTimeout ? 0 : roundsPlayed);
-        const newTimedOutGames = (player.timedOutGames || 0) + (isTimeout ? roundsPlayed : 0);
+        // Since gamesPlayed (patrols) and game-specific completions are incremented exactly when entering,
+        // we do NOT add any additional patrol count when completing the game.
+        const newGamesPlayed = player.gamesPlayed || 0;
+        
+        const newCompletedGames = (player.completedGames || 0) + (isTimeout || isAbandoned ? 0 : 1);
+        const newTimedOutGames = (player.timedOutGames || 0) + (isTimeout ? 1 : 0);
         
         // Calculate new level based on progressive formula: XP_REQ = (L-1)*L/2 * 500
         const newLevel = Math.floor((250 + Math.sqrt(62500 + 1000 * newXp)) / 500);
@@ -734,8 +792,9 @@ No aguardo da liberação corporativa.`;
         const updatedGameStats = {
           ...currentStats,
           [gameKey]: {
+            ...gameStatObj,
             score: gameStatObj.score + finalP1Score,
-            completions: gameStatObj.completions + (isTimeout ? 0 : roundsPlayed)
+            completions: gameStatObj.completions
           }
         };
 
@@ -838,6 +897,34 @@ No aguardo da liberação corporativa.`;
     <div className="max-w-md mx-auto min-h-screen relative overflow-x-hidden bg-slate-900 border-x border-slate-800 shadow-2xl flex flex-col">
       {/* Top Hazard Stripe */}
       <div className="h-24 w-full hazard-stripe opacity-80 shrink-0" />
+
+      {isQuotaExceeded && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-500/15 border-y border-amber-500/30 p-3.5 text-center px-4 space-y-1.5 z-40 relative backdrop-blur-sm shrink-0"
+        >
+          <div className="flex items-center justify-center gap-2 text-amber-400 font-extrabold text-xs uppercase tracking-wider font-sans">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            Sincronização Local RodoPlay Ativa 🚀
+          </div>
+          <p className="text-[10px] text-slate-300 leading-relaxed font-sans font-medium">
+            Seu progresso operacional, pontuações e histórico de patrulhas estão sendo <strong>salvos com total segurança em seu dispositivo</strong>. A nuvem sincronizará em breve!
+          </p>
+          <div className="text-[9px] text-amber-300/90 font-sans mt-1 leading-relaxed bg-amber-500/5 p-2 rounded-lg border border-amber-500/10">
+            ⚠️ O limite diário de escritas gratuitas do Cloud Firestore (Spark plan) foi atingido.
+            Você pode monitorar ou atualizar o projeto no{' '}
+            <a 
+              href="https://console.firebase.google.com/project/project-ecca8e56-8821-41aa-a10/firestore/databases/ai-studio-2463f31a-95a2-4f79-8de0-6f946503774e/data?openUpgradeDialog=true"
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline font-extrabold text-amber-400 hover:text-white"
+            >
+              Console do Google Firebase
+            </a>.
+          </div>
+        </motion.div>
+      )}
 
       {/* Persistent Real-time Header */}
       {view === 'home' && (
@@ -1236,25 +1323,6 @@ No aguardo da liberação corporativa.`;
             </motion.div>
           )}
 
-          {view === GameType.SIGN_MATCH && (
-            <motion.div
-              key={`signmatch_${gameSessionId}`}
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-            >
-              <SignMatch
-                currentPlayerId={player.uid}
-                onComplete={handleGameComplete}
-                onScoreUpdate={handleScoreUpdate}
-                onCancel={() => {
-                  setSessionScore(0);
-                  setView('multiplayer');
-                }}
-              />
-            </motion.div>
-          )}
-
           {view === GameType.ROUTE_ORDER && (
             <motion.div
               key={`routeorder_${gameSessionId}`}
@@ -1571,7 +1639,7 @@ No aguardo da liberação corporativa.`;
                     }}
                     className="w-full h-11 border border-slate-805 text-slate-400 font-bold hover:text-white hover:bg-slate-800/80 text-[10px] rounded-xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <span>REPETIR 🔁</span>
+                    <span>JOGAR NOVAMENTE 🔁</span>
                   </motion.button>
 
                   <motion.button

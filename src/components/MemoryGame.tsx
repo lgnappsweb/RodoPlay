@@ -47,6 +47,14 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
   const [pairsCount, setPairsCount] = useState(4);
   const [difficulty, setDifficulty] = useState<'Fácil' | 'Médio' | 'Difícil'>('Fácil');
   const [setupComplete, setSetupComplete] = useState(false);
+  
+  // 10 rounds per level state
+  const [level, setLevel] = useState<number>(1);
+  const [currentRound, setCurrentRound] = useState<number>(1);
+  const [roundFinished, setRoundFinished] = useState<boolean>(false);
+  const [accumulatedScore, setAccumulatedScore] = useState<number>(0);
+  const [roundScore, setRoundScore] = useState<number>(0);
+
   const [timeLeft, setTimeLeft] = useState(25);
   const [maxTime, setMaxTime] = useState(25);
   const [isTimeOut, setIsTimeOut] = useState(false);
@@ -61,7 +69,7 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
 
   useEffect(() => {
     if (setupComplete) {
-      startNewGame();
+      startNewGame(true);
     }
   }, [setupComplete]);
 
@@ -69,7 +77,7 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     // Timer disabled per user request
   }, []);
 
-  const startNewGame = () => {
+  const startNewGame = (isFirstSession = false) => {
     // Pick unique icons from pool
     const shuffledPool = [...CARDS_POOL].sort(() => Math.random() - 0.5);
     const selectedIcons = shuffledPool.slice(0, pairsCount);
@@ -81,9 +89,14 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     setBoard(deck);
     setSelection([]);
     setMoves(0);
-    setScore(0);
-    setP1Score(0);
-    setP2Score(0);
+    if (isFirstSession) {
+      setScore(0);
+      setP1Score(0);
+      setP2Score(0);
+      setAccumulatedScore(0);
+      setCurrentRound(1);
+      setRoundFinished(false);
+    }
     setActivePlayerTurn('p1');
 
     const initialTime = getMaxTime(difficulty, pairsCount);
@@ -144,36 +157,12 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           // Play effects
           if (isFinished) {
             playGameSfx('win');
+            triggerGameConfetti();
+            setRoundScore(totalEarned);
+            setAccumulatedScore(prev => prev + totalEarned);
+            setRoundFinished(true);
           } else {
             playGameSfx('match');
-          }
-          triggerGameConfetti();
-
-          // Computa os pontos imediatamente no faturamento geral de patrulhas e perfil
-          onComplete(
-            multiplayerMode === '2p' ? finalP1 : finalScore,
-            1,
-            multiplayerMode === '2p',
-            selectedPartner,
-            finalP1,
-            finalP2,
-            'MEMORY',
-            false,
-            true // keepInGameSelection
-          );
-
-          if (isFinished) {
-            setTimeout(() => {
-              onComplete(
-                multiplayerMode === '2p' ? finalP1 : finalScore,
-                1,
-                multiplayerMode === '2p',
-                selectedPartner,
-                finalP1,
-                finalP2,
-                'MEMORY'
-              );
-            }, 1000);
           }
         }, 500);
       } else {
@@ -308,7 +297,7 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
           onClick={() => {
             onComplete(
               multiplayerMode === '2p' ? p1Score : score,
-              1,
+              10,
               multiplayerMode === '2p',
               selectedPartner,
               p1Score,
@@ -325,7 +314,7 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         </button>
         <div className="ml-4 flex flex-col">
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Patrulha de Memória</span>
-          <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter mt-1">DIFICULDADE: {difficulty.toUpperCase()} | {pairsCount} Pares</span>
+          <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter mt-1">DIFICULDADE: {difficulty.toUpperCase()} | {pairsCount} Pares | Nível {level} | Rodada {currentRound}/10</span>
         </div>
       </div>
 
@@ -375,14 +364,196 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
         ))}
       </div>
 
+      <AnimatePresence>
+        {roundFinished && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 select-none overflow-y-auto w-full"
+          >
+            <div className="bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6 w-full max-w-sm">
+                <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                  <span className="text-4xl">🏆</span>
+                </div>
+
+                {currentRound < 10 ? (
+                  <>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-500 font-sans">Rodada {currentRound}/10 Concluída!</h2>
+                      <p className="text-slate-405 font-bold uppercase text-[10px] tracking-widest font-sans">Operação de memória bem-sucedida!</p>
+                    </div>
+
+                    <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center font-sans">
+                      <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontos Ganhos</span>
+                      <span className="text-2xl font-extrabold text-yellow-400 font-mono">+{roundScore} <span className="text-xs uppercase text-slate-500">pts</span></span>
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-2">
+                      <Button
+                        onClick={() => {
+                          setCurrentRound(prev => prev + 1);
+                          setRoundFinished(false);
+                          startNewGame(false);
+                        }}
+                        className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                      >
+                        PRÓXIMA RODADA ({currentRound + 1}/10) 🚀
+                      </Button>
+
+                      <Button
+                        onClick={() => {
+                          onComplete(
+                            multiplayerMode === '2p' ? p1Score : score,
+                            currentRound,
+                            multiplayerMode === '2p',
+                            selectedPartner,
+                            p1Score,
+                            p2Score,
+                            'MEMORY',
+                            false,
+                            false
+                          );
+                          onCancel();
+                        }}
+                        className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                      >
+                        FINALIZAR PARTIDA 🏁
+                      </Button>
+
+                      <Button
+                        onClick={onCancel}
+                        variant="outline"
+                        className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                      >
+                        Voltar à Central de Jogos
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-404 font-sans">Nível {level} Concluído!</h2>
+                      <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Você dominou a patrulha de memória!</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-left w-full font-sans">
+                      <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+                        <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+                        <span className="text-xs font-black text-white uppercase italic">{difficulty === 'easy' ? 'Fácil' : difficulty === 'medium' ? 'Médio' : 'Difícil'}</span>
+                      </div>
+                      <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+                        <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Rodadas Suportadas</span>
+                        <span className="text-xs font-black text-yellow-400 font-mono">10 / 10 ⚡</span>
+                      </div>
+
+                      {multiplayerMode === '2p' ? (
+                        <div className="bg-slate-950 p-3.5 rounded-2xl border border-indigo-500/30 col-span-2 space-y-2">
+                          <p className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Resultado da Dupla (Versus)</p>
+                          <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                            <span className="flex items-center gap-1">Você (P1): <span className="text-white font-black font-mono">{p1Score} pts</span></span>
+                            {p1Score > p2Score && <span className="text-[9px] bg-yellow-400 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase font-sans">Vencedor</span>}
+                          </div>
+                          <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                            <span className="flex items-center gap-1">{selectedPartner?.displayName || 'P2'}: <span className="text-white font-black font-mono">{p2Score} pts</span></span>
+                            {p2Score > p1Score && <span className="text-[9px] bg-indigo-500 text-white font-black px-1.5 py-0.5 rounded font-sans">Vencedor</span>}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center font-sans">
+                          <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontuação Total Acumulada</span>
+                          <span className="text-4xl font-extrabold text-yellow-400 font-mono tracking-tighter">{score} <span className="text-xs uppercase text-slate-500">pts</span></span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-2">
+                      <Button
+                        onClick={() => {
+                          onComplete(
+                            multiplayerMode === '2p' ? p1Score : score,
+                            10,
+                            multiplayerMode === '2p',
+                            selectedPartner,
+                            p1Score,
+                            p2Score,
+                            'MEMORY',
+                            false,
+                            true // keepInGameSelection
+                          );
+                          
+                          const nextDiff = difficulty === 'easy' ? 'medium' : (difficulty === 'medium' ? 'hard' : 'easy');
+                          setDifficulty(nextDiff);
+                          setLevel(prev => prev + 1);
+                          setCurrentRound(1);
+                          setRoundFinished(false);
+                          setScore(0);
+                          setP1Score(0);
+                          setP2Score(0);
+                          startNewGame(false);
+                        }}
+                        className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                      >
+                        PRÓXIMO NÍVEL ⚡
+                      </Button>
+
+                      <Button
+                        id="finish-mem-btn"
+                        onClick={() => {
+                          onComplete(
+                            multiplayerMode === '2p' ? p1Score : score,
+                            10,
+                            multiplayerMode === '2p',
+                            selectedPartner,
+                            p1Score,
+                            p2Score,
+                            'MEMORY',
+                            false,
+                            false
+                          );
+                          onCancel();
+                        }}
+                        className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                      >
+                        FINALIZAR PARTIDA 🏁
+                      </Button>
+
+                      <Button
+                        onClick={() => {
+                          onComplete(
+                            multiplayerMode === '2p' ? p1Score : score,
+                            10,
+                            multiplayerMode === '2p',
+                            selectedPartner,
+                            p1Score,
+                            p2Score,
+                            'MEMORY',
+                            false,
+                            false
+                          );
+                          onCancel();
+                        }}
+                        variant="outline"
+                        className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                      >
+                        Voltar à Central de Jogos
+                      </Button>
+                    </div>
+                  </>
+                )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="w-full flex justify-center mt-4 sm:mt-6">
         <Button 
           id="abandon-mem-btn"
           onClick={() => {
-            // Salva os pontos acumulados até agora e incrementa 1 patrulha de forma imediata antes de abrir o modal
+            // Salva os pontos acumulados até agora e incrementa 10 patrulhas de forma imediata antes de abrir o modal
             onComplete(
               multiplayerMode === '2p' ? p1Score : score,
-              1,
+              10,
               multiplayerMode === '2p',
               selectedPartner,
               p1Score,
@@ -393,7 +564,7 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               true // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans"
         >
           ABANDONAR PATRULHA
         </Button>
@@ -436,6 +607,27 @@ export function MemoryGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               </div>
 
               <div className="w-full flex flex-col gap-3">
+                <Button 
+                  id="finish-mem-btn-lost"
+                  onClick={() => {
+                    onComplete(
+                      multiplayerMode === '2p' ? p1Score : score,
+                      10,
+                      multiplayerMode === '2p',
+                      selectedPartner,
+                      p1Score,
+                      p2Score,
+                      'MEMORY',
+                      false,
+                      false
+                    );
+                    onCancel();
+                  }}
+                  className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans select-none animate-pulse"
+                >
+                  FINALIZAR PARTIDA 🏁
+                </Button>
+
                 <Button 
                   onClick={() => onComplete(0, 1, false, null, 0, 0, 'MEMORY', true, false)} 
                   className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"

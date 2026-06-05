@@ -33,6 +33,38 @@ const normalizeShift = (val: string | undefined): string => {
   return mapped[val] || val;
 };
 
+function normalizePlayer(pData: any, uid: string): Player {
+  if (!pData) return pData;
+  const level = typeof pData.level === 'string' ? parseInt(pData.level, 10) : (pData.level !== undefined ? pData.level : (pData.nivel || 1));
+  const xp = typeof pData.xp === 'string' ? parseFloat(pData.xp) : (pData.xp || 0);
+  
+  const score = typeof pData.totalScore === 'string' 
+    ? parseFloat(pData.totalScore) 
+    : (pData.totalScore !== undefined ? pData.totalScore : (pData.pontos || pData.scoreTotal || 0));
+    
+  const games = typeof pData.gamesPlayed === 'string' 
+    ? parseInt(pData.gamesPlayed, 10) 
+    : (pData.gamesPlayed !== undefined ? pData.gamesPlayed : (pData.patrulhas || pData.completedGames || 0));
+
+  const completed = typeof pData.completedGames === 'string'
+    ? parseInt(pData.completedGames, 10)
+    : (pData.completedGames !== undefined ? pData.completedGames : (pData.partidas || 0));
+
+  return {
+    ...pData,
+    uid,
+    level: isNaN(level) ? 1 : level,
+    nivel: isNaN(level) ? 1 : level,
+    xp: isNaN(xp) ? 0 : xp,
+    totalScore: isNaN(score) ? 0 : score,
+    pontos: isNaN(score) ? 0 : score,
+    gamesPlayed: isNaN(games) ? 0 : games,
+    patrulhas: isNaN(games) ? 0 : games,
+    completedGames: isNaN(completed) ? 0 : completed,
+    partidas: isNaN(completed) ? 0 : completed
+  };
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
@@ -61,7 +93,7 @@ export function useAuth() {
               if (cached.shift) {
                 cached.shift = normalizeShift(cached.shift);
               }
-              setPlayer(cached);
+              setPlayer(normalizePlayer(cached, authUser.uid));
               setLoading(false);
             }
           } catch (e) {}
@@ -90,7 +122,7 @@ export function useAuth() {
                 lastActive: new Date().toISOString(),
               };
               (fallbackPlayer as any).praca = found.praca || 'Não Aplicável';
-              setPlayer(fallbackPlayer);
+              setPlayer(normalizePlayer(fallbackPlayer, authUser.uid));
               setLoading(false);
             }
           } catch (e) {}
@@ -106,11 +138,9 @@ export function useAuth() {
             if (playerData && playerData.shift) {
               playerData.shift = normalizeShift(playerData.shift);
             }
-            setPlayer({
-              ...playerData,
-              uid: snapshot.id
-            });
-            localStorage.setItem('last_player_profile', JSON.stringify(playerData));
+            const normalized = normalizePlayer(playerData, snapshot.id);
+            setPlayer(normalized);
+            localStorage.setItem('last_player_profile', JSON.stringify(normalized));
 
             // Sync theme settings across multiple devices
             if (playerData.themeMode || playerData.themePrimary || playerData.themeSecondary) {
@@ -226,7 +256,18 @@ export function useAuth() {
             }
           }
         }, (err) => {
-          console.error("Realtime profile snapshot sync error:", err);
+          console.warn("onSnapshot failed (quota limit exceeded or offline fallback activated):", err);
+          localStorage.setItem('firestore_quota_exceeded', 'true');
+          // Try to recover from cached state and make sure loading spinner is closed
+          const lastProfileStr = localStorage.getItem('last_player_profile');
+          if (lastProfileStr) {
+            try {
+              const cached = JSON.parse(lastProfileStr);
+              if (cached && (cached.uid === authUser.uid || cached.email?.toLowerCase() === authUser.email?.toLowerCase())) {
+                setPlayer(cached);
+              }
+            } catch (e) {}
+          }
           setLoading(false);
         });
 
@@ -247,6 +288,47 @@ export function useAuth() {
       }
     };
   }, []);
+
+  // Real-time dynamic multi-device sync upon page visibility/focus or periodic timer
+  useEffect(() => {
+    if (!user) return;
+    const playerRef = doc(db, 'users', user.uid);
+
+    const refetchPlayerProfile = async () => {
+      try {
+        const snap = await getDoc(playerRef);
+        if (snap.exists()) {
+          const playerData = snap.data() as Player;
+          if (playerData) {
+            if (playerData.shift) {
+              playerData.shift = normalizeShift(playerData.shift);
+            }
+            const normalized = normalizePlayer(playerData, snap.id);
+            setPlayer(normalized);
+            localStorage.setItem('last_player_profile', JSON.stringify(normalized));
+          }
+        }
+      } catch (err) {
+        console.warn("Visibility/focus profile sync fetch failed:", err);
+      }
+    };
+
+    const handleFocusOrVisible = () => {
+      refetchPlayerProfile();
+    };
+
+    window.addEventListener('visibilitychange', handleFocusOrVisible);
+    window.addEventListener('focus', handleFocusOrVisible);
+
+    // Periodic check every 15 seconds to ensure real-time consistency on idle devices too
+    const intervalId = setInterval(refetchPlayerProfile, 15000);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleFocusOrVisible);
+      window.removeEventListener('focus', handleFocusOrVisible);
+      clearInterval(intervalId);
+    };
+  }, [user]);
 
   // Professional login using standard Firebase Auth
   const loginWithEmailString = async (email: string, password?: string) => {
@@ -498,7 +580,8 @@ export function useAuth() {
   const loginWithProfile = (savedProfile: any) => {};
   const createProfile = async (data: Partial<Player>) => {
     if (!user) return;
-    await writePlayerProfile(user.uid, data);
+    const updated = await writePlayerProfile(user.uid, data);
+    setPlayer(updated);
   };
 
   const updateProfile = async (data: Partial<Player>) => {
@@ -508,58 +591,71 @@ export function useAuth() {
       const shiftsChanged = data.shift && data.shift !== player.shift;
       const nameChanged = data.displayName && data.displayName !== player.displayName;
 
-      await writePlayerProfile(user.uid, data);
+      const updated = await writePlayerProfile(user.uid, data);
+      setPlayer(updated);
 
       if (basesChanged || shiftsChanged || nameChanged) {
-        const notiId = `admin_noti_${Date.now()}_edit_${user.uid}`;
-        await setDoc(doc(db, 'admin_notifications', notiId), {
-          id: notiId,
-          uidUsuario: user.uid,
-          apelido: data.displayName || player.displayName,
-          email: player.email || '',
-          base: data.base || player.base,
-          turno: data.shift || player.shift,
-          status: 'Pendente',
-          dataCadastro: new Date().toISOString(),
-          visualizado: false,
-          type: 'Alteração de perfil',
-          message: `Perfil alterado por ${player.displayName || 'Jogador'}: ${[
-            nameChanged ? `Nome: ${player.displayName} -> ${data.displayName}` : '',
-            basesChanged ? `Base: ${player.base} -> ${data.base}` : '',
-            shiftsChanged ? `Turno: ${player.shift} -> ${data.shift}` : ''
-          ].filter(Boolean).join(', ')}`
-        });
+        try {
+          const notiId = `admin_noti_${Date.now()}_edit_${user.uid}`;
+          await setDoc(doc(db, 'admin_notifications', notiId), {
+            id: notiId,
+            uidUsuario: user.uid,
+            apelido: data.displayName || player.displayName,
+            email: player.email || '',
+            base: data.base || player.base,
+            turno: data.shift || player.shift,
+            status: 'Pendente',
+            dataCadastro: new Date().toISOString(),
+            visualizado: false,
+            type: 'Alteração de perfil',
+            message: `Perfil alterado por ${player.displayName || 'Jogador'}: ${[
+              nameChanged ? `Nome: ${player.displayName} -> ${data.displayName}` : '',
+              basesChanged ? `Base: ${player.base} -> ${data.base}` : '',
+              shiftsChanged ? `Turno: ${player.shift} -> ${data.shift}` : ''
+            ].filter(Boolean).join(', ')}`
+          });
+        } catch (errNoti) {
+          console.warn("Could not save admin notification (quota error?):", errNoti);
+        }
 
         if (basesChanged) {
-          const auditId = `audit_${Date.now()}_edit_base_${user.uid}`;
-          await setDoc(doc(db, 'auditoria', auditId), {
-            id: auditId,
-            userId: user.uid,
-            userName: player.displayName || 'Jogador',
-            userEmail: player.email || '',
-            adminId: '',
-            adminName: '',
-            adminEmail: '',
-            action: 'Alteração de base',
-            details: `A base foi alterada de "${player.base}" para "${data.base}".`,
-            timestamp: new Date().toISOString()
-          });
+          try {
+            const auditId = `audit_${Date.now()}_edit_base_${user.uid}`;
+            await setDoc(doc(db, 'auditoria', auditId), {
+              id: auditId,
+              userId: user.uid,
+              userName: player.displayName || 'Jogador',
+              userEmail: player.email || '',
+              adminId: '',
+              adminName: '',
+              adminEmail: '',
+              action: 'Alteração de base',
+              details: `A base foi alterada de "${player.base}" para "${data.base}".`,
+              timestamp: new Date().toISOString()
+            });
+          } catch (errAudit) {
+            console.warn("Could not save audit log for base change (quota error?):", errAudit);
+          }
         }
 
         if (shiftsChanged) {
-          const auditId = `audit_${Date.now()}_edit_shift_${user.uid}`;
-          await setDoc(doc(db, 'auditoria', auditId), {
-            id: auditId,
-            userId: user.uid,
-            userName: player.displayName || 'Jogador',
-            userEmail: player.email || '',
-            adminId: '',
-            adminName: '',
-            adminEmail: '',
-            action: 'Alteração de turno',
-            details: `O turno foi alterado de "${player.shift}" para "${data.shift}".`,
-            timestamp: new Date().toISOString()
-          });
+          try {
+            const auditId = `audit_${Date.now()}_edit_shift_${user.uid}`;
+            await setDoc(doc(db, 'auditoria', auditId), {
+              id: auditId,
+              userId: user.uid,
+              userName: player.displayName || 'Jogador',
+              userEmail: player.email || '',
+              adminId: '',
+              adminName: '',
+              adminEmail: '',
+              action: 'Alteração de turno',
+              details: `O turno foi alterado de "${player.shift}" para "${data.shift}".`,
+              timestamp: new Date().toISOString()
+            });
+          } catch (errAudit) {
+            console.warn("Could not save audit log for shift change (quota error?):", errAudit);
+          }
         }
       }
     } catch (e) {

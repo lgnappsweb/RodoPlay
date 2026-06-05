@@ -153,6 +153,9 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
   const [wonGrids, setWonGrids] = useState<boolean[]>([]);
   const [currentGuess, setCurrentGuess] = useState('');
   const [level, setLevel] = useState(1);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [roundFinished, setRoundFinished] = useState<'won' | 'lost' | null>(null);
+  const [hintText, setHintText] = useState('');
   const [score, setScore] = useState(0);
   const [status, setStatus] = useState<'playing' | 'won' | 'lost'>('playing');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
@@ -168,6 +171,7 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
   const maxAttempts = (difficulty === 'easy' ? 7 : difficulty === 'medium' ? 5 : 4) + gridCount;
 
   const startNewGame = () => {
+    setHintText('');
     const themeWordsPool = WORD_GUESS_THEMES_DICTIONARY[selectedThemeId] || WORD_GUESS_THEMES_DICTIONARY['VEICULOS'];
     const validWords = themeWordsPool.filter(w => w.length === wordLength);
     
@@ -234,7 +238,6 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     setWonGrids(newWonGrids);
 
     if (newWonGrids.every(w => w)) {
-      setStatus('won');
       playGameSfx('win');
       triggerGameConfetti();
       const points = (maxAttempts - newGuesses.length) * 100 * gridCount;
@@ -255,20 +258,9 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       }
       if (onScoreUpdate) onScoreUpdate(points);
       
-      // Computa os pontos imediatamente no estado geral para salvar na nuvem e perfil do usuário
-      onComplete(
-        multiplayerMode === '2p' ? finalP1 : finalScore,
-        1,
-        multiplayerMode === '2p',
-        selectedPartner,
-        finalP1,
-        finalP2,
-        'WORD_GUESS',
-        false,
-        true
-      );
+      setRoundFinished('won');
     } else if (newGuesses.length >= maxAttempts) {
-      setStatus('lost');
+      setRoundFinished('lost');
       playGameSfx('incorrect');
     } else {
       // Correct feedback sound for non-winning submission
@@ -276,6 +268,29 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
       if (multiplayerMode === '2p') {
         setActivePlayerTurn(prev => prev === 'p1' ? 'p2' : 'p1');
       }
+    }
+  };
+
+  const handleNextRound = () => {
+    if (currentRound < 10) {
+      setCurrentRound(prev => prev + 1);
+      setRoundFinished(null);
+      setHintText('');
+      startNewGame();
+    } else {
+      setRoundFinished(null);
+      setStatus('won');
+      onComplete(
+        multiplayerMode === '2p' ? p1Score : score,
+        10,
+        multiplayerMode === '2p',
+        selectedPartner,
+        p1Score,
+        p2Score,
+        'WORD_GUESS',
+        false,
+        true
+      );
     }
   };
 
@@ -288,7 +303,15 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
 
   const nextLevel = () => {
     setLevel(prev => prev + 1);
-    startNewGame();
+    setCurrentRound(1);
+    setGuesses([]);
+    setCurrentGuess('');
+    setHintText('');
+    setRoundFinished(null);
+    setStatus('playing');
+    setTimeout(() => {
+      startNewGame();
+    }, 50);
   };
 
   if (!setupComplete) {
@@ -435,7 +458,7 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
               setSetupComplete(true);
               startNewGame();
             }} 
-            className="w-full h-14 bg-yellow-400 text-slate-900 font-black text-sm rounded-2xl uppercase italic shadow-xl shadow-yellow-400/10 active:scale-95 transition-all disabled:opacity-50"
+            className="w-full h-14 bg-yellow-400 text-slate-950 font-black text-sm rounded-2xl uppercase italic shadow-xl shadow-yellow-400/10 active:scale-95 transition-all disabled:opacity-50"
           >
             {multiplayerMode === '2p' && !selectedPartner ? 'SELECIONE O JOGADOR 2 👥' : 'INICIAR PATRULHA 🚀'}
           </Button>
@@ -477,16 +500,16 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="ml-4 flex flex-col">
+        <div className="ml-4 flex flex-col font-sans">
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Patrulha de Decifração</span>
-          <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter mt-1">DIFICULDADE: {difficulty === 'easy' ? 'FÁCIL' : difficulty === 'medium' ? 'MÉDIO' : 'DIFÍCIL'} | Nível {level}</span>
+          <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-tighter mt-1">DIFICULDADE: {difficulty === 'easy' ? 'FÁCIL' : difficulty === 'medium' ? 'MÉDIO' : 'DIFÍCIL'} | Nível {level} | Rodada {currentRound}/10</span>
         </div>
       </div>
 
       <div className="w-full flex justify-between items-center mb-6">
-        <div className="text-left">
-          <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Desafio {level}</p>
-          <p className="text-xl font-black text-yellow-400">Score: {multiplayerMode === '2p' ? p1Score + p2Score : score}</p>
+        <div className="text-left font-sans">
+          <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Desafio {level} - Rodada {currentRound}/10</p>
+          <p className="text-xl font-black text-yellow-400 font-mono">Score: {multiplayerMode === '2p' ? p1Score + p2Score : score}</p>
         </div>
         <div className="text-right">
           <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{wordLength} Letras | {gridCount} Grades</p>
@@ -600,8 +623,178 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
            >
               VALIDAR 🚧
            </Button>
-        </div>
-      )}
+
+           <Button 
+             id="hint-code-btn"
+             onClick={() => {
+               if (targets.length > 0) {
+                 const target = targets[0];
+                 const unplacedLetters = target.split('').filter(l => !currentGuess.includes(l));
+                 const hintLetter = unplacedLetters.length > 0 ? unplacedLetters[Math.floor(Math.random() * unplacedLetters.length)] : target[Math.floor(Math.random() * target.length)];
+                 setHintText(`🕵️ Dica do Inspetor: A palavra contém a letra "${hintLetter}"`);
+                 playGameSfx('correct');
+               }
+             }}
+             className="w-full h-11 bg-teal-900/45 border border-teal-500/30 text-teal-300 hover:bg-teal-900 font-bold text-xs rounded-xl uppercase tracking-wider transition-all"
+           >
+             💡 PEGAR DICA
+           </Button>
+           
+           {hintText && (
+              <div className="bg-teal-950/50 text-teal-300 text-center text-xs font-bold p-3 rounded-xl border border-teal-550/40 transition-all font-sans">
+                {hintText}
+              </div>
+            )}
+         </div>
+       )}
+
+      <AnimatePresence>
+        {roundFinished && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-4 z-55"
+          >
+            {roundFinished === 'won' ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 max-w-sm w-full text-center relative overflow-hidden shadow-2xl space-y-6">
+                <div className="bg-emerald-500/20 border-2 border-emerald-500 w-20 h-20 rounded-[2rem] flex items-center justify-center text-4xl mx-auto shadow-glow shadow-emerald-500/45">🔓</div>
+                <h2 className="text-3xl font-black text-white italic uppercase font-sans">Rodada {currentRound}/10 Superada!</h2>
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] font-sans">Excelente decifração de código!</p>
+                
+                {currentRound < 10 ? (
+                  <div className="flex flex-col gap-3 pt-2">
+                    <Button
+                      onClick={handleNextRound}
+                      className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                    >
+                      PRÓXIMA RODADA ({currentRound + 1}/10) 🚀
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        onComplete(
+                          multiplayerMode === '2p' ? p1Score : score,
+                          currentRound,
+                          multiplayerMode === '2p',
+                          selectedPartner,
+                          p1Score,
+                          p2Score,
+                          'WORD_GUESS',
+                          false,
+                          false
+                        );
+                        onCancel();
+                      }}
+                      className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                    >
+                      FINALIZAR PARTIDA 🏁
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        onComplete(
+                          multiplayerMode === '2p' ? p1Score : score,
+                          currentRound,
+                          multiplayerMode === '2p',
+                          selectedPartner,
+                          p1Score,
+                          p2Score,
+                          'WORD_GUESS',
+                          false,
+                          false
+                        );
+                        onCancel();
+                      }}
+                      variant="outline"
+                      className="w-full h-12 border-slate-700 bg-slate-800 hover:bg-slate-705 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                    >
+                      Voltar à Central de Jogos
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 pt-2">
+                    <Button
+                      onClick={handleNextRound}
+                      className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic border-none cursor-pointer"
+                    >
+                      Ver Resultados do Nível 🏆
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 max-w-sm w-full text-center relative overflow-hidden shadow-2xl space-y-6">
+                <div className="bg-red-500/20 border-2 border-red-500 w-20 h-20 rounded-[2rem] flex items-center justify-center text-4xl mx-auto shadow-glow shadow-red-500/45">🚫</div>
+                <h2 className="text-3xl font-black text-white italic uppercase font-sans">Rodada {currentRound}/10 Falhou!</h2>
+                <p className="text-slate-300 font-bold uppercase tracking-widest text-[10px] font-sans">Os códigos eram:</p>
+                <p className="text-2xl font-black text-yellow-500 uppercase tracking-widest font-sans mb-3">{targets.join(', ')}</p>
+                
+                {currentRound < 10 ? (
+                  <div className="flex flex-col gap-3 pt-2">
+                    <Button
+                      onClick={handleNextRound}
+                      className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                    >
+                      PRÓXIMA RODADA ({currentRound + 1}/10) 🚀
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        onComplete(
+                          multiplayerMode === '2p' ? p1Score : score,
+                          currentRound,
+                          multiplayerMode === '2p',
+                          selectedPartner,
+                          p1Score,
+                          p2Score,
+                          'WORD_GUESS',
+                          false,
+                          false
+                        );
+                        onCancel();
+                      }}
+                      className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                    >
+                      FINALIZAR PARTIDA 🏁
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        onComplete(
+                          multiplayerMode === '2p' ? p1Score : score,
+                          currentRound,
+                          multiplayerMode === '2p',
+                          selectedPartner,
+                          p1Score,
+                          p2Score,
+                          'WORD_GUESS',
+                          false,
+                          false
+                        );
+                        onCancel();
+                      }}
+                      variant="outline"
+                      className="w-full h-12 border-slate-700 bg-slate-800 hover:bg-slate-705 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                    >
+                      Voltar à Central de Jogos
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 pt-2">
+                    <Button
+                      onClick={handleNextRound}
+                      className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic border-none cursor-pointer"
+                    >
+                      Ver Resultados do Nível 🏆
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {status !== 'playing' && (
@@ -623,30 +816,76 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
                   </span>
                 </div>
 
-                <p className="text-slate-400 mb-6 font-bold uppercase tracking-widest text-xs">Acesso liberado a todos os setores!</p>
-                <div className="flex flex-col w-full max-w-xs gap-3">
+                <p className="text-slate-400 mb-6 font-bold uppercase tracking-widest text-xs">Nível {level} finalizado com sucesso!</p>
+                <div className="flex flex-col w-full max-w-xs gap-3 font-sans">
+                  <Button 
+                    id="finish-code-btn"
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score : score,
+                        10,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'WORD_GUESS',
+                        false,
+                        true
+                      );
+                      setLevel(prev => prev + 1);
+                      setGuesses([]);
+                      setCurrentGuess('');
+                      setScore(0);
+                      setP1Score(0);
+                      setP2Score(0);
+                      setStatus('playing');
+                    }}
+                    className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                  >
+                    PRÓXIMO NÍVEL ⚡
+                  </Button>
+
+                  <Button 
+                    id="won-finish-btn"
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score : score,
+                        10,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'WORD_GUESS',
+                        false,
+                        false
+                      );
+                      onCancel();
+                    }}
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                  >
+                    FINALIZAR PARTIDA 🏁
+                  </Button>
+
                   <Button
                     id="won-cancel-btn"
-                    onClick={() => onComplete(
-                      multiplayerMode === '2p' ? p1Score : score,
-                      1,
-                      multiplayerMode === '2p',
-                      selectedPartner,
-                      p1Score,
-                      p2Score,
-                      'WORD_GUESS'
-                    )}
-                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
-                  >
-                    VOLTAR À CENTRAL DE JOGOS
-                  </Button>
-                  <Button 
-                    id="won-next-btn"
-                    onClick={nextLevel} 
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score : score,
+                        10,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'WORD_GUESS',
+                        false,
+                        false
+                      );
+                      onCancel();
+                    }}
                     variant="outline"
-                    className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                    className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
                   >
-                    PROXIMO CÓDIGO ⚡
+                    Voltar à Central de Jogos
                   </Button>
                 </div>
               </>
@@ -665,17 +904,43 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
                 </div>
                 <div className="flex flex-col w-full max-w-xs gap-3">
                    <Button 
+                     id="finish-code-btn-lost"
+                     onClick={() => {
+                       onComplete(
+                         multiplayerMode === '2p' ? p1Score : score,
+                         currentRound,
+                         multiplayerMode === '2p',
+                         selectedPartner,
+                         p1Score,
+                         p2Score,
+                         'WORD_GUESS',
+                         false,
+                         false
+                       );
+                       onCancel();
+                     }}
+                     className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                   >
+                     FINALIZAR PARTIDA 🏁
+                   </Button>
+
+                   <Button 
                      id="lost-finish-btn"
-                     onClick={() => onComplete(
-                       multiplayerMode === '2p' ? p1Score : score,
-                       1,
-                       multiplayerMode === '2p',
-                       selectedPartner,
-                       p1Score,
-                       p2Score,
-                       'WORD_GUESS'
-                     )} 
-                     className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+                     onClick={() => {
+                       onComplete(
+                         multiplayerMode === '2p' ? p1Score : score,
+                         currentRound,
+                         multiplayerMode === '2p',
+                         selectedPartner,
+                         p1Score,
+                         p2Score,
+                         'WORD_GUESS',
+                         false,
+                         false
+                       );
+                       onCancel();
+                     }}  
+                     className="w-full h-14 bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 font-black text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all font-sans flex items-center justify-center gap-2 cursor-pointer hover:text-white"
                    >
                      VOLTAR À CENTRAL DE JOGOS
                    </Button>
@@ -781,7 +1046,7 @@ export function WordGuess({ onComplete, onScoreUpdate, onCancel, currentPlayerId
               true  // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans"
         >
           ABANDONAR PATRULHA
         </Button>

@@ -79,7 +79,7 @@ const getPointsCount = (type: 'numeros' | 'letras' | 'cores', diff: 'easy' | 'me
 };
 
 export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: RouteOrderProps) {
-  const [gameState, setGameState] = useState<'selection' | 'playing'>('selection');
+  const [gameState, setGameState] = useState<'selection' | 'playing' | 'summary'>('selection');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [isTimeOut, setIsTimeOut] = useState(false);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
@@ -104,7 +104,7 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
   const [isRevealing, setIsRevealing] = useState(false);
   const [wrongPointId, setWrongPointId] = useState<number | null>(null);
   
-  const totalRounds = 20;
+  const totalRounds = 10;
 
   useEffect(() => {
     if (gameState === 'playing') {
@@ -277,17 +277,18 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
       if (currentRound >= totalRounds) {
         playGameSfx('win');
         triggerGameConfetti();
-        setTimeout(() => onComplete(
-          multiplayerMode === '2p' ? p1Score + award : score + award,
-          1,
-          multiplayerMode === '2p',
-          selectedPartner,
-          multiplayerMode === '2p' ? p1Score + award : score + award,
-          p2Score,
-          'ROUTE_ORDER',
-          false,
-          false
-        ), 800);
+        const finalP1 = activePlayerTurn === 'p1' ? p1Score + award : p1Score;
+        const finalP2 = activePlayerTurn === 'p2' ? p2Score + award : p2Score;
+        const finalS = score + award;
+        setTimeout(() => {
+          if (multiplayerMode === '2p') {
+            setP1Score(finalP1);
+            setP2Score(finalP2);
+          } else {
+            setScore(finalS);
+          }
+          setGameState('summary');
+        }, 800);
       } else {
         playGameSfx('correct');
         triggerGameConfetti();
@@ -318,6 +319,131 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
     }
     return val.toString();
   };
+  
+  if (gameState === 'summary') {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center pt-10 pb-20 select-none overflow-y-auto w-full">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6"
+        >
+          {/* Trophy Header */}
+          <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+            <span className="text-4xl font-sans">🏆</span>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-400 font-sans">Patrulha de Rota Superada!</h2>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Excelente orientação espacial analítica!</p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 text-left w-full font-sans">
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+              <span className="text-xs font-black text-white uppercase italic">{difficulty === 'easy' ? 'Fácil' : difficulty === 'medium' ? 'Médio' : 'Difícil'}</span>
+            </div>
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Rodadas Suportadas</span>
+              <span className="text-xs font-black text-yellow-400 font-mono">10 / 10 ⚡</span>
+            </div>
+
+            {multiplayerMode === '2p' ? (
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-indigo-500/30 col-span-2 space-y-2">
+                <p className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Resultado da Dupla (Versus)</p>
+                <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1">Você (P1): <span className="text-white font-black font-mono">{p1Score} pts</span></span>
+                  {p1Score > p2Score && <span className="text-[9px] bg-yellow-400 text-slate-955 font-black px-1.5 py-0.5 rounded uppercase font-sans">Vencedor</span>}
+                </div>
+                <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1">{selectedPartner?.displayName || 'P2'}: <span className="text-white font-black font-mono">{p2Score} pts</span></span>
+                  {p2Score > p1Score && <span className="text-[9px] bg-indigo-500 text-white font-black px-1.5 py-0.5 rounded font-sans">Vencedor</span>}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center font-sans">
+                <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontuação Total Acumulada</span>
+                <span className="text-4xl font-extrabold text-yellow-400 font-mono tracking-tighter">{score} <span className="text-xs uppercase text-slate-500">pts</span></span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-2">
+            <Button
+              onClick={() => {
+                onComplete(
+                  multiplayerMode === '2p' ? p1Score : score,
+                  10, // roundsPlayed
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'ROUTE_ORDER',
+                  false,
+                  true // keepInGameSelection
+                );
+                
+                const nextDiff = difficulty === 'easy' ? 'medium' : (difficulty === 'medium' ? 'hard' : 'easy');
+                setDifficulty(nextDiff);
+                setCurrentRound(1);
+                setScore(0);
+                setP1Score(0);
+                setP2Score(0);
+                setGameState('playing');
+              }}
+              className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+            >
+              PRÓXIMO NÍVEL ⚡
+            </Button>
+
+            <Button 
+              id="finish-route-btn"
+              onClick={() => {
+                onComplete(
+                  multiplayerMode === '2p' ? p1Score : score,
+                  10, // roundsPlayed
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'ROUTE_ORDER',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+            >
+              FINALIZAR PARTIDA 🏁
+            </Button>
+
+            <Button
+              onClick={() => {
+                onComplete(
+                  multiplayerMode === '2p' ? p1Score : score,
+                  10, // roundsPlayed
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'ROUTE_ORDER',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              variant="outline"
+              className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+            >
+              Voltar à Central de Jogos
+            </Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (gameState === 'selection') {
     return (
@@ -741,7 +867,7 @@ export function RouteOrder({ onComplete, onScoreUpdate, onCancel, currentPlayerI
                 true // isAbandoned = true
               );
             }}
-            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+            className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans"
           >
             ABANDONAR PATRULHA
           </Button>

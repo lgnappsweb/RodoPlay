@@ -64,6 +64,9 @@ export function TicTacToe({
   const [activePlayerTurn, setActivePlayerTurn] = useState<'p1' | 'p2'>('p1');
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [completedRounds, setCompletedRounds] = useState(0);
+  const [roundFinished, setRoundFinished] = useState(false);
+  const [roundOutcomeResult, setRoundOutcomeResult] = useState<'won' | 'lost' | 'draw'>('draw');
+  const [showSummaryScreen, setShowSummaryScreen] = useState(false);
 
   // Timer States - based on difficulty, greater than 30 seconds
   const [timeLeft, setTimeLeft] = useState(35);
@@ -448,15 +451,17 @@ export function TicTacToe({
 
     // Directly trigger standard Parent completion after showing final board for 1.5 seconds
     setTimeout(() => {
-      onComplete(
-        multiplayerMode === '2p' ? finalP1 + finalP2 : singleScore,
-        completedRounds + 1,
-        multiplayerMode === '2p',
-        selectedPartner,
-        finalP1,
-        finalP2,
-        'TIC_TAC_TOE'
-      );
+      const nextRoundsState = completedRounds + 1;
+      setCompletedRounds(nextRoundsState);
+      if (nextRoundsState >= 10) {
+        setShowSummaryScreen(true);
+      } else {
+        let outcome: 'won' | 'lost' | 'draw' = 'draw';
+        if (winnerToken === playerSymbol) outcome = 'won';
+        else if (winnerToken && winnerToken !== playerSymbol) outcome = 'lost';
+        setRoundOutcomeResult(outcome);
+        setRoundFinished(true);
+      }
     }, 1500);
   };
 
@@ -608,7 +613,7 @@ export function TicTacToe({
           <Button 
             disabled={multiplayerMode === '2p' && !selectedPartner}
             onClick={startWholeGame} 
-            className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all disabled:opacity-50"
+            className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-955 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all disabled:opacity-50"
           >
             {multiplayerMode === '2p' && !selectedPartner ? 'SELECIONE O JOGADOR 2 👥' : 'INICIAR CONFRONTO 🚀'}
           </Button>
@@ -621,6 +626,114 @@ export function TicTacToe({
             VOLTAR À CENTRAL DE JOGOS
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  if (showSummaryScreen) {
+    const finalScore = score;
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center pt-10 pb-20 select-none overflow-y-auto w-full">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6"
+        >
+          {/* Trophy Header */}
+          <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+            <span className="text-4xl font-sans">🏆</span>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-400 font-sans">Confronto Superado!</h2>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Velha tática concluída com êxito operacional!</p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 text-left w-full font-sans">
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+              <span className="text-xs font-black text-white uppercase italic">{getDifficultyLabel()}</span>
+            </div>
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Rodadas Ganhas</span>
+              <span className="text-xs font-black text-yellow-400 font-mono">{completedRounds} de 10 ✔️</span>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center font-sans">
+              <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontuação Final</span>
+              <span className="text-4xl font-extrabold text-yellow-400 font-mono tracking-tighter">{finalScore} <span className="text-xs uppercase text-slate-500">XP</span></span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-2">
+            <Button
+              onClick={() => {
+                onComplete(
+                  finalScore,
+                  10,
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'TIC_TAC_TOE',
+                  false,
+                  true // keepInGameSelection
+                );
+                
+                setCompletedRounds(0);
+                setShowSummaryScreen(false);
+                initGame();
+              }}
+              className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+            >
+              PRÓXIMO NÍVEL ⚡
+            </Button>
+
+            <Button 
+              id="ttt-finish-btn"
+              onClick={() => {
+                onComplete(
+                  finalScore,
+                  10,
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'TIC_TAC_TOE',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+            >
+              FINALIZAR PARTIDA 🏁
+            </Button>
+
+            <Button
+              onClick={() => {
+                onComplete(
+                  finalScore,
+                  10,
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'TIC_TAC_TOE',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              variant="outline"
+              className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+            >
+              Voltar à Central de Jogos
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -743,7 +856,7 @@ export function TicTacToe({
       </div>
 
       {/* Command Actions Bar */}
-      <div className="w-full flex flex-col gap-3 mt-6">
+      <div className="w-full flex justify-center mt-6">
         <Button 
           id="ttt-abandon-btn"
           onClick={() => {
@@ -760,11 +873,80 @@ export function TicTacToe({
               true // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 mx-auto rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans"
         >
           ABANDONAR PATRULHA
         </Button>
       </div>
+
+      <AnimatePresence>
+        {roundFinished && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 select-none overflow-y-auto w-full"
+          >
+            <div className="bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6 w-full max-w-sm font-sans">
+                <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                  <span className="text-4xl text-yellow-400">🏆</span>
+                </div>
+
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-400 font-sans">Rodada {completedRounds}/10 Concluída!</h2>
+                  <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Confronto tático finalizado!</p>
+                </div>
+
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center font-sans">
+                  <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Resultado de Rodada</span>
+                  <span className={`text-xl font-black block uppercase ${roundOutcomeResult === 'won' ? 'text-emerald-400' : roundOutcomeResult === 'lost' ? 'text-rose-500' : 'text-slate-400'}`}>
+                    {roundOutcomeResult === 'won' ? 'Vitória ✔️' : roundOutcomeResult === 'lost' ? 'Derrota 🚫' : 'Empate 🤝'}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-3 pt-2">
+                  <Button
+                    onClick={() => {
+                      setRoundFinished(false);
+                      initGame();
+                    }}
+                    className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                  >
+                    PRÓXIMA RODADA ({completedRounds + 1}/10) 🚀
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score : score,
+                        completedRounds,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'TIC_TAC_TOE',
+                        false,
+                        false
+                      );
+                      onCancel();
+                    }}
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                  >
+                    FINALIZAR PARTIDA 🏁
+                  </Button>
+
+                  <Button
+                    onClick={onCancel}
+                    variant="outline"
+                    className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                  >
+                    Voltar à Central de Jogos
+                  </Button>
+                </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

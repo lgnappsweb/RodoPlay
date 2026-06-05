@@ -95,40 +95,58 @@ export function sanitizeId(val: string): string {
  * 
  * Includes transition logic to prune old base/shift records if base or shift is edited.
  */
-export async function writePlayerProfile(uid: string, data: Partial<Player>): Promise<void> {
+export async function writePlayerProfile(uid: string, data: Partial<Player>): Promise<Player> {
   const playersPath = `users/${uid}`;
+  let existingProfile: any = null;
+  let cached: any = null;
+
+  // 1. Load from localStorage backup cache to support offline or rapid reload states safely
   try {
-    // 1. Fetch current existing state to perform relational consistency (from users master first, then players)
-    let existingProfile: any = null;
+    const cachedStr = localStorage.getItem('last_player_profile');
+    if (cachedStr) {
+      const parsed = JSON.parse(cachedStr);
+      if (parsed && (parsed.uid === uid || parsed.email?.toLowerCase() === auth.currentUser?.email?.toLowerCase())) {
+        cached = parsed;
+        console.log("writePlayerProfile: found local backup cache layer to protect details from being reset");
+      }
+    }
+  } catch (errCache) {
+    console.warn("writePlayerProfile error parsing local cache fallback:", errCache);
+  }
+
+  const quotaExceededTimeStr = localStorage.getItem('firestore_quota_exceeded_timestamp');
+  let isQuotaExceeded = localStorage.getItem('firestore_quota_exceeded') === 'true';
+  if (isQuotaExceeded && quotaExceededTimeStr) {
+    const lastCheckTime = Number(quotaExceededTimeStr);
+    const oneHourMs = 60 * 60 * 1000;
+    if (Date.now() - lastCheckTime > oneHourMs) {
+      isQuotaExceeded = false;
+      localStorage.setItem('firestore_quota_exceeded', 'false');
+    }
+  }
+
+  try {
+    // 2. Fetch current existing state to perform relational consistency (from users master first, then players)
     try {
-      const userRef = doc(db, 'users', uid);
-      const snap = await getDoc(userRef);
-      if (snap.exists()) {
-        existingProfile = snap.data();
+      if (isQuotaExceeded) {
+        console.log("Firestore quota limits exceeded (cached state); bypassing initial read fetch.");
+        existingProfile = cached || {};
       } else {
-        const playerRef = doc(db, 'players', uid);
-        const playerSnap = await getDoc(playerRef);
-        if (playerSnap.exists()) {
-          existingProfile = playerSnap.data();
+        const userRef = doc(db, 'users', uid);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+          existingProfile = snap.data();
+        } else {
+          const playerRef = doc(db, 'players', uid);
+          const playerSnap = await getDoc(playerRef);
+          if (playerSnap.exists()) {
+            existingProfile = playerSnap.data();
+          }
         }
       }
     } catch (e) {
       console.warn("Could not retrieve current player document, continuing with merge: ", e);
-    }
-
-    // 2. Load from localStorage backup cache to support offline or rapid reload states safely
-    let cached: any = null;
-    try {
-      const cachedStr = localStorage.getItem('last_player_profile');
-      if (cachedStr) {
-        const parsed = JSON.parse(cachedStr);
-        if (parsed && (parsed.uid === uid || parsed.email?.toLowerCase() === auth.currentUser?.email?.toLowerCase())) {
-          cached = parsed;
-          console.log("writePlayerProfile: found local backup cache layer to protect details from being reset");
-        }
-      }
-    } catch (errCache) {
-      console.warn("writePlayerProfile error parsing local cache fallback:", errCache);
+      existingProfile = cached || {};
     }
 
     // Determine current values using a bulletproof layered merge strategy
@@ -145,12 +163,78 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
     
     const displayName = finalApelido;
     
-    // Performance and progression scores
-    const xp = data.xp !== undefined ? data.xp : (existingProfile?.xp || 0);
-    const level = data.level !== undefined ? data.level : (existingProfile?.level || 1);
+    // Performance and progression scores - Delta-based synchronization to prevent overwrite of concurrent device updates
+    const baseline = cached || {};
     
-    const gameStats = data.gameStats !== undefined ? data.gameStats : (existingProfile?.gameStats || {});
+    let deltaScore = 0;
+    if (data.totalScore !== undefined) {
+      deltaScore = Math.max(0, Number(data.totalScore) - Number(baseline.totalScore || baseline.pontos || 0));
+    }
     
+    let deltaXp = 0;
+    if (data.xp !== undefined) {
+      deltaXp = Math.max(0, Number(data.xp) - Number(baseline.xp || 0));
+    }
+    
+    let deltaGamesPlayed = 0;
+    if (data.gamesPlayed !== undefined) {
+      deltaGamesPlayed = Math.max(0, Number(data.gamesPlayed) - Number(baseline.gamesPlayed || baseline.patrulhas || 0));
+    }
+    
+    let deltaCompletedGames = 0;
+    if (data.completedGames !== undefined) {
+      deltaCompletedGames = Math.max(0, Number(data.completedGames) - Number(baseline.completedGames || baseline.partidas || 0));
+    }
+    
+    let deltaTimedOutGames = 0;
+    if (data.timedOutGames !== undefined) {
+      deltaTimedOutGames = Math.max(0, Number(data.timedOutGames) - Number(baseline.timedOutGames || baseline.excedidas || 0));
+    }
+
+    let deltaVictories = 0;
+    if (data.victories !== undefined) {
+      deltaVictories = Math.max(0, Number(data.victories) - Number(baseline.victories || baseline.vitorias || 0));
+    }
+
+    let deltaDefeats = 0;
+    if (data.defeats !== undefined) {
+      deltaDefeats = Math.max(0, Number(data.defeats) - Number(baseline.defeats || baseline.derrotas || 0));
+    }
+
+    // Individual gameStats self-healing delta merge
+    const currentDbGameStats = existingProfile?.gameStats || {};
+    const inputGameStats = data.gameStats || {};
+    const mergedGameStats = { ...currentDbGameStats };
+
+    if (data.gameStats !== undefined) {
+      Object.keys(inputGameStats).forEach(gameKey => {
+        const inputStats = (inputGameStats[gameKey] || {}) as any;
+        const baselineStats = (baseline.gameStats?.[gameKey] || {}) as any;
+        const databaseStats = (currentDbGameStats[gameKey] || {}) as any;
+
+        const inputScore = Number(inputStats.score !== undefined ? inputStats.score : (inputStats.pontos || 0));
+        const baselineScore = Number(baselineStats.score !== undefined ? baselineStats.score : (baselineStats.pontos || 0));
+        const dbScore = Number(databaseStats.score !== undefined ? databaseStats.score : (databaseStats.pontos || 0));
+        
+        const deltaGameScore = Math.max(0, inputScore - baselineScore);
+
+        const inputComp = Number(inputStats.completions !== undefined ? inputStats.completions : (inputStats.patrulhas || 0));
+        const baselineComp = Number(baselineStats.completions !== undefined ? baselineStats.completions : (baselineStats.patrulhas || 0));
+        const dbComp = Number(databaseStats.completions !== undefined ? databaseStats.completions : (databaseStats.patrulhas || 0));
+
+        const deltaGameComp = Math.max(0, inputComp - baselineComp);
+
+        mergedGameStats[gameKey] = {
+          score: dbScore + deltaGameScore,
+          pontos: dbScore + deltaGameScore,
+          completions: dbComp + deltaGameComp,
+          patrulhas: dbComp + deltaGameComp
+        };
+      });
+    }
+
+    const gameStats = mergedGameStats;
+
     // Auto-heal/sum scores & completions to ensure no individual games points are ever lost
     let statsScoreSum = 0;
     let statsGamesSum = 0;
@@ -165,17 +249,31 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
       });
     }
 
-    // Support mapped aliases & enforce strict auto-healing sum validation checks
-    const rawTotalScore = data.totalScore !== undefined ? data.totalScore : (existingProfile?.totalScore || existingProfile?.pontos || 0);
+    // Now calculate final values by adding deltas to the absolute freshest Firestore DB values
+    const currentDbScore = Number(existingProfile?.totalScore || existingProfile?.pontos || 0);
+    const rawTotalScore = data.totalScore !== undefined ? (currentDbScore + deltaScore) : currentDbScore;
     const totalScore = Math.max(Number(rawTotalScore), statsScoreSum);
 
-    const rawGamesPlayed = data.gamesPlayed !== undefined ? data.gamesPlayed : (existingProfile?.gamesPlayed || existingProfile?.patrulhas || 0);
+    const currentDbXp = Number(existingProfile?.xp || 0);
+    const xp = data.xp !== undefined ? (currentDbXp + deltaXp) : currentDbXp;
+
+    const level = Math.max(1, Math.floor((250 + Math.sqrt(62500 + 1000 * xp)) / 500));
+
+    const currentDbGamesPlayed = Number(existingProfile?.gamesPlayed || existingProfile?.patrulhas || 0);
+    const rawGamesPlayed = data.gamesPlayed !== undefined ? (currentDbGamesPlayed + deltaGamesPlayed) : currentDbGamesPlayed;
     const gamesPlayed = Math.max(Number(rawGamesPlayed), statsGamesSum);
 
-    const completedGames = data.completedGames !== undefined ? data.completedGames : (existingProfile?.completedGames || existingProfile?.partidas || 0);
-    const victories = data.victories !== undefined ? data.victories : (existingProfile?.victories || existingProfile?.vitorias || 0);
-    const defeats = data.defeats !== undefined ? data.defeats : (existingProfile?.defeats || existingProfile?.derrotas || 0);
-    const rawTimedOutGames = data.timedOutGames !== undefined ? data.timedOutGames : (existingProfile?.timedOutGames || existingProfile?.excedidas || 0);
+    const currentDbCompletedGames = Number(existingProfile?.completedGames || existingProfile?.partidas || 0);
+    const completedGames = data.completedGames !== undefined ? (currentDbCompletedGames + deltaCompletedGames) : currentDbCompletedGames;
+
+    const currentDbVictories = Number(existingProfile?.victories || existingProfile?.vitorias || 0);
+    const victories = data.victories !== undefined ? (currentDbVictories + deltaVictories) : currentDbVictories;
+
+    const currentDbDefeats = Number(existingProfile?.defeats || existingProfile?.derrotas || 0);
+    const defeats = data.defeats !== undefined ? (currentDbDefeats + deltaDefeats) : currentDbDefeats;
+
+    const currentDbTimedOutGames = Number(existingProfile?.timedOutGames || existingProfile?.excedidas || 0);
+    const rawTimedOutGames = data.timedOutGames !== undefined ? (currentDbTimedOutGames + deltaTimedOutGames) : currentDbTimedOutGames;
     const timedOutGames = isNaN(Number(rawTimedOutGames)) ? 0 : Number(rawTimedOutGames);
     
     const online = (data as any).online !== undefined ? (data as any).online : (data.status === 'online' || existingProfile?.status === 'online' || existingProfile?.online || false);
@@ -253,57 +351,83 @@ export async function writePlayerProfile(uid: string, data: Partial<Player>): Pr
       aprovado
     };
 
-    const batch = writeBatch(db);
+    // Store inside localStorage immediately
+    localStorage.setItem('last_player_profile', JSON.stringify(mergedPlayer));
 
-    // 1. Write players/{uid}
-    batch.set(doc(db, 'players', uid), mergedPlayer);
-
-    // 2. Write users/{uid}
-    batch.set(doc(db, 'users', uid), mergedPlayer);
-
-    // 3. Write rankings/global/{uid}
-    const globalRankObj = {
-      uid,
-      apelido: displayName,
-      avatar,
-      base,
-      turno: shift,
-      praca,
-      praça: praca,
-      pontos: totalScore,
-      patrulhas: gamesPlayed,
-      partidas: completedGames,
-      vitorias: victories,
-      derrotas: defeats,
-      timedOutGames,
-      excedidas: timedOutGames, // exact alias
-      nivel: level,
-      scoreTotal: totalScore,
-      gameStats,
-      updatedAt
-    };
-    batch.set(doc(db, 'rankings/global/players', uid), globalRankObj);
-
-    // 4. Handle base transfer (transition delete old, write new)
-    const sanitizedBaseId = sanitizeId(base);
-    const sanitizedOldBaseId = existingProfile?.base ? sanitizeId(existingProfile.base) : null;
-    if (sanitizedOldBaseId && sanitizedOldBaseId !== sanitizedBaseId) {
-      batch.delete(doc(db, `rankings/bases/all_bases/${sanitizedOldBaseId}/players`, uid));
+    if (isQuotaExceeded) {
+      console.log("Firestore quota limits exceeded (cached state); bypassing database write-back.");
+      return mergedPlayer;
     }
-    batch.set(doc(db, `rankings/bases/all_bases/${sanitizedBaseId}/players`, uid), globalRankObj);
 
-    // 5. Handle shift transfer (transition delete old, write new)
-    const sanitizedShiftId = sanitizeId(shift);
-    const sanitizedOldShiftId = existingProfile?.shift ? sanitizeId(existingProfile.shift) : null;
-    if (sanitizedOldShiftId && sanitizedOldShiftId !== sanitizedShiftId) {
-      batch.delete(doc(db, `rankings/turnos/all_turnos/${sanitizedOldShiftId}/players`, uid));
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Write players/{uid}
+      batch.set(doc(db, 'players', uid), mergedPlayer);
+
+      // 2. Write users/{uid}
+      batch.set(doc(db, 'users', uid), mergedPlayer);
+
+      // 3. Write rankings/global/{uid}
+      const globalRankObj = {
+        uid,
+        apelido: displayName,
+        avatar,
+        base,
+        turno: shift,
+        praca,
+        praça: praca,
+        pontos: totalScore,
+        patrulhas: gamesPlayed,
+        partidas: completedGames,
+        vitorias: victories,
+        derrotas: defeats,
+        timedOutGames,
+        excedidas: timedOutGames, // exact alias
+        nivel: level,
+        scoreTotal: totalScore,
+        gameStats,
+        updatedAt
+      };
+      batch.set(doc(db, 'rankings/global/players', uid), globalRankObj);
+
+      // 4. Handle base transfer (transition delete old, write new)
+      const sanitizedBaseId = sanitizeId(base);
+      const sanitizedOldBaseId = existingProfile?.base ? sanitizeId(existingProfile.base) : null;
+      if (sanitizedOldBaseId && sanitizedOldBaseId !== sanitizedBaseId) {
+        batch.delete(doc(db, `rankings/bases/all_bases/${sanitizedOldBaseId}/players`, uid));
+      }
+      batch.set(doc(db, `rankings/bases/all_bases/${sanitizedBaseId}/players`, uid), globalRankObj);
+
+      // 5. Handle shift transfer (transition delete old, write new)
+      const sanitizedShiftId = sanitizeId(shift);
+      const sanitizedOldShiftId = existingProfile?.shift ? sanitizeId(existingProfile.shift) : null;
+      if (sanitizedOldShiftId && sanitizedOldShiftId !== sanitizedShiftId) {
+        batch.delete(doc(db, `rankings/turnos/all_turnos/${sanitizedOldShiftId}/players`, uid));
+      }
+      batch.set(doc(db, `rankings/turnos/all_turnos/${sanitizedShiftId}/players`, uid), globalRankObj);
+
+      // Commit batch atomically
+      await batch.commit();
+      console.log(`Atomically synced profile & rankings for user UID ${uid}`);
+      localStorage.setItem('firestore_quota_exceeded', 'false');
+    } catch (writeErr) {
+      console.warn("Firestore write error (quota exceeded or offline). Retaining local state.", writeErr);
+      localStorage.setItem('firestore_quota_exceeded', 'true');
+      localStorage.setItem('firestore_quota_exceeded_timestamp', String(Date.now()));
     }
-    batch.set(doc(db, `rankings/turnos/all_turnos/${sanitizedShiftId}/players`, uid), globalRankObj);
 
-    // Commit batch atomically
-    await batch.commit();
-    console.log(`Atomically synced profile & rankings for user UID ${uid}`);
+    return mergedPlayer;
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, playersPath);
+    console.warn("Safe writePlayerProfile top-level caught error:", error);
+    localStorage.setItem('firestore_quota_exceeded', 'true');
+    const fallbackPlayerModel: Player = {
+      ...(cached || {}),
+      ...data,
+      uid,
+      updatedAt: new Date().toISOString()
+    } as any;
+    localStorage.setItem('last_player_profile', JSON.stringify(fallbackPlayerModel));
+    return fallbackPlayerModel;
   }
 }

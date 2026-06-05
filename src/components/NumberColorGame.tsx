@@ -354,7 +354,7 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
           <Button 
             disabled={multiplayerMode === '2p' && !selectedPartner}
             onClick={startGame} 
-            className="w-full h-14 bg-yellow-400 text-slate-900 font-black text-sm rounded-2xl uppercase italic shadow-lg shadow-yellow-500/10 active:scale-95 transition-all disabled:opacity-50"
+            className="w-full h-14 bg-yellow-400 text-slate-950 font-black text-sm rounded-2xl uppercase italic shadow-lg shadow-yellow-500/10 active:scale-95 transition-all disabled:opacity-50"
           >
             {multiplayerMode === '2p' && !selectedPartner ? 'SELECIONE O JOGADOR 2 👥' : 'INICIAR MONITORAMENTO 🚦'}
           </Button>
@@ -687,6 +687,27 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
               >
                 RODADA {level + 1} ⚡
               </Button>
+
+              <Button
+                onClick={() => {
+                  onComplete(
+                    multiplayerMode === '2p' ? p1Score : score,
+                    10,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    p1Score,
+                    p2Score,
+                    'NUMBER_GUESS',
+                    false,
+                    false
+                  );
+                  onCancel();
+                }}
+                variant="outline"
+                className="w-full h-12 mt-3 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-350 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+              >
+                Voltar à Central de Jogos
+              </Button>
             </motion.div>
           </motion.div>
         )}
@@ -725,18 +746,41 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
 
               <div className="flex flex-col gap-3">
                 <Button 
-                  onClick={() => onComplete(
-                    (multiplayerMode === '2p' ? p1Score : score),
-                    1,
-                    multiplayerMode === '2p',
-                    selectedPartner,
-                    p1Score,
-                    p2Score,
-                    'NUMBER_GUESS',
-                    false,
-                    false
-                  )} 
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
+                  id="number-finish-won-btn"
+                  onClick={() => {
+                    onComplete(
+                      (multiplayerMode === '2p' ? p1Score : score),
+                      10,
+                      multiplayerMode === '2p',
+                      selectedPartner,
+                      p1Score,
+                      p2Score,
+                      'NUMBER_GUESS',
+                      false,
+                      false
+                    );
+                    onCancel();
+                  }}
+                  className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans select-none"
+                >
+                  FINALIZAR PARTIDA 🏁
+                </Button>
+                 <Button 
+                  onClick={() => {
+                    onComplete(
+                      multiplayerMode === '2p' ? p1Score : score,
+                      10,
+                      multiplayerMode === '2p',
+                      selectedPartner,
+                      p1Score,
+                      p2Score,
+                      'NUMBER_GUESS',
+                      false,
+                      false
+                    );
+                    onCancel();
+                  }} 
+                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider cursor-pointer border-none shadow-lg shadow-yellow-500/10 active:scale-95"
                 >
                   VOLTAR À CENTRAL DE JOGOS
                 </Button>
@@ -793,32 +837,70 @@ export function NumberColorGame({ onComplete, onScoreUpdate, onCancel, currentPl
 
               <div className="flex flex-col gap-3">
                 <Button 
-                  onClick={() => onComplete(
-                    multiplayerMode === '2p' ? p1Score : score,
-                    1,
-                    multiplayerMode === '2p',
-                    selectedPartner,
-                    p1Score,
-                    p2Score,
-                    'NUMBER_GUESS'
-                  )} 
-                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-md shadow-yellow-500/10 active:scale-95 transition-all font-sans"
-                >
-                  VOLTAR À CENTRAL DE JOGOS
-                </Button>
-                <Button 
                   onClick={() => {
+                    onComplete(
+                      multiplayerMode === '2p' ? p1Score : score,
+                      10,
+                      multiplayerMode === '2p',
+                      selectedPartner,
+                      p1Score,
+                      p2Score,
+                      'NUMBER_GUESS',
+                      false,
+                      true // keepInGameSelection
+                    );
+                    setLevel(prev => prev + 1);
                     setGameState('selection');
                     setStatus('idle');
                     setScore(0);
                     setP1Score(0);
                     setP2Score(0);
-                    setLevel(1);
-                  }} 
-                  variant="outline" 
-                  className="w-full h-14 border border-slate-800 text-slate-400 font-bold hover:text-white hover:bg-slate-800 text-xs rounded-2xl uppercase tracking-wider active:scale-95 transition-all bg-slate-900/40 font-sans"
+                  }}
+                  className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
                 >
-                  TENTAR NOVAMENTE 🔁
+                  PRÓXIMO NÍVEL ⚡
+                </Button>
+
+                <Button 
+                  id="number-finish-match-won-btn"
+                  onClick={() => {
+                    onComplete(
+                      multiplayerMode === '2p' ? p1Score : score,
+                      10,
+                      multiplayerMode === '2p',
+                      selectedPartner,
+                      p1Score,
+                      p2Score,
+                      'NUMBER_GUESS',
+                      false,
+                      false
+                    );
+                    onCancel();
+                  }}
+                  className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                >
+                  FINALIZAR PARTIDA 🏁
+                </Button>
+
+                <Button 
+                  onClick={() => {
+                    onComplete(
+                      multiplayerMode === '2p' ? p1Score : score,
+                      10,
+                      multiplayerMode === '2p',
+                      selectedPartner,
+                      p1Score,
+                      p2Score,
+                      'NUMBER_GUESS',
+                      false,
+                      false
+                    );
+                    onCancel();
+                  }}
+                  variant="outline"
+                  className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                >
+                  Voltar à Central de Jogos
                 </Button>
               </div>
             </motion.div>

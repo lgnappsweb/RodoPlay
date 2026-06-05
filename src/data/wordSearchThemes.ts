@@ -56,7 +56,7 @@ const SINALIZACAO_BASE = [
 const LEGISLACAO_BASE = [
   'MULTA', 'CODIGO', 'TRANSITO', 'BRASILEIRO', 'INFRACAO', 'HABILITACAO', 'CARTEIRA', 'RECURSO', 
   'DEFESA', 'AGENTE', 'FISCAL', 'JARI', 'CONTRAN', 'DETRAN', 'RESOLUCAO', 'LEI', 'DECRETO', 
-  'PORTARIA', 'CONDUTOR', 'PENALIDADE', 'SUSPENSAO', 'CASSACAO', 'REABILITACAO', 'RECICLAGEM', 
+  'PORTARIA', 'OPERADOR', 'PENALIDADE', 'SUSPENSAO', 'CASSACAO', 'REABILITACAO', 'RECICLAGEM', 
   'EXAME', 'PROVA', 'SIMULADO', 'AULA', 'CNH', 'PPD', 'ACC', 'CATEGORIA', 'RENOVACAO', 
   'VALIDADE', 'PRONTUARIO', 'RENAVAM', 'DUT', 'CRLV', 'CRV', 'RECIBO', 'TRANSFERENCIA', 
   'LICENCIAMENTO', 'IPVA', 'DPVAT', 'SEGURO', 'POLICE', 'SINISTRO', 'OCORRENCIA', 'BOLETIM', 
@@ -116,71 +116,91 @@ const MODIFIERS = [
   'DIARIO', 'MENSAL', 'ANUAL', 'ROTINA', 'PLENO', 'FIXO', 'MOVEL', 'TOTAL', 'PARCIAL'
 ];
 
-// Helper to expand words to at least 500 unique terms per theme
+// Accurate mapping of unaccented words to their proper Portuguese accented versions
+const ACCENTED_MAP: Record<string, string> = {
+  'CAMINHAO': 'CAMINHÃO',
+  'ONIBUS': 'ÔNIBUS',
+  'AVIAO': 'AVIÃO',
+  'HELICOPTERO': 'HELICÓPTERO',
+  'VEICULO': 'VEÍCULO',
+  'AUTOMOVEL': 'AUTOMÓVEL',
+  'VALVULA': 'VÁLVULA',
+  'INJECAO': 'INJEÇÃO',
+  'OLEO': 'ÓLEO',
+  'CABECOTE': 'CABEÇOTE',
+  'IGNICAO': 'IGNIÇÃO',
+  'TUNEL': 'TÚNEL',
+  'PEDAGIO': 'PEDÁGIO',
+  'ROTATORIA': 'ROTATÓRIA',
+  'INTERSECAO': 'INTERSEÇÃO',
+  'SEMAFORO': 'SEMÁFORO',
+  'ADVERTENCIA': 'ADVERTÊNCIA',
+  'REGULAMENTACAO': 'REGULAMENTAÇÃO',
+  'RESTRICAO': 'RESTRIÇÃO',
+  'PROIBICAO': 'PROIBIÇÃO',
+  'CONVERSAO': 'CONVERSÃO',
+  'TRANSITO': 'TRÂNSITO',
+  'INFRACAO': 'INFRAÇÃO',
+  'HABILITACAO': 'HABILITAÇÃO',
+  'RESOLUCAO': 'RESOLUÇÃO',
+  'RENOVACAO': 'RENOVAÇÃO',
+  'CASSACAO': 'CASSAÇÃO',
+  'REABILITACAO': 'REABILITAÇÃO',
+  'POLICIA': 'POLÍCIA',
+  'EMERGENCIA': 'EMERGÊNCIA',
+  'PROTECAO': 'PROTEÇÃO',
+  'OCULOS': 'ÓCULOS',
+  'INSPECAO': 'INSPEÇÃO',
+  'FISCALIZACAO': 'FISCALIZAÇÃO',
+  'APREENSAO': 'APREENSÃO',
+  'REMOCAO': 'REMOÇÃO',
+  'AUTORIZACAO': 'AUTORIZAÇÃO',
+  'LIBERACAO': 'LIBERAÇÃO',
+  'DURACAO': 'DURAÇÃO',
+  'DILIGENCIA': 'DILIGÊNCIA',
+  'AVALIACAO': 'AVALIAÇÃO',
+  'PAIS': 'PAÍS',
+  'REGIAO': 'REGIÃO',
+  'LOCALIZACAO': 'LOCALIZAÇÃO',
+  'POSICAO': 'POSIÇÃO',
+  'CONEXAO': 'CONEXÃO',
+  'NOTIFICACAO': 'NOTIFICAÇÃO',
+  'AUTOMACAO': 'AUTOMAÇÃO',
+  'PINCA': 'PINÇA',
+  'DIARIO': 'DIÁRIO',
+  'MOVEL': 'MÓVEL',
+  'SINALIZACAO': 'SINALIZAÇÃO',
+  'MECANICA': 'MECÂNICA',
+  'LEGISLACAO': 'LEGISLAÇÃO',
+  'SEGURANCA': 'SEGURANÇA',
+  'OPERACOES': 'OPERAÇÕES',
+  'MICROONIBUS': 'MICROÔNIBUS',
+};
+
+export function applyPortugueseAccents(word: string): string {
+  let result = word.toUpperCase();
+  // Sort keys by length descending to replace larger phrases first
+  const keys = Object.keys(ACCENTED_MAP).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    result = result.replaceAll(key, ACCENTED_MAP[key]);
+  }
+  return result;
+}
+
+// Helper to return clean, unique terms per theme with proper accents and length bounds
 function expandList(baseList: string[]): string[] {
   const wordsSet = new Set<string>();
 
-  // 1. Add base words
+  // 1. Add accented base words
   baseList.forEach(w => {
     const clean = w.toUpperCase().trim().replace(/[-_ ]/g, '');
-    if (clean.length >= 3 && clean.length <= 12) {
-      wordsSet.add(clean);
+    const withAccents = applyPortugueseAccents(clean);
+    if (withAccents.length >= 3 && withAccents.length <= 12) {
+      wordsSet.add(withAccents);
     }
   });
 
-  // 2. Add plurals of base words
-  baseList.forEach(w => {
-    let clean = w.toUpperCase().trim().replace(/[-_ ]/g, '');
-    let plural = clean;
-    if (clean.endsWith('AL')) plural = clean.slice(0, -2) + 'AIS';
-    else if (clean.endsWith('EL')) plural = clean.slice(0, -2) + 'EIS';
-    else if (clean.endsWith('OL')) plural = clean.slice(0, -2) + 'OIS';
-    else if (clean.endsWith('M')) plural = clean.slice(0, -1) + 'NS';
-    else if (clean.endsWith('R') || clean.endsWith('S') || clean.endsWith('Z')) plural = clean + 'ES';
-    else plural = clean + 'S';
-
-    if (plural.length >= 3 && plural.length <= 12) {
-      wordsSet.add(plural);
-    }
-  });
-
-  // 3. Combine base nouns with operational modifiers
-  for (const base of baseList) {
-    if (wordsSet.size >= 520) break;
-    const cleanBase = base.toUpperCase().trim().replace(/[-_ ]/g, '');
-    
-    for (const mod of MODIFIERS) {
-      if (wordsSet.size >= 520) break;
-      const cleanMod = mod.toUpperCase().trim().replace(/[-_ ]/g, '');
-
-      // Keep word length reasonable for the grid size inside Caça-Palavras
-      const combined = cleanBase + cleanMod;
-      if (combined.length >= 3 && combined.length <= 12) {
-        wordsSet.add(combined);
-      }
-
-      const reverseCombined = cleanMod + cleanBase;
-      if (reverseCombined.length >= 3 && reverseCombined.length <= 12) {
-        wordsSet.add(reverseCombined);
-      }
-    }
-  }
-
-  // Double check and pad if count is under 500 (usually it easily exceeds 500 now)
-  const resultList = Array.from(wordsSet);
-  if (resultList.length < 500) {
-    // Highly unlikely with cross product, but safety fallback:
-    let i = 0;
-    while (resultList.length < 505) {
-      const padWord = `VIA${i}${baseList[i % baseList.length]}`.substring(0, 11);
-      if (!resultList.includes(padWord)) {
-        resultList.push(padWord);
-      }
-      i++;
-    }
-  }
-
-  return resultList;
+  return Array.from(wordsSet);
 }
 
 export const WORD_SEARCH_THEMES: Theme[] = [

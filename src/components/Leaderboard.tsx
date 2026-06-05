@@ -50,7 +50,6 @@ const LEAD_GAMES = [
   { id: 'MEMORY', name: 'Memória', icon: '🧠' },
   { id: 'REACTION', name: 'Reflexo Rápido', icon: '⚡' },
   { id: 'SPEED_MATH', name: 'Cálculo Rápido', icon: '🧮' },
-  { id: 'SIGN_MATCH', name: 'Placas de Sinalização', icon: '🛑' },
   { id: 'ROUTE_ORDER', name: 'Trajeto / Rota', icon: '🗺️' },
   { id: 'PARKING_ESCAPE', name: 'Escape de Pátio', icon: '🅿️' },
   { id: 'QUEENS', name: 'Queens (Rainhas)', icon: '👑' },
@@ -529,7 +528,6 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
       case 'MEMORY': return 'Memória';
       case 'REACTION': return 'Reflexo Rápido';
       case 'SPEED_MATH': return 'Cálculo Rápido';
-      case 'SIGN_MATCH': return 'Placas de Trânsito';
       case 'ROUTE_ORDER': return 'Trajeto / Rota';
       case 'PARKING_ESCAPE': return 'Escape de Pátio';
       case 'QUEENS': return 'Queens (Rainhas)';
@@ -865,7 +863,7 @@ export function Leaderboard({ isMini = false, onViewAll, onBack }: LeaderboardPr
           🏆 SALÃO DA FAMA
         </div>
         <h1 className="text-3xl font-black tracking-tighter uppercase italic drop-shadow-2xl text-white">
-          RANKING DE CONDUTORES
+          RANKING DE OPERADORES
         </h1>
         <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">
           Sincronização global de pontuações e patrulhas em tempo real

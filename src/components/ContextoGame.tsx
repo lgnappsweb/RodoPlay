@@ -250,6 +250,11 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [selectedTheme, setSelectedTheme] = useState<PredefinedTheme>(CONTEXT_THEMES[0]);
 
+  // 10 rounds per level state
+  const [level, setLevel] = useState<number>(1);
+  const [currentRound, setCurrentRound] = useState<number>(1);
+  const [roundFinished, setRoundFinished] = useState<boolean>(false);
+
   // Track secret word history to avoid repetitions
   const [usedSecretWords, setUsedSecretWords] = useState<Record<string, string[]>>({});
 
@@ -480,6 +485,9 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
     setHintsUsed(0);
     setElapsedSeconds(0);
     setStartTime(Date.now());
+    setLevel(1);
+    setCurrentRound(1);
+    setRoundFinished(false);
     setP1Score(0);
     setP2Score(0);
     setScore(0);
@@ -560,7 +568,6 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
     if (guessRank === 1) {
       let finalP1 = p1Score;
       let finalP2 = p2Score;
-      let finalSingle = calculatedPoints;
       if (multiplayerMode === '2p') {
         const winReward = calculatedPoints;
         if (activePlayerTurn === 'p1') {
@@ -571,22 +578,9 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
           setP2Score(finalP2);
         }
       } else {
-        setScore(calculatedPoints);
-        finalSingle = calculatedPoints;
+        setScore(prev => prev + calculatedPoints);
       }
-      setTimeout(() => {
-        onComplete(
-          multiplayerMode === '2p' ? finalP1 + finalP2 : finalSingle,
-          1,
-          multiplayerMode === '2p',
-          selectedPartner,
-          finalP1,
-          finalP2,
-          'CONTEXTO',
-          false,
-          false
-        );
-      }, 1000);
+      setRoundFinished(true);
     } else {
       if (multiplayerMode === '2p') {
         if (guessRank < 500) {
@@ -648,7 +642,7 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
     setHintsUsed(prev => prev + 1);
     
     if (hintWordObj.rank === 1) {
-      setGameState('victory');
+      setRoundFinished(true);
     }
 
     setErrorText(`Lâmpada Mágica acendeu! Palavra dica adicionada à lista.`);
@@ -825,10 +819,10 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
 
             {/* Launch Active Game button */}
             <button
-              id="start-contexto-btn"
+               id="start-contexto-btn"
               disabled={multiplayerMode === '2p' && !selectedPartner}
               onClick={() => startNewSession(difficulty, selectedTheme)}
-              className="w-full h-14 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-350 hover:to-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl border-2 border-white/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 group disabled:opacity-50"
+              className="w-full h-14 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-350 hover:to-amber-400 text-slate-955 font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl border-2 border-white/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2 group disabled:opacity-50"
             >
               {multiplayerMode === '2p' && !selectedPartner ? 'SELECIONE O JOGADOR 2 👥' : 'INICIAR PATRULHA 🚀'}
             </button>
@@ -854,7 +848,7 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
                 onClick={() => {
                   onComplete(
                     multiplayerMode === '2p' ? p1Score + p2Score : score,
-                    1,
+                    10,
                     multiplayerMode === '2p',
                     selectedPartner,
                     p1Score,
@@ -869,6 +863,11 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
               >
                 <ArrowLeft size={12} /> VOLTAR
               </button>
+
+              <div className="text-center flex flex-col">
+                <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest leading-none">Nível {level}</span>
+                <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase leading-none font-mono">Rodada {currentRound}/10</span>
+              </div>
               
               <div className="text-right flex items-center gap-4">
                 <div className="hidden sm:block">
@@ -1033,13 +1032,13 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
           </div>
           
           {/* Abandonar Patrulha Button */}
-          <div className="w-full flex flex-col gap-3 mt-8">
+          <div className="w-full flex justify-center mt-8">
             <button
               id="contexto-abandon-btn"
               onClick={() => {
                 onComplete(
                   multiplayerMode === '2p' ? p1Score + p2Score : score,
-                  1,
+                  10,
                   multiplayerMode === '2p',
                   selectedPartner,
                   p1Score,
@@ -1050,12 +1049,214 @@ export function ContextoGame({ onComplete, onScoreUpdate, onCancel, currentPlaye
                   true // isAbandoned = true
                 );
               }}
-              className="w-full max-w-xs h-12 mx-auto rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider cursor-pointer flex items-center justify-center font-sans"
+              className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans cursor-pointer flex items-center justify-center"
             >
               ABANDONAR PATRULHA
             </button>
           </div>
         </div>
+      )}
+
+      <AnimatePresence>
+        {roundFinished && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 text-center"
+          >
+            <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 max-w-sm w-full text-center relative overflow-hidden shadow-2xl space-y-6">
+              <div className="bg-emerald-500/20 border-2 border-emerald-500 w-20 h-20 rounded-[2rem] flex items-center justify-center text-4xl mx-auto shadow-glow shadow-emerald-500/45">👑</div>
+              <h2 className="text-3xl font-black text-white italic uppercase">Rodada {currentRound}/10 Concluída!</h2>
+              <p className="text-slate-450 font-bold uppercase tracking-widest text-[10px]">A palavra secreta era: <span className="text-yellow-400 font-mono text-sm">{selectedTheme.secretWord.toUpperCase()}</span></p>
+              
+              {currentRound < 10 ? (
+                <div className="flex flex-col gap-3 w-full">
+                  <Button
+                    onClick={() => {
+                      setCurrentRound(prev => prev + 1);
+                      setRoundFinished(false);
+                      setInputValue('');
+                      setAttempts(0);
+                      setGuesses([]);
+                      
+                      // Pick a new secret word for the current theme
+                      const themeInfo = CONTEXT_THEME_INFOS.find(t => t.themeId === selectedTheme.themeId);
+                      if (themeInfo) {
+                        const alreadyUsed = usedSecretWords[themeInfo.themeId] || [];
+                        let unusedCandidates = themeInfo.secretWordCandidates.filter(w => !alreadyUsed.includes(w));
+                        if (unusedCandidates.length === 0) {
+                          unusedCandidates = themeInfo.secretWordCandidates;
+                        }
+                        const newSecret = unusedCandidates[Math.floor(Math.random() * unusedCandidates.length)];
+                        setUsedSecretWords(prev => ({
+                          ...prev,
+                          [themeInfo.themeId]: [...(prev[themeInfo.themeId] || []), newSecret]
+                        }));
+                        const nextThemeObj = compileDynamicTheme(themeInfo, newSecret);
+                        setSelectedTheme(nextThemeObj);
+                      }
+                    }}
+                    className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                  >
+                    PRÓXIMA RODADA ({currentRound + 1}/10) 🚀
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score + p2Score : score,
+                        currentRound,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'CONTEXTO',
+                        false,
+                        false
+                      );
+                      onCancel();
+                    }}
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                  >
+                    FINALIZAR PARTIDA 🏁
+                  </Button>
+
+                  <Button
+                    onClick={onCancel}
+                    variant="outline"
+                    className="w-full h-12 bg-slate-800 border-slate-700 hover:bg-slate-705 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                  >
+                    Voltar à Central de Jogos
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 w-full">
+                  <Button
+                    onClick={() => {
+                      setRoundFinished(false);
+                      setGameState('victory');
+                      
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score + p2Score : score,
+                        10,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'CONTEXTO',
+                        false,
+                        true
+                      );
+                    }}
+                    className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                  >
+                    VER RESULTADOS do NÍVEL 🏆
+                  </Button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {gameState === 'victory' && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="fixed inset-0 bg-slate-950 p-6 flex flex-col items-center justify-center space-y-6 select-none overflow-y-auto w-full text-center z-50"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 max-w-sm w-full text-center relative overflow-hidden shadow-2xl space-y-6">
+            <div className="bg-yellow-500/20 border-2 border-yellow-500 w-20 h-20 rounded-[2rem] flex items-center justify-center text-4xl mx-auto shadow-glow shadow-yellow-500/40">🏆</div>
+            <h2 className="text-3xl font-black text-white italic uppercase">Nível {level} Concluído!</h2>
+            
+            <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 w-full">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pontos Conquistados</span>
+              <span className="text-2xl font-black text-yellow-400 font-mono block">
+                {multiplayerMode === '2p' ? p1Score + p2Score : score} XP
+              </span>
+            </div>
+            
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Você superou as 10 rodadas semânticas do nível!</p>
+            <div className="flex flex-col gap-3 w-full">
+              <Button
+                onClick={() => {
+                  onComplete(
+                    multiplayerMode === '2p' ? p1Score + p2Score : score,
+                    10,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    p1Score,
+                    p2Score,
+                    'CONTEXTO',
+                    false,
+                    true // keepInGameSelection
+                  );
+                  setLevel(prev => prev + 1);
+                  setCurrentRound(1);
+                  setRoundFinished(false);
+                  setInputValue('');
+                  setAttempts(0);
+                  setGuesses([]);
+                  setGameState('playing');
+                  // Pick fresh theme candidates
+                  const themeInfo = CONTEXT_THEME_INFOS.find(t => t.themeId === selectedTheme.themeId);
+                  if (themeInfo) {
+                    const alreadyUsed = usedSecretWords[themeInfo.themeId] || [];
+                    let unusedCandidates = themeInfo.secretWordCandidates.filter(w => !alreadyUsed.includes(w));
+                    if (unusedCandidates.length === 0) unusedCandidates = themeInfo.secretWordCandidates;
+                    const newSecret = unusedCandidates[Math.floor(Math.random() * unusedCandidates.length)];
+                    const freshThemeObj = compileDynamicTheme(themeInfo, newSecret);
+                    setSelectedTheme(freshThemeObj);
+                  }
+                }}
+                className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+              >
+                PRÓXIMO NÍVEL ⚡
+              </Button>
+              <Button
+                id="contexto-finish-btn"
+                onClick={() => {
+                  onComplete(
+                    multiplayerMode === '2p' ? p1Score + p2Score : score,
+                    10,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    p1Score,
+                    p2Score,
+                    'CONTEXTO',
+                    false,
+                    false
+                  );
+                  onCancel();
+                }}
+                className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+              >
+                FINALIZAR PARTIDA 🏁
+              </Button>
+              <Button
+                onClick={() => {
+                  onComplete(
+                    multiplayerMode === '2p' ? p1Score + p2Score : score,
+                    10,
+                    multiplayerMode === '2p',
+                    selectedPartner,
+                    p1Score,
+                    p2Score,
+                    'CONTEXTO',
+                    false,
+                    false
+                  );
+                  onCancel();
+                }}
+                variant="outline"
+                className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+              >
+                Voltar à Central de Jogos
+              </Button>
+            </div>
+          </div>
+        </motion.div>
       )}
     </div>
   );

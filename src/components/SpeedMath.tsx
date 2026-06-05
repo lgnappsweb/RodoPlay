@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from './ui/button';
 import { Calculator, ArrowLeft } from 'lucide-react';
 import { playGameSfx, triggerGameConfetti } from '../lib/gameEffects';
@@ -30,11 +30,14 @@ interface SpeedMathProps {
 }
 
 export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId }: SpeedMathProps) {
-  const [gameState, setGameState] = useState<'selection' | 'playing'>('selection');
+  const [gameState, setGameState] = useState<'selection' | 'playing' | 'summary'>('selection');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [problem, setProblem] = useState({ a: 0, b: 0, op: '+', answer: 0 });
   const [options, setOptions] = useState<number[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
+  const [currentMatch, setCurrentMatch] = useState(1);
+  const [roundFinished, setRoundFinished] = useState(false);
+  const [roundEarned, setRoundEarned] = useState(0);
   const [score, setScore] = useState(0);
   const [baseTime, setBaseTime] = useState(25);
   const [timeLeft, setTimeLeft] = useState(25);
@@ -113,7 +116,10 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     setP1Score(0);
     setP2Score(0);
     setActivePlayerTurn('p1');
+    setCurrentRound(1);
+    setCurrentMatch(1);
     setGameState('playing');
+    setRoundFinished(false);
   };
 
   const handleAnswer = (val: number) => {
@@ -144,24 +150,30 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
     }
 
     setTimeout(() => {
-      if (currentRound >= totalRounds) {
-        const finalP1 = activePlayerTurn === 'p1' ? p1Score + points : p1Score;
-        const finalP2 = activePlayerTurn === 'p2' ? p2Score + points : p2Score;
+      setRoundEarned(points);
+      const isMatchCompleted = currentRound >= 10;
+      
+      if (isMatchCompleted) {
         playGameSfx('win');
-        onComplete(
-          multiplayerMode === '2p' ? finalP1 : score + points,
-          1,
-          multiplayerMode === '2p',
-          selectedPartner,
-          finalP1,
-          finalP2,
-          'SPEED_MATH'
-        );
+        triggerGameConfetti();
+        if (currentMatch >= totalRounds) {
+          const finalP1 = activePlayerTurn === 'p1' ? p1Score + points : p1Score;
+          const finalP2 = activePlayerTurn === 'p2' ? p2Score + points : p2Score;
+          if (multiplayerMode === '2p') {
+            setP1Score(finalP1);
+            setP2Score(finalP2);
+          } else {
+            setScore(s => s + points);
+          }
+          setGameState('summary');
+        } else {
+          setRoundFinished(true);
+        }
       } else {
         if (multiplayerMode === '2p') {
           setActivePlayerTurn(prev => prev === 'p1' ? 'p2' : 'p1');
         }
-        setCurrentRound(r => r + 1);
+        setCurrentRound(prev => prev + 1);
       }
     }, 1500);
   };
@@ -248,6 +260,132 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
             VOLTAR À CENTRAL DE JOGOS
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'summary') {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center pt-10 pb-20 select-none overflow-y-auto w-full">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6"
+        >
+          {/* Trophy Header */}
+          <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+            <span className="text-4xl">🏆</span>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-400 font-sans">Patrulha de Cálculo Superada!</h2>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Excelente raciocínio lógico operacional!</p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 text-left w-full font-sans">
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+              <span className="text-xs font-black text-white uppercase italic">{difficulty === 'easy' ? 'Fácil' : difficulty === 'medium' ? 'Médio' : 'Difícil'}</span>
+            </div>
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Rodadas Suportadas</span>
+              <span className="text-xs font-black text-yellow-400 font-mono">10 / 10 ⚡</span>
+            </div>
+
+            {multiplayerMode === '2p' ? (
+              <div className="bg-slate-950 p-3.5 rounded-2xl border border-indigo-500/30 col-span-2 space-y-2">
+                <p className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Resultado da Dupla (Versus)</p>
+                <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1">Você (P1): <span className="text-white font-black font-mono">{p1Score} pts</span></span>
+                  {p1Score > p2Score && <span className="text-[9px] bg-yellow-400 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase font-sans">Vencedor</span>}
+                </div>
+                <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1">{selectedPartner?.displayName || 'P2'}: <span className="text-white font-black font-mono">{p2Score} pts</span></span>
+                  {p2Score > p1Score && <span className="text-[9px] bg-indigo-500 text-white font-black px-1.5 py-0.5 rounded font-sans">Vencedor</span>}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center font-sans">
+                <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontuação Total Acumulada</span>
+                <span className="text-4xl font-extrabold text-yellow-400 font-mono tracking-tighter">{score} <span className="text-xs uppercase text-slate-500">pts</span></span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-2">
+            <Button
+              onClick={() => {
+                onComplete(
+                  multiplayerMode === '2p' ? p1Score : score,
+                  10, // roundsPlayed
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'SPEED_MATH',
+                  false,
+                  true // keepInGameSelection
+                );
+                
+                // Promotion
+                const nextDiff = difficulty === 'easy' ? 'medium' : (difficulty === 'medium' ? 'hard' : 'easy');
+                setDifficulty(nextDiff);
+                setCurrentRound(1);
+                setScore(0);
+                setP1Score(0);
+                setP2Score(0);
+                setGameState('playing');
+              }}
+              className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic"
+            >
+              PRÓXIMO NÍVEL ⚡
+            </Button>
+
+            <Button
+              id="finish-speed-btn"
+              onClick={() => {
+                onComplete(
+                  multiplayerMode === '2p' ? p1Score : score,
+                  10,
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'SPEED_MATH',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+            >
+              FINALIZAR PARTIDA 🏁
+            </Button>
+
+            <Button
+              onClick={() => {
+                onComplete(
+                  multiplayerMode === '2p' ? p1Score : score,
+                  10, // roundsPlayed
+                  multiplayerMode === '2p',
+                  selectedPartner,
+                  p1Score,
+                  p2Score,
+                  'SPEED_MATH',
+                  false,
+                  false // don't keep in game selection - go back
+                );
+                onCancel();
+              }}
+              variant="outline"
+              className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans"
+            >
+              Voltar à Central de Jogos
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -361,11 +499,81 @@ export function SpeedMath({ onComplete, onScoreUpdate, onCancel, currentPlayerId
               true // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans"
         >
           ABANDONAR PATRULHA
         </Button>
       </div>
+
+      <AnimatePresence>
+        {roundFinished && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-55 select-none overflow-y-auto w-full"
+          >
+            <div className="bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6 w-full max-w-sm">
+                <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                  <span className="text-4xl">🏆</span>
+                </div>
+
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-400 font-sans">Rodada {currentRound}/10 Concluída!</h2>
+                  <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Velocidade de raciocínio afiada!</p>
+                </div>
+
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center font-sans">
+                  <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontos Ganhos</span>
+                  <span className="text-2xl font-extrabold text-yellow-400 font-mono">+{roundEarned} <span className="text-xs uppercase text-slate-500">pts</span></span>
+                </div>
+
+                <div className="flex flex-col gap-3 pt-2">
+                  <Button
+                    onClick={() => {
+                      if (multiplayerMode === '2p') {
+                        setActivePlayerTurn(prev => prev === 'p1' ? 'p2' : 'p1');
+                      }
+                      setCurrentRound(r => r + 1);
+                      setRoundFinished(false);
+                    }}
+                    className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+                  >
+                    PRÓXIMA RODADA ({currentRound + 1}/10) 🚀
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      onComplete(
+                        multiplayerMode === '2p' ? p1Score : score,
+                        currentRound,
+                        multiplayerMode === '2p',
+                        selectedPartner,
+                        p1Score,
+                        p2Score,
+                        'SPEED_MATH',
+                        false,
+                        false
+                      );
+                      onCancel();
+                    }}
+                    className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                  >
+                    FINALIZAR PARTIDA 🏁
+                  </Button>
+
+                  <Button
+                    onClick={onCancel}
+                    variant="outline"
+                    className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                  >
+                    Voltar à Central de Jogos
+                  </Button>
+                </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -147,18 +147,7 @@ export function GamesGrid({ onPlay, onBack }: GamesGridProps) {
       rotateClass: 'group-hover:scale-110',
       bgIconSize: 'w-12 h-12',
     },
-    {
-      type: GameType.SIGN_MATCH,
-      friendlyName: 'Placas de Sinalização',
-      title: 'PLACAS',
-      desc: 'Sinalização',
-      bgIcon: Info,
-      mainIcon: Info,
-      iconClass: 'bg-amber-500 text-white',
-      borderClass: 'border-slate-705',
-      rotateClass: 'group-hover:skew-x-6',
-      bgIconSize: 'w-12 h-12',
-    },
+
     {
       type: GameType.QUEENS,
       friendlyName: 'Queens',

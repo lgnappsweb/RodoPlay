@@ -77,6 +77,7 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
   const [difficulty, setDifficulty] = useState<'Fácil' | 'Médio' | 'Difícil'>('Médio');
   const [selectedPartner, setSelectedPartner] = useState<typeof PARTNER_OPTIONS[0]>(PARTNER_OPTIONS[1]);
   const [multiplayerMode, setMultiplayerMode] = useState<'1p' | '2p'>('1p');
+  const [playerColor, setPlayerColor] = useState<'yellow' | 'cyan' | 'violet' | 'emerald'>('yellow');
 
   // Game States
   const [board, setBoard] = useState<(DamaPiece | null)[][]>(() => createInitialBoard());
@@ -85,6 +86,14 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
   const [validMoves, setValidMoves] = useState<Move[]>([]);
   const [consecutiveJumpPiece, setConsecutiveJumpPiece] = useState<Coordinate | null>(null);
   const [gameState, setGameState] = useState<'playing' | 'paused' | 'victory' | 'failed' | 'draw'>('playing');
+
+  // 10 rounds per level progression
+  const [level, setLevel] = useState<number>(1);
+  const [currentRound, setCurrentRound] = useState<number>(1);
+  const [accumulatedScore, setAccumulatedScore] = useState<number>(0);
+  const [roundFinished, setRoundFinished] = useState<boolean>(false);
+  const [roundOutcome, setRoundOutcome] = useState<'victory' | 'failed' | 'draw' | null>(null);
+  const [roundScore, setRoundScore] = useState<number>(0);
 
   // Metrics
   const [yellowCaptures, setYellowCaptures] = useState(0);
@@ -148,20 +157,12 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
     } else {
       playGameSfx('incorrect');
     }
-    const is2P = multiplayerMode === '2p';
-    const partnerToSend = selectedPartner?.id === 'local' ? null : selectedPartner;
-    
-    onComplete(
-      is2P ? yellowCaptures * 30 : finalScore,
-      1,
-      is2P,
-      partnerToSend,
-      is2P ? yellowCaptures * 30 : finalScore,
-      is2P ? redCaptures * 30 : 0,
-      'DAMA',
-      false,
-      false
-    );
+
+    setRoundScore(finalScore);
+    setAccumulatedScore(prev => prev + finalScore);
+    setRoundOutcome(outcome);
+    setRoundFinished(true);
+    setGameState('paused');
   };
 
   // Check board state for game ending after every move
@@ -277,36 +278,82 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
       { dr: 1, dc: 1 }
     ];
 
-    // Standard checkers step rule:
-    // Kings move forward and backward. Normal pieces only move forward (yellow up / row decrease, red down / row increase)
-    // However, BOTH normal pieces and kings can jump/capture backwards!
-    for (const dir of directions) {
-      const targetR = coord.r + dir.dr;
-      const targetC = coord.c + dir.dc;
+    if (p.isKing) {
+      // Long range King/Dama movement (flying king)
+      for (const dir of directions) {
+        let r = coord.r + dir.dr;
+        let c = coord.c + dir.dc;
+        let encounteredOpponent = false;
+        let opponentCoord: Coordinate | null = null;
 
-      // 1-step move verification
-      const isForward = p.color === 'yellow' ? dir.dr < 0 : dir.dr > 0;
-      if (p.isKing || isForward) {
-        if (targetR >= 0 && targetR < 8 && targetC >= 0 && targetC < 8) {
-          if (!currentBoard[targetR][targetC]) {
-            moves.push({ from: coord, to: { r: targetR, c: targetC } });
+        while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+          const targetPiece = currentBoard[r][c];
+
+          if (!encounteredOpponent) {
+            if (!targetPiece) {
+              // Sliding moves: king can move to any empty square along the diagonal
+              moves.push({ from: coord, to: { r, c } });
+            } else {
+              // Found a piece
+              if (targetPiece.color === p.color) {
+                // Blocked by friendly piece
+                break;
+              } else {
+                // Opponent piece: prepare for capture!
+                encounteredOpponent = true;
+                opponentCoord = { r, c };
+              }
+            }
+          } else {
+            // After finding the opponent piece, all landing spots must be empty
+            if (!targetPiece) {
+              moves.push({
+                from: coord,
+                to: { r, c },
+                captured: opponentCoord!
+              });
+            } else {
+              // Blocked by another piece (can't jump more than one piece)
+              break;
+            }
           }
+
+          r += dir.dr;
+          c += dir.dc;
         }
       }
+    } else {
+      // Standard checkers step rule:
+      // Kings move forward and backward. Normal pieces only move forward (yellow up / row decrease, red down / row increase)
+      // However, BOTH normal pieces and kings can jump/capture backwards!
+      for (const dir of directions) {
+        const targetR = coord.r + dir.dr;
+        const targetC = coord.c + dir.dc;
 
-      // 2-step capture/jump moves (backward cap allowed for normal pieces too)
-      const captureR = coord.r + dir.dr * 2;
-      const captureC = coord.c + dir.dc * 2;
-      if (captureR >= 0 && captureR < 8 && captureC >= 0 && captureC < 8) {
-        const intermediatePiece = currentBoard[targetR][targetC];
-        const landingIsFree = !currentBoard[captureR][captureC];
+        // 1-step move verification
+        const isForward = p.color === 'yellow' ? dir.dr < 0 : dir.dr > 0;
+        if (isForward) {
+          if (targetR >= 0 && targetR < 8 && targetC >= 0 && targetC < 8) {
+            if (!currentBoard[targetR][targetC]) {
+              moves.push({ from: coord, to: { r: targetR, c: targetC } });
+            }
+          }
+        }
 
-        if (intermediatePiece && intermediatePiece.color !== p.color && landingIsFree) {
-          moves.push({
-            from: coord,
-            to: { r: captureR, c: captureC },
-            captured: { r: targetR, c: targetC }
-          });
+        // 2-step capture/jump moves (backward cap allowed for normal pieces too)
+        const captureR = coord.r + dir.dr * 2;
+        const captureC = coord.c + dir.dc * 2;
+        if (captureR >= 0 && captureR < 8 && captureC >= 0 && captureC < 8) {
+          const intermediatePiece = currentBoard[targetR][targetC];
+          const landingIsFree = !currentBoard[captureR][captureC];
+
+          if (intermediatePiece && intermediatePiece.color !== p.color && landingIsFree) {
+            moves.push({
+              from: coord,
+              to: { r: captureR, c: captureC },
+              captured: { r: targetR, c: targetC }
+            });
+          }
         }
       }
     }
@@ -619,6 +666,44 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
             </div>
           </div>
 
+          {/* Color Selector */}
+          <div id="color-selector" className="space-y-4">
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest text-center">Cor da sua Pedra de Dama</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { id: 'yellow', name: 'Amarelo Padrão', class: 'bg-yellow-400', label: 'Eletricidade' },
+                { id: 'cyan', name: 'Azul Celeste', class: 'bg-cyan-400', label: 'Inovação' },
+                { id: 'violet', name: 'Roxo Noturno', class: 'bg-purple-500', label: 'Tática' },
+                { id: 'emerald', name: 'Verde Guardião', class: 'bg-emerald-500', label: 'Preservação' }
+              ].map(opt => (
+                <button
+                  id={`dama-btn-color-${opt.id}`}
+                  key={opt.id}
+                  onClick={() => setPlayerColor(opt.id as any)}
+                  className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                    playerColor === opt.id 
+                      ? 'bg-slate-900 border-yellow-400 text-white scale-[1.02] shadow-[0_0_20px_rgba(250,204,21,0.15)]' 
+                      : 'bg-slate-900/60 border-slate-850 text-slate-400 hover:border-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-3.5 h-3.5 rounded-full ${opt.class} border border-white/20 shadow-sm`} />
+                    <span className="font-extrabold text-xs">{opt.name}</span>
+                  </div>
+                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
+                    {opt.label}
+                  </span>
+                  {playerColor === opt.id && (
+                    <motion.div 
+                      layoutId="active-color-dama"
+                      className="absolute top-2 right-2 w-1.5 h-1.5 bg-yellow-400 rounded-full"
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Difficulty Status display */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -683,7 +768,7 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
           <ArrowLeft size={20} />
         </button>
         <div className="ml-4 flex flex-col">
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Status da Patrulha</span>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">Nível {level} • Rodada {currentRound}/10</span>
           <span className="text-[8px] font-bold text-slate-600 uppercase tracking-tighter mt-1 font-mono">Dama • No Combate</span>
         </div>
         <div className="ml-auto bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
@@ -693,7 +778,7 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
       </div>
 
       {/* Gameplay board HUD */}
-      <div className="w-full max-w-md bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl relative space-y-6">
+      <div className="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl relative space-y-6">
         
         {/* Opponent Identity Bar */}
         <div className="flex items-center justify-between bg-slate-950/60 p-3 rounded-2xl border border-slate-850">
@@ -715,13 +800,12 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
         </div>
 
         {/* Actual Checkers Board */}
-        <div className="relative aspect-square w-full bg-slate-950 border border-slate-800 p-2 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="grid grid-cols-8 grid-rows-8 h-full w-full gap-0.5">
-            {Array(8).fill(null).map((_, r) => (
+        <div className="relative aspect-square w-full bg-[#11141d] border-4 border-[#252c3c] p-2.5 rounded-2xl overflow-hidden shadow-2xl shadow-black/80 ring-1 ring-slate-800/80">
+          <div className="grid grid-cols-8 grid-rows-8 h-full w-full gap-[2px]">
+            {board.map((row, r) => (
               <div key={r} className="contents">
-                {Array(8).fill(null).map((_, c) => {
+                {row.map((piece, c) => {
                   const isDark = (r + c) % 2 === 1;
-                  const piece = board[r][c];
                   const isSelected = selectedPiece?.r === r && selectedPiece?.c === c;
                   const isPossibleDest = validMoves.some(m => m.to.r === r && m.to.c === c);
                   const isCaptureTarget = validMoves.find(m => m.to.r === r && m.to.c === c)?.captured;
@@ -730,24 +814,24 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
                     <div
                       key={c}
                       onClick={() => handleCellClick(r, c)}
-                      className={`relative flex items-center justify-center transition-all ${
+                      className={`relative flex items-center justify-center transition-all duration-200 select-none ${
                         isDark 
-                          ? 'bg-slate-900/90 hover:bg-slate-850' 
-                          : 'bg-slate-950 opacity-40'
+                          ? 'bg-[#222837] hover:bg-[#2b3347] border border-[#2b354a]/25' 
+                          : 'bg-[#151924] opacity-80 border border-slate-900/10'
                       }`}
                       style={{ cursor: isDark ? 'pointer' : 'default' }}
                     >
                       {/* Grid numbering label for tactical visual feel */}
                       {isDark && (
-                        <span className="absolute bottom-1 right-1 font-mono text-[6px] text-slate-700 font-bold select-none">
+                        <span className="absolute bottom-1 right-1 font-mono text-[7px] text-slate-500 font-bold tracking-tighter opacity-80 select-none">
                           {String.fromCharCode(65 + c)}{8 - r}
                         </span>
                       )}
 
                       {/* Display Move Highlights */}
                       {isPossibleDest && (
-                        <div className={`absolute inset-0 flex items-center justify-center opacity-70 ${isCaptureTarget ? 'bg-red-500/20' : 'bg-emerald-500/10'}`}>
-                          <div className={`w-3 h-3 rounded-full ${isCaptureTarget ? 'bg-red-500 animate-ping' : 'bg-emerald-400'}`} />
+                        <div className={`absolute inset-0 flex items-center justify-center z-10 opacity-75 ${isCaptureTarget ? 'bg-red-500/20' : 'bg-emerald-500/25'}`}>
+                          <div className={`w-3.5 h-3.5 rounded-full ${isCaptureTarget ? 'bg-red-500 animate-pulse' : 'bg-[#10b981]'}`} />
                         </div>
                       )}
 
@@ -755,19 +839,27 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
                       {piece && (
                         <motion.div
                           layoutId={`piece-anim-${piece.id}`}
-                          className={`relative w-4/5 h-4/5 rounded-full flex items-center justify-center shadow-lg transition-transform ${
+                          className={`relative w-[85%] h-[85%] rounded-full flex items-center justify-center shadow-lg shadow-black/60 border-2 transition-transform duration-200 select-none ${
                             piece.color === 'yellow'
-                              ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-slate-950 border-2 border-yellow-200'
-                              : 'bg-gradient-to-br from-red-600 to-rose-700 text-white border-2 border-red-400'
-                          } ${isSelected ? 'scale-110 shadow-xl shadow-yellow-500/20 ring-2 ring-yellow-400 animate-pulse' : ''}`}
+                              ? playerColor === 'cyan'
+                                ? `bg-gradient-to-br from-cyan-400 to-blue-500 text-slate-950 border-cyan-200 ${isSelected ? 'scale-110 shadow-2xl shadow-cyan-400/40 ring-4 ring-cyan-400 animate-pulse' : ''}`
+                                : playerColor === 'violet'
+                                ? `bg-gradient-to-br from-purple-400 to-violet-600 text-white border-purple-200 ${isSelected ? 'scale-110 shadow-2xl shadow-purple-500/40 ring-4 ring-purple-400 animate-pulse' : ''}`
+                                : playerColor === 'emerald'
+                                ? `bg-gradient-to-br from-emerald-400 to-teal-600 text-white border-emerald-200 ${isSelected ? 'scale-110 shadow-2xl shadow-emerald-500/40 ring-4 ring-emerald-400 animate-pulse' : ''}`
+                                : `bg-gradient-to-br from-yellow-400 to-amber-500 text-slate-950 border-yellow-250 ${isSelected ? 'scale-110 shadow-2xl shadow-yellow-400/40 ring-4 ring-yellow-400 animate-pulse' : ''}`
+                              : `bg-gradient-to-br from-red-500 to-rose-700 text-white border-red-300 ${isSelected ? 'scale-110 shadow-2xl shadow-red-500/40 ring-4 ring-red-500 animate-pulse' : ''}`
+                          }`}
                         >
-                          {/* Inner concentric ring for aesthetic chess look */}
-                          <div className="w-2/3 h-2/3 rounded-full border border-black/25 flex items-center justify-center">
-                            {piece.isKing ? (
-                              <span className="text-xs shadow-text drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">👑</span>
-                            ) : (
-                              <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                            )}
+                          {/* Inner concentric ridges for an authentic, premium checker look */}
+                          <div className="w-[75%] h-[75%] rounded-full border border-black/15 flex items-center justify-center shadow-inner">
+                            <div className="w-[70%] h-[70%] rounded-full border border-black/10 flex items-center justify-center">
+                              {piece.isKing ? (
+                                <span className="text-xs drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.6)] font-black text-white">👑</span>
+                              ) : (
+                                <div className="w-1.5 h-1.5 rounded-full bg-white/25 border border-black/5" />
+                              )}
+                            </div>
                           </div>
                         </motion.div>
                       )}
@@ -781,18 +873,28 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
 
         {/* Player Turn Indicator */}
         <div className="flex items-center justify-between bg-slate-950/60 p-3 rounded-2xl border border-slate-850">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-yellow-400/10 border border-yellow-500/30 rounded-xl flex items-center justify-center text-xl">
+          <div className="flex items-center gap-3 font-sans">
+            <div className={`w-10 h-10 ${
+              playerColor === 'cyan' ? 'bg-cyan-500/10 border border-cyan-500/35 text-cyan-400' :
+              playerColor === 'violet' ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400' :
+              playerColor === 'emerald' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' :
+              'bg-yellow-400/10 border border-yellow-500/30 text-yellow-400'
+            } rounded-xl flex items-center justify-center text-xl`}>
               👷
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col text-left">
               <span className="text-xs font-black text-white">Seu Personagem {multiplayerMode === '2p' ? '(P1)' : ''}</span>
               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Patrulha Ativa</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[9.5px] font-extrabold text-slate-400">Pontos Yellow:</span>
-            <span className="text-sm font-black text-yellow-400 font-mono italic">
+          <div className="flex items-center gap-2 font-sans">
+            <span className="text-[9.5px] font-extrabold text-slate-400">Pontos {playerColor === 'cyan' ? 'Azuis' : playerColor === 'violet' ? 'Roxos' : playerColor === 'emerald' ? 'Verdes' : 'Amarelos'}:</span>
+            <span className={`text-sm font-black font-mono italic ${
+              playerColor === 'cyan' ? 'text-cyan-400' :
+              playerColor === 'violet' ? 'text-purple-400 font-sans' :
+              playerColor === 'emerald' ? 'text-emerald-400 font-sans' :
+              'text-yellow-400 font-sans'
+            }`}>
               {yellowCaptures} / 12
             </span>
           </div>
@@ -806,13 +908,19 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className={`inline-block px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.14em] border ${
+              className={`inline-block px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.14em] border font-sans ${
                 turn === 'yellow'
-                  ? 'bg-yellow-400/10 border-yellow-400/40 text-yellow-400'
+                  ? playerColor === 'cyan'
+                    ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400'
+                    : playerColor === 'violet'
+                    ? 'bg-purple-500/10 border-purple-500/40 text-purple-400'
+                    : playerColor === 'emerald'
+                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
+                    : 'bg-yellow-400/10 border-yellow-400/40 text-yellow-400'
                   : 'bg-red-500/10 border-red-500/40 text-red-400'
               }`}
             >
-              ⏱️ TURNO: {turn === 'yellow' ? (multiplayerMode === '2p' ? 'Player 1 (Yellow)' : 'Seu Turno!') : (multiplayerMode === '2p' ? 'Player 2 (Red)' : 'Vez do Oponente...')}
+              ⏱️ TURNO: {turn === 'yellow' ? (multiplayerMode === '2p' ? `Player 1 (${playerColor.toUpperCase()})` : 'Seu Turno!') : (multiplayerMode === '2p' ? 'Player 2 (Red)' : 'Vez do Oponente...')}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -838,7 +946,7 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
       </div>
 
       {/* Command Actions Bar */}
-      <div className="w-full flex flex-col gap-3">
+      <div className="w-full flex justify-center mt-6">
         <Button 
           id="dama-abandon-btn"
           onClick={() => {
@@ -855,13 +963,135 @@ export function DamaGame({ onComplete, onScoreUpdate, onCancel, currentPlayerId 
               true // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 mx-auto rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans"
         >
           ABANDONAR PATRULHA
         </Button>
       </div>
 
       {/* Overlay Screens (Victory, Defeat, Draw) removed - handled globally */}
+      <AnimatePresence>
+        {roundFinished && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-8 z-50 text-center"
+          >
+            <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 max-w-sm w-full text-center relative overflow-hidden shadow-2xl space-y-6">
+              <div className="bg-yellow-500/20 border-2 border-yellow-500 w-20 h-20 rounded-[2rem] flex items-center justify-center text-4xl mx-auto shadow-glow shadow-yellow-500/40">🏆</div>
+              <h2 className="text-3xl font-black text-white italic uppercase font-sans">Rodada {currentRound}/10 Concluída!</h2>
+              
+              <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 w-full mb-4">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Resultado</span>
+                <span className={`text-xl font-black block uppercase ${roundOutcome === 'victory' ? 'text-emerald-400' : roundOutcome === 'failed' ? 'text-rose-500' : 'text-slate-400'}`}>
+                  {roundOutcome === 'victory' ? 'Vitória ✔️' : roundOutcome === 'failed' ? 'Derrota 🚫' : 'Empate 🤝'}
+                </span>
+                <span className="text-sm font-black text-yellow-400 font-mono block mt-2">+{roundScore} XP</span>
+              </div>
+
+              <div className="flex flex-col gap-3 w-full">
+                <Button
+                  onClick={() => {
+                    if (currentRound < 10) {
+                      setCurrentRound(prev => prev + 1);
+                      setRoundFinished(false);
+                      setRoundOutcome(null);
+                      // Reset table board
+                      setBoard(createInitialBoard());
+                      setTurn('yellow');
+                      setSelectedPiece(null);
+                      setValidMoves([]);
+                      setConsecutiveJumpPiece(null);
+                      setYellowCaptures(0);
+                      setRedCaptures(0);
+                      setMoveCount(0);
+                      setLastCaptureMove(0);
+                      setGameState('playing');
+                    } else {
+                      // Silent save in background when raising level
+                      onComplete(
+                        accumulatedScore,
+                        10,
+                        multiplayerMode === '2p',
+                        selectedPartner.id === 'local' ? null : selectedPartner,
+                        multiplayerMode === '2p' ? yellowCaptures * 30 : accumulatedScore,
+                        multiplayerMode === '2p' ? redCaptures * 30 : 0,
+                        'DAMA',
+                        false,
+                        true // keepInGameSelection
+                      );
+
+                      setLevel(prev => prev + 1);
+                      setCurrentRound(1);
+                      setRoundFinished(false);
+                      setRoundOutcome(null);
+                      
+                      // Reset table board
+                      setBoard(createInitialBoard());
+                      setTurn('yellow');
+                      setSelectedPiece(null);
+                      setValidMoves([]);
+                      setConsecutiveJumpPiece(null);
+                      setYellowCaptures(0);
+                      setRedCaptures(0);
+                      setMoveCount(0);
+                      setLastCaptureMove(0);
+                      setGameState('playing');
+                    }
+                  }}
+                  className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer border-none"
+                >
+                  {currentRound < 10 ? `PRÓXIMA RODADA (${currentRound + 1}/10) 🚀` : "PRÓXIMO NÍVEL ⚡"}
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    onComplete(
+                      accumulatedScore,
+                      currentRound,
+                      multiplayerMode === '2p',
+                      selectedPartner.id === 'local' ? null : selectedPartner,
+                      multiplayerMode === '2p' ? yellowCaptures * 30 : accumulatedScore,
+                      multiplayerMode === '2p' ? redCaptures * 30 : 0,
+                      'DAMA',
+                      false,
+                      false // keepInGameSelection = false -> returns to central
+                    );
+                    onCancel();
+                  }}
+                  className="w-full h-12 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+                >
+                  FINALIZAR PARTIDA 🏁
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    onComplete(
+                      accumulatedScore,
+                      currentRound,
+                      multiplayerMode === '2p',
+                      selectedPartner.id === 'local' ? null : selectedPartner,
+                      multiplayerMode === '2p' ? yellowCaptures * 30 : accumulatedScore,
+                      multiplayerMode === '2p' ? redCaptures * 30 : 0,
+                      'DAMA',
+                      false,
+                      false
+                    );
+                    onCancel();
+                  }}
+                  variant="outline"
+                  className="w-full h-12 border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+                >
+                  Voltar à Central de Jogos
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
 
     </div>
   );

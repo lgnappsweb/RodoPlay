@@ -48,7 +48,7 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
   const maxErrors = 3;
   const [timeLeft, setTimeLeft] = useState(180);
   const [maxTime, setMaxTime] = useState(180);
-  const [gameState, setGameState] = useState<'playing' | 'paused' | 'victory' | 'failed'>('playing');
+  const [gameState, setGameState] = useState<'playing' | 'paused' | 'victory' | 'failed' | 'summary'>('playing');
   
   const [showVictoryCard, setShowVictoryCard] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -236,26 +236,13 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
   };
 
   const handleVictoryAction = () => {
-    setGameState('victory');
+    setGameState('summary');
     playGameSfx('win');
     triggerGameConfetti();
     
     // Reward settings based on difficulty
     const finalScore = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
     if (onScoreUpdate) onScoreUpdate(finalScore);
-
-    // Computa os pontos ganho imediatamente nas patrulhas e perfil de carreira do usuário
-    onComplete(
-      finalScore,
-      1,
-      false,
-      null,
-      0,
-      0,
-      'SUDOKU',
-      false,
-      false
-    );
   };
 
   // Wise hint: fill in one missing cell correctly
@@ -396,6 +383,115 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
             VOLTAR À CENTRAL DE JOGOS
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'summary') {
+    const finalScore = difficulty === 'Fácil' ? 300 : difficulty === 'Médio' ? 450 : 700;
+    return (
+      <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center pt-10 pb-20 select-none overflow-y-auto w-full">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm bg-slate-900 border-2 border-yellow-500 rounded-3xl p-6 shadow-xl shadow-yellow-500/10 text-center space-y-6"
+        >
+          {/* Trophy Header */}
+          <div className="w-20 h-20 bg-yellow-400/10 border-2 border-yellow-400 rounded-full mx-auto flex items-center justify-center shadow-lg shadow-yellow-500/20">
+            <span className="text-4xl font-sans">🏆</span>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter text-yellow-400 font-sans">Sudoku Superado!</h2>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest font-sans">Fluxo operacional ordenado com êxito absoluto!</p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 text-left w-full font-sans">
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dificuldade</span>
+              <span className="text-xs font-black text-white uppercase italic">{difficulty}</span>
+            </div>
+            <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl">
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Resultado de Erros</span>
+              <span className="text-xs font-black text-yellow-400 font-mono">{errors} / {maxErrors} ⚠️</span>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl col-span-2 text-center font-sans">
+              <span className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pontuação de Vistoria</span>
+              <span className="text-4xl font-extrabold text-yellow-400 font-mono tracking-tighter">{finalScore} <span className="text-xs uppercase text-slate-500">XP</span></span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-2">
+            <Button
+              onClick={() => {
+                onComplete(
+                  finalScore,
+                  1,
+                  false,
+                  null,
+                  0,
+                  0,
+                  'SUDOKU',
+                  false,
+                  true // keepInGameSelection
+                );
+                
+                const nextDiff = difficulty === 'Fácil' ? 'Médio' : (difficulty === 'Médio' ? 'Difícil' : 'Fácil');
+                setDifficulty(nextDiff);
+                setSetupComplete(false);
+                setGameState('playing');
+              }}
+              className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
+            >
+              PRÓXIMO NÍVEL ⚡
+            </Button>
+
+            <Button 
+              id="finish-sudoku-btn"
+              onClick={() => {
+                onComplete(
+                  finalScore,
+                  1,
+                  false,
+                  null,
+                  0,
+                  0,
+                  'SUDOKU',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
+            >
+              FINALIZAR PARTIDA 🏁
+            </Button>
+
+            <Button
+              onClick={() => {
+                onComplete(
+                  finalScore,
+                  1,
+                  false,
+                  null,
+                  0,
+                  0,
+                  'SUDOKU',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              variant="outline"
+              className="w-full h-12 border-slate-705 bg-slate-800 hover:bg-slate-750 text-slate-300 font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer hover:text-white"
+            >
+              Voltar à Central de Jogos
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -642,7 +738,7 @@ export function SudokuGame({ onComplete, onScoreUpdate, onCancel, currentPlayerI
               true // isAbandoned = true
             );
           }}
-          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-950 font-black uppercase shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs tracking-wider"
+          className="w-full max-w-xs h-12 rounded-2xl border border-yellow-500/30 bg-yellow-400 text-slate-955 font-black uppercase tracking-wider shadow-[0_0_20px_rgba(250,204,21,0.2)] hover:bg-yellow-300 transition-all active:scale-95 text-xs font-sans"
         >
           ABANDONAR PATRULHA
         </Button>

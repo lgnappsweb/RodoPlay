@@ -229,7 +229,7 @@ const CLINICAL_SCENARIOS: Record<string, Array<{
       diff: 'difícil'
     },
     {
-      text: "Como condutor/resgatista prestando apoio em emergência com {A} {B}, qual é o limite de fluxo e saturação alvo que justifica uso do cateter nasal simples de oxigênio de baixo fluxo?",
+      text: "Como operador/resgatista prestando apoio em emergência com {A} {B}, qual é o limite de fluxo e saturação alvo que justifica uso do cateter nasal simples de oxigênio de baixo fluxo?",
       correct: "Fluxo de até 6 L/min, fornecendo fração inspirada de O2 estimada entre 24% e 44%, com saturação alvo acima de 94%.",
       wrongs: ["Fluxo de 15 a 20 L/min com vedação total das narinas.", "Fluxo mínimo de 12 L/min independentemente da queixa respiratória.", "Substituição completa do ar atmosférico por O2 puro a 100%."],
       explanation: "O cateter nasal é um sistema de baixo fluxo que tolera de 1 a 6 litros por minuto de fluxo de oxigênio. Taxas maiores ressecam as mucosas bucofaringéas sem aumentar a deposição alveolar.",
@@ -820,7 +820,7 @@ export function QuizMasterAPH({
         await writePlayerProfile(player.uid, {
           xp: player.xp + totalXpGain,
           totalScore: player.totalScore + scoreCollected,
-          gamesPlayed: player.gamesPlayed + finalPatrolCount,
+          gamesPlayed: player.gamesPlayed,
           completedGames: player.completedGames + 1,
           quizMasterStats: updatedStatsObj as any
         } as any);
@@ -1547,18 +1547,69 @@ export function QuizMasterAPH({
             )}
           </div>
 
-          <div className="flex flex-col gap-2 pt-2">
+          <div className="flex flex-col gap-3 pt-2">
             <button 
-              onClick={() => setGameState('setup')}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-700 to-indigo-800 hover:from-indigo-650 hover:to-indigo-755 text-white font-extrabold text-xs tracking-wider uppercase transition-all"
+              onClick={() => {
+                onComplete(
+                  scoreCollected,
+                  10,
+                  gameState === 'multi_playing',
+                  null,
+                  scoreCollected,
+                  opponentScoreSim,
+                  'APH',
+                  false,
+                  true // keepInGameSelection
+                );
+                
+                // Advance level
+                setGameState('setup');
+                setScoreCollected(0);
+                setCorrectAnswersCount(0);
+              }}
+              className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs rounded-2xl uppercase tracking-wider transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer shadow-lg shadow-emerald-500/20"
             >
-              Retornar à Seleção de Temas
+              PRÓXIMO NÍVEL ⚡
             </button>
+
             <button 
-              onClick={gameState === 'solo_playing' || isQuickMatch ? startSoloMatch : startSoloMatch}
-              className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-300 font-bold text-xs"
+              onClick={() => {
+                onComplete(
+                  scoreCollected,
+                  10,
+                  gameState === 'multi_playing',
+                  null,
+                  scoreCollected,
+                  opponentScoreSim,
+                  'APH',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              className="w-full h-14 bg-yellow-400 hover:bg-yellow-350 text-slate-950 font-black text-xs rounded-2xl uppercase tracking-wider shadow-lg shadow-yellow-500/10 active:scale-95 transition-all font-sans italic flex items-center justify-center gap-2 border-none cursor-pointer"
             >
-              Treinar Novamente ⚡
+              FINALIZAR PARTIDA 🏁
+            </button>
+
+            <button 
+              onClick={() => {
+                onComplete(
+                  scoreCollected,
+                  10,
+                  gameState === 'multi_playing',
+                  null,
+                  scoreCollected,
+                  opponentScoreSim,
+                  'APH',
+                  false,
+                  false
+                );
+                onCancel();
+              }}
+              className="w-full h-12 border border-slate-800 bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white font-extrabold text-xs rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 font-sans cursor-pointer"
+            >
+              Voltar à Central de Jogos
             </button>
           </div>
 
